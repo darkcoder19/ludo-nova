@@ -146,11 +146,37 @@ export const charOf = (avatar: string) => {
 };
 
 /** live: idle loop + blinking; hyped: bigger personality move (e.g. on your turn). */
-export function Avatar({ id, size = 40, className = '', live = true, hyped = false }: { id: string; size?: number; className?: string; live?: boolean; hyped?: boolean }) {
+export type Mood = 'sad' | 'cool' | null;
+
+/** live: idle loop + blinking; hyped: bigger personality move; mood: tears (sad) or show-off shades (cool). */
+export function Avatar({ id, size = 40, className = '', live = true, hyped = false, mood = null }: { id: string; size?: number; className?: string; live?: boolean; hyped?: boolean; mood?: Mood }) {
   const c = charOf(id);
   return (
     <svg className={`avatar-svg ${live ? 'live' : ''} ${className}`} width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={c.name}>
-      <g className={`char anim-${c.anim} ${hyped ? 'hyped' : ''}`} style={{ animationDelay: `-${(id.charCodeAt(1) % 7) * 0.3}s` }}>{c.draw()}</g>
+      <g className={`mood-wrap ${mood ?? ''}`}>
+        <g className={`char anim-${c.anim} ${hyped ? 'hyped' : ''}`} style={{ animationDelay: `-${(id.charCodeAt(1) % 7) * 0.3}s` }}>{c.draw()}</g>
+        {mood === 'sad' && (
+          <g className="tears">
+            <path d="M24 40 Q36 30 44 40" fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round" />
+            <path d="M56 40 Q64 30 76 40" fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round" />
+            {[0, 1, 2].map((k) => (
+              <g key={k} style={{ animationDelay: `${k * 0.33}s` }} className="drop-pair">
+                <path d="M34 54 Q40 64 37 68 Q32 70 31 65 Q31 60 34 54 Z" fill="#5ec8ff" stroke={INK} strokeWidth={2} />
+                <path d="M64 54 Q70 64 67 68 Q62 70 61 65 Q61 60 64 54 Z" fill="#5ec8ff" stroke={INK} strokeWidth={2} />
+              </g>
+            ))}
+          </g>
+        )}
+        {mood === 'cool' && (
+          <g className="shades-on">
+            <rect x="14" y="38" width="72" height="5" rx="2" fill="#111" />
+            <path d="M18 40 L46 40 L44 56 Q32 62 22 56 Z" fill="#111" stroke="#fff" strokeWidth={1.5} />
+            <path d="M54 40 L82 40 L78 56 Q68 62 56 56 Z" fill="#111" stroke="#fff" strokeWidth={1.5} />
+            <path d="M24 44 L32 44" stroke="#fff" strokeWidth={3} strokeLinecap="round" className="glint" />
+            <path d="M60 44 L68 44" stroke="#fff" strokeWidth={3} strokeLinecap="round" className="glint" />
+          </g>
+        )}
+      </g>
     </svg>
   );
 }

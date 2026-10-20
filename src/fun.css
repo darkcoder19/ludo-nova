@@ -189,3 +189,30 @@ html, body { overscroll-behavior: none; }
 .by { margin-top: 2px; font-size: 0.85rem; font-weight: 600; color: var(--dim); letter-spacing: 0.06em; }
 .by b { font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; background: linear-gradient(90deg, #ffe04a, #ff4fd8); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .results::after { content: 'LudoNova by Sarvimo'; display: block; font-size: 0.7rem; color: var(--dim); letter-spacing: 0.12em; margin-top: 4px; }
+
+/* troll target step */
+.sheet-title { grid-column: 1 / -1; font-weight: 900; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; padding: 0 4px 4px; }
+.sheet-title .back { width: 34px; height: 34px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); font-size: 1.1rem; }
+.ti.mini { width: 26px; height: 26px; display: inline-grid; }
+.troll-grid.targets { grid-template-columns: repeat(3, 1fr); }
+.target-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 18px; border: 2px solid var(--pc);
+  background: color-mix(in srgb, var(--pc) 22%, transparent); animation: pop-in 0.25s backwards; transition: transform 0.1s; }
+.target-btn:active { transform: scale(0.92); }
+.target-btn b { font-size: 0.85rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.troll-from b { color: #fff; }
+
+/* ---------- moods ---------- */
+.mood-wrap { transform-box: view-box; transform-origin: 50% 90%; }
+.mood-wrap.sad { animation: sad 0.9s ease-in-out infinite; filter: saturate(0.6) brightness(0.92); }
+@keyframes sad { 0%, 100% { transform: rotate(-3deg) scale(1, 0.96); } 50% { transform: rotate(3deg) translateY(3px) scale(1.02, 0.94); } }
+.tears .drop-pair { animation: drop 1s ease-in infinite backwards; }
+@keyframes drop { 0% { transform: translateY(-6px) scale(0.5); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(34px) scale(1); opacity: 0; } }
+.mood-wrap.cool { animation: cool 0.5s ease-in-out infinite alternate; }
+@keyframes cool { from { transform: rotate(-6deg) translateY(0); } to { transform: rotate(6deg) translateY(-4px) scale(1.04); } }
+.shades-on { animation: shades-drop 0.5s cubic-bezier(0.4, 0, 0.6, 1.5) backwards; }
+@keyframes shades-drop { from { transform: translateY(-60px); opacity: 0; } }
+.shades-on .glint { animation: glint 1.2s 0.5s ease-in-out infinite; }
+@keyframes glint { 0%, 60%, 100% { opacity: 0; } 70% { opacity: 1; } }
+.pcard:has(.mood-wrap.sad) .pav { transform: scale(1.35); box-shadow: inset 0 0 0 2px var(--c), 0 0 20px #5ec8ff; transition: transform 0.3s; z-index: 3; }
+.pcard:has(.mood-wrap.cool) .pav { transform: scale(1.35); box-shadow: inset 0 0 0 2px var(--c), 0 0 22px #ffe04a; transition: transform 0.3s; z-index: 3; }
+.pav { transition: transform 0.3s; }

@@ -87,7 +87,7 @@ export function hostRoom(myId: string, name: string, avatar: string, h: Handlers
         const id = conns.get(conn);
         if (!id) return;
         if (m.t === 'act') host.handle(id, m.a);
-        if (m.t === 'emote') emote(id, String(m.emoji).slice(0, 4));
+        if (m.t === 'emote') emote(id, String(m.emoji).slice(0, 80));
       });
       conn.on('close', () => {
         const id = conns.get(conn);

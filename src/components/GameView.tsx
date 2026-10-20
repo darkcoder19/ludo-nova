@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { COLORS, HOME, type Color, type GameState, type Player } from '../game/engine';
 import type { Emote, Session, Status } from '../game/net';
 import { recordGame, type Profile } from '../game/profile';
-import { isMuted, setMuted, sfx } from '../game/sound';
+import { buzz, isMuted, setMuted, sfx } from '../game/sound';
 import { Board } from './Board';
 import { Confetti, type ConfettiHandle } from './Confetti';
 import { Dice } from './Dice';
 import { Backdrop } from './Home';
-import { Avatar } from './Avatar';
-import { TrollOverlay, TrollPicker, trollIndex } from './Trolls';
+import { Avatar, type Mood } from './Avatar';
+import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from './Trolls';
 
 const HEX: Record<Color, string> = { red: '#ff3d6e', green: '#2ee59d', yellow: '#ffc93c', blue: '#3d8bff' };
 const CORNERS = ['tl', 'tr', 'br', 'bl'] as const;
@@ -39,6 +39,12 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
   const [splash, setSplash] = useState<{ id: number; p: Player; place: number } | null>(null);
   const left = useCountdown(state);
   const [picker, setPicker] = useState(false);
+  const [moods, setMoods] = useState<Partial<Record<Color, { mood: Mood; id: number }>>>({});
+  const setMood = (c: Color, mood: Mood) => {
+    const id = Date.now() + Math.random();
+    setMoods((m) => ({ ...m, [c]: { mood, id } }));
+    pending.current.push(setTimeout(() => setMoods((m) => (m[c]?.id === id ? { ...m, [c]: undefined } : m)), 4000));
+  };
   const [troll, setTroll] = useState<Emote | null>(null);
   const lastTroll = useRef(0);
   const urgent = state.phase === 'playing' && state.turnMs > 0 && !cur?.bot && cur?.connected && left > 0 && left <= 5000;
@@ -54,6 +60,7 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
     lastTroll.current = e.id;
     setTroll(e);
     sfx.troll();
+    if (trollTarget(e.emoji) === session.myId) buzz([60, 40, 60]);
     const t = setTimeout(() => setTroll((cur) => (cur?.id === e.id ? null : cur)), 2800);
     return () => clearTimeout(t);
   }, [emotes]);
@@ -78,12 +85,14 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
       if (e.kind !== 'move') setToast({ id: e.id, text: e.text, color: e.color });
       if (e.kind === 'six') sfx.six();
       if (e.kind === 'capture') {
-        e.victim === me?.color ? sfx.captured() : sfx.capture();
+        buzz(e.victim === me?.color ? 200 : [40, 30, 80]); // sound: Board plays a single hiss
+        if (e.victim) setMood(e.victim, 'sad');
         setShake((n) => n + 1);
         confetti.current?.burst(innerWidth / 2, innerHeight / 2, [HEX[e.color], '#fff'], 40);
       }
       if (e.kind === 'home' || e.kind === 'win') {
         sfx.home();
+        setMood(e.color, 'cool');
         const done = (state.tokens[e.color] ?? []).filter((t) => t === HOME).length;
         setBurst({ id: e.id, color: e.color, done, total: state.tokens[e.color]?.length ?? 4 });
         confetti.current?.burst(innerWidth / 2, innerHeight * 0.45, [HEX[e.color], '#fff', '#ffe08a'], 70);
@@ -163,8 +172,8 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
       <div className="arena" ref={arena}>
         {urgent && <div className={`big-count ${myTurn ? 'mine' : ''}`} key={secs}>{secs}</div>}
         {state.players.map((p) => (
-          <PlayerCard key={p.id} p={p} state={state} corner={cornerOf(p.color)} isMe={p.id === session.myId} left={left}
-            hyped={!!troll && troll.from === p.id} />
+          <PlayerCard key={p.id} p={p} state={state} corner={cornerOf(p.color)} isMe={p.id === session.myId} left={left} mood={moods[p.color]?.mood ?? null}
+            hyped={!!troll && (troll.from === p.id || trollTarget(troll.emoji) === p.id)} />
         ))}
         <Board state={state} myColor={me?.color ?? null} rotation={rotation} canMove={canMove}
           onPick={(idx) => { sfx.tap(); session.act({ t: 'move', idx }); }} />
@@ -209,23 +218,31 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
           <div className="rays" />
           <div className="who">
             {splash.place === 1 && <div className="crown2">👑</div>}
-            <div className="big-av"><Avatar id={splash.p.avatar} size={130} className="dance" /></div>
+            <div className="big-av"><Avatar id={splash.p.avatar} size={130} className="dance" mood="cool" /></div>
             <h2>{splash.p.id === session.myId ? (splash.place === 1 ? 'YOU WIN!' : 'YOU FINISHED!') : `${splash.p.name}${splash.place === 1 ? ' WINS!' : ' finished!'}`}</h2>
             <p>{['🥇 Champion', '🥈 2nd place', '🥉 3rd place', '4th place'][splash.place - 1]}{state.phase === 'playing' ? ' · game continues…' : ''}</p>
           </div>
         </div>
       )}
-      {picker && <TrollPicker onClose={() => setPicker(false)} onPick={(id) => { setPicker(false); session.emote(id); }} />}
+      {picker && (
+        <TrollPicker
+          targets={state.players.filter((p) => p.id !== session.myId).map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, color: HEX[p.color] }))}
+          onClose={() => setPicker(false)}
+          onPick={(msg) => { setPicker(false); sfx.tap(); session.emote(msg); }} />
+      )}
       {troll && (() => {
         const from = state.players.find((x) => x.id === troll.from);
-        return from ? <TrollOverlay key={troll.id} troll={trollIndex(troll.emoji)} avatar={from.avatar} name={from.name} color={HEX[from.color]} /> : null;
+        const victim = state.players.find((x) => x.id === trollTarget(troll.emoji)) ?? from;
+        if (!from || !victim) return null;
+        return <TrollOverlay key={troll.id} troll={trollIndex(troll.emoji)} avatar={victim.avatar}
+          name={victim.id === session.myId ? 'YOU' : victim.name} by={from.id === session.myId ? 'You' : from.name} color={HEX[victim.color]} />;
       })()}
       <Confetti ref={confetti} />
     </div>
   );
 }
 
-function PlayerCard({ p, state, corner, isMe, hyped, left }: { p: Player; state: GameState; corner: string; isMe: boolean; hyped: boolean; left: number }) {
+function PlayerCard({ p, state, corner, isMe, hyped, left, mood }: { p: Player; state: GameState; corner: string; isMe: boolean; hyped: boolean; left: number; mood: Mood }) {
   const turn = state.phase === 'playing' && state.players[state.turn]?.id === p.id;
   const tokens = state.tokens[p.color] ?? [];
   const home = tokens.filter((t) => t === HOME).length;
@@ -238,7 +255,7 @@ function PlayerCard({ p, state, corner, isMe, hyped, left }: { p: Player; state:
             <circle cx="20" cy="20" r="18" style={{ strokeDashoffset: 113 * (1 - left / state.turnMs), stroke: left < 5000 ? 'var(--red)' : '#fff' }} />
           </svg>
         )}
-        <Avatar id={p.avatar} size={40} hyped={turn || hyped} />
+        <Avatar id={p.avatar} size={40} hyped={turn || hyped} mood={mood} />
       </div>
       <div className="pinfo">
         <div className="pname">{p.name}{isMe && <em> you</em>}</div>

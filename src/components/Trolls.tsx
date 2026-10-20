@@ -1,5 +1,5 @@
 // 15 animated "trolls" players can fire at each other. Sent over the wire as "t0".."t14".
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Avatar } from './Avatar';
 
 const INK = '#1b1035';
@@ -67,9 +67,11 @@ export const TROLLS: Troll[] = [
   { name: 'Dance', caption: 'DANCE OFF', icon: <Disco />, props: <><i className="disco"><Disco /></i><i className="lights" /></> },
 ];
 
-export const trollIndex = (id: string) => (id?.startsWith('t') ? Number(id.slice(1)) : -1);
+/** Troll messages look like "t3:<targetPlayerId>". */
+export const trollIndex = (msg: string) => (msg?.startsWith('t') ? parseInt(msg.slice(1), 10) : -1);
+export const trollTarget = (msg: string) => msg?.split(':').slice(1).join(':') || '';
 
-export function TrollOverlay({ troll, avatar, name, color }: { troll: number; avatar: string; name: string; color: string }) {
+export function TrollOverlay({ troll, avatar, name, color, by }: { troll: number; avatar: string; name: string; color: string; by: string }) {
   const t = TROLLS[troll];
   if (!t) return null;
   return (
@@ -79,21 +81,45 @@ export function TrollOverlay({ troll, avatar, name, color }: { troll: number; av
         {t.props}
       </div>
       {t.caption && <div className="troll-cap">{t.caption}</div>}
-      <div className="troll-from">{name}</div>
+      <div className="troll-from"><b>{by}</b> trolled <b>{name}</b></div>
     </div>
   );
 }
 
-export function TrollPicker({ onPick, onClose }: { onPick(id: string): void; onClose(): void }) {
+export interface Target { id: string; name: string; avatar: string; color: string }
+
+/** Step 1: pick a troll. Step 2: pick who gets it (skipped when there's only one rival). */
+export function TrollPicker({ targets, onPick, onClose }: { targets: Target[]; onPick(msg: string): void; onClose(): void }) {
+  const [troll, setTroll] = useState<number | null>(null);
+  const choose = (i: number) => {
+    if (targets.length === 1) onPick(`t${i}:${targets[0].id}`);
+    else setTroll(i);
+  };
   return (
     <div className="troll-sheet" onClick={onClose}>
-      <div className="troll-grid" onClick={(e) => e.stopPropagation()}>
-        {TROLLS.map((t, i) => (
-          <button key={i} className="troll-btn" onClick={() => onPick(`t${i}`)}>
-            <span className="ti">{t.icon}</span><small>{t.name}</small>
-          </button>
-        ))}
-      </div>
+      {troll === null ? (
+        <div className="troll-grid" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet-title">Pick a troll</div>
+          {TROLLS.map((t, i) => (
+            <button key={i} className="troll-btn" onClick={() => choose(i)}>
+              <span className="ti">{t.icon}</span><small>{t.name}</small>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="troll-grid targets" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet-title">
+            <button className="back" onClick={() => setTroll(null)}>←</button>
+            Who gets <span className="ti mini">{TROLLS[troll].icon}</span> {TROLLS[troll].name}?
+          </div>
+          {targets.map((p) => (
+            <button key={p.id} className="target-btn" style={{ ['--pc' as string]: p.color }} onClick={() => onPick(`t${troll}:${p.id}`)}>
+              <Avatar id={p.avatar} size={56} hyped />
+              <b>{p.name}</b>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
