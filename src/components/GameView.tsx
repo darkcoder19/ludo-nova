@@ -7,6 +7,7 @@ import { Board } from './Board';
 import { Confetti, type ConfettiHandle } from './Confetti';
 import { Dice } from './Dice';
 import { Backdrop } from './Home';
+import { Avatar } from './Avatar';
 
 const HEX: Record<Color, string> = { red: '#ff3d6e', green: '#2ee59d', yellow: '#ffc93c', blue: '#3d8bff' };
 const EMOJIS = ['😂', '😎', '🔥', '😭', '😡', '👏'];
@@ -184,7 +185,7 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
           <div className="rays" />
           <div className="who">
             {splash.place === 1 && <div className="crown2">👑</div>}
-            <div className="big-av">{splash.p.avatar}</div>
+            <div className="big-av"><Avatar id={splash.p.avatar} size={130} className="dance" /></div>
             <h2>{splash.p.id === session.myId ? (splash.place === 1 ? 'YOU WIN!' : 'YOU FINISHED!') : `${splash.p.name}${splash.place === 1 ? ' WINS!' : ' finished!'}`}</h2>
             <p>{['🥇 Champion', '🥈 2nd place', '🥉 3rd place', '4th place'][splash.place - 1]}{state.phase === 'playing' ? ' · game continues…' : ''}</p>
           </div>
@@ -208,7 +209,7 @@ function PlayerCard({ p, state, corner, isMe, emote, left }: { p: Player; state:
             <circle cx="20" cy="20" r="18" style={{ strokeDashoffset: 113 * (1 - left / state.turnMs), stroke: left < 5000 ? 'var(--red)' : '#fff' }} />
           </svg>
         )}
-        <span>{p.avatar}</span>
+        <Avatar id={p.avatar} size={40} className={turn ? 'wiggle' : ''} />
         {emote && <span key={emote.id} className="emote-pop">{emote.emoji}</span>}
       </div>
       <div className="pinfo">
@@ -240,7 +241,7 @@ function Results({ state, myId, result, onRematch, onLeave }: {
             const p = state.players.find((x) => x.id === id)!;
             return (
               <li key={id} className={`${p.color} ${id === myId ? 'me' : ''}`} style={{ animationDelay: `${i * 120}ms` }}>
-                <span>{medal[i]}</span><span className="av">{p.avatar}</span><b>{p.name}</b>
+                <span>{medal[i]}</span><span className="av"><Avatar id={p.avatar} size={34} /></span><b>{p.name}</b>
                 <small>⚔ {state.stats[id]?.captures ?? 0}</small>
               </li>
             );

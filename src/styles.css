@@ -372,3 +372,43 @@ input { font: inherit; color: inherit; }
 .unlock line { stroke-width: 0.08; stroke-linecap: round; animation: sparks 0.7s ease-out forwards; }
 @keyframes ringout2 { from { transform: scale(0.3); opacity: 1; } to { transform: scale(2.2); opacity: 0; } }
 @keyframes sparks { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.6); } }
+
+/* ---------- v4: vivid board ---------- */
+:root { --red: #ff2d55; --green: #00c97a; --yellow: #ffb400; --blue: #2b7bff; }
+.board { filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.65)); }
+.board-bg { fill: #ffffff; stroke: #2a1b6b; stroke-width: 0.22; }
+.cell { fill: #ffffff; stroke: #cfc6e8; stroke-width: 0.04; }
+.cell.start { stroke: rgba(0, 0, 0, 0.25); }
+.home-cell { stroke: rgba(0, 0, 0, 0.22); stroke-width: 0.04; }
+.star { fill: #8f83b8; }
+.yard-outer { stroke: rgba(0, 0, 0, 0.25); stroke-width: 0.06; }
+.yard.off .yard-outer { opacity: 0.35; filter: saturate(0.4); }
+.yard-inner { fill: #ffffff; stroke: rgba(0, 0, 0, 0.18); stroke-width: 0.05; }
+.spot { stroke-width: 0.1; opacity: 0.95; stroke-opacity: 1; }
+.yard.turn .yard-outer { animation: yard-pulse 1s ease-in-out infinite; }
+@keyframes yard-pulse { 50% { filter: brightness(1.25) saturate(1.2); } }
+.center polygon { stroke: #fff; stroke-width: 0.06; }
+.pin { stroke: rgba(0, 0, 0, 0.55); stroke-width: 0.04; }
+.shadow { fill: rgba(0, 0, 0, 0.35); }
+
+/* captured piece running home */
+.token.knocked { transition: transform 0.07s linear; }
+.token.knocked .hop { animation: knocked 0.35s linear infinite; }
+@keyframes knocked { 0% { transform: rotate(0) scale(1.1); filter: brightness(1.6); } 50% { transform: rotate(180deg) scale(0.9); filter: brightness(0.8); } 100% { transform: rotate(360deg) scale(1.1); } }
+
+/* characters */
+.avatar-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; overflow: visible; }
+.av { width: auto; height: auto; padding: 4px 0 2px; display: flex; flex-direction: column; align-items: center; gap: 1px; border-radius: 14px; font-size: 1rem; }
+.av small { font-size: 0.58rem; font-weight: 700; color: var(--dim); white-space: nowrap; }
+.av.on small { color: var(--ink); }
+.av.on .avatar-svg { animation: wiggle 0.6s ease-in-out; }
+.avatar-svg { display: block; overflow: visible; }
+.pav { background: rgba(255, 255, 255, 0.12); overflow: visible; }
+.pav .avatar-svg { width: 34px; height: 34px; }
+.seat-av { background: rgba(255, 255, 255, 0.1); width: 72px; height: 72px; }
+.big-av { overflow: visible; }
+.wiggle { animation: wiggle 0.9s ease-in-out infinite; }
+@keyframes wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg) scale(1.08); } 75% { transform: rotate(10deg) scale(1.08); } }
+.dance { animation: dance 0.7s ease-in-out infinite; }
+@keyframes dance { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-12px) rotate(8deg) scale(1.06); } }
+.podium .av { display: inline-flex; }

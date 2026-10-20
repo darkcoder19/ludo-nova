@@ -3,6 +3,7 @@ import type { StartOpts } from '../App';
 import type { Mode } from '../game/engine';
 import { AVATARS, levelFloor, levelOf, liveStreak, type Profile } from '../game/profile';
 import { sfx } from '../game/sound';
+import { Avatar, charOf } from './Avatar';
 
 interface Props {
   profile: Profile;
@@ -45,7 +46,7 @@ export function Home({ profile, onProfile, onStart, error }: Props) {
       <section className="card profile">
         <div className="avatar-row">
           {AVATARS.map((a) => (
-            <button key={a} className={`av ${a === profile.avatar ? 'on' : ''}`} onClick={() => { sfx.tap(); onProfile({ ...profile, avatar: a }); }}>{a}</button>
+            <button key={a} className={`av ${a === profile.avatar ? 'on' : ''}`} onClick={() => { sfx.tap(); onProfile({ ...profile, avatar: a }); }}><Avatar id={a} size={46} /><small>{charOf(a).name}</small></button>
           ))}
         </div>
         <input

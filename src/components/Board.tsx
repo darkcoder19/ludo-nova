@@ -6,8 +6,9 @@ import { sfx } from '../game/sound';
 type Tokens = GameState['tokens'];
 
 /** Walks tokens forward one square at a time so moves read as hops, not teleports. */
-function useAnimatedTokens(target: Tokens): Tokens {
+function useAnimatedTokens(target: Tokens): [Tokens, Set<string>] {
   const [shown, setShown] = useState<Tokens>(target);
+  const [knocked, setKnocked] = useState<Set<string>>(new Set());
   const shownRef = useRef(shown);
   shownRef.current = shown;
 
@@ -15,8 +16,9 @@ function useAnimatedTokens(target: Tokens): Tokens {
     let timer: ReturnType<typeof setTimeout>;
     const step = () => {
       const cur = shownRef.current;
-      let moved = false, stepped = false;
+      let moved = false, stepped = false, rewinding = false;
       const next: Tokens = {};
+      const ko = new Set<string>();
       for (const c of Object.keys(target) as Color[]) {
         const want = target[c]!;
         const have = cur[c] ?? want;
@@ -25,20 +27,28 @@ function useAnimatedTokens(target: Tokens): Tokens {
           if (h === w) return h;
           moved = true;
           if (w > h && h >= 0) { stepped = true; return h + 1; }
-          return w; // leaving the yard or being captured: jump straight there
+          if (w < 0 && h > 0) {
+            // Captured: run backwards along the track, then drop into the yard.
+            rewinding = true; ko.add(`${c}${i}`);
+            return Math.max(0, h - Math.max(2, Math.ceil(h / 7)));
+          }
+          if (w < 0 && h === 0) { ko.add(`${c}${i}`); return w; }
+          return w; // leaving the yard: jump straight onto the start square
         });
       }
+      setKnocked(ko);
       if (!moved) return;
       if (stepped) sfx.step();
+      if (rewinding) sfx.pop();
       shownRef.current = next;
       setShown(next);
-      timer = setTimeout(step, 150);
+      timer = setTimeout(step, rewinding && !stepped ? 70 : 150);
     };
     step();
     return () => clearTimeout(timer);
   }, [target]);
 
-  return shown;
+  return [shown, knocked];
 }
 
 /** Short-lived ring bursts on a colour's start square whenever one of its pieces leaves the yard. */
@@ -63,6 +73,7 @@ function useUnlockBursts(tokens: Tokens) {
 }
 
 const FILL: Record<Color, string> = { red: 'var(--red)', green: 'var(--green)', yellow: 'var(--yellow)', blue: 'var(--blue)' };
+const DARK: Record<Color, string> = { red: '#c4113f', green: '#00965e', yellow: '#e08a00', blue: '#1450c8' };
 
 // How pieces sharing one square are arranged: [dx, dy] offsets and a scale, by count.
 const STACK: Record<number, { at: [number, number][]; s: number }> = {
@@ -83,7 +94,7 @@ interface Props {
 }
 
 export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
-  const shown = useAnimatedTokens(state.tokens);
+  const [shown, knocked] = useAnimatedTokens(state.tokens);
   const turnColor = state.players[state.turn]?.color;
   const active = new Set(state.players.map((p) => p.color));
   const [hover, setHover] = useState<number | null>(null);
@@ -147,7 +158,7 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
           {COLORS.map((c) => (
             <linearGradient key={c} id={`yard-${c}`} x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor={FILL[c]} />
-              <stop offset="100%" stopColor={FILL[c]} stopOpacity="0.85" />
+              <stop offset="100%" stopColor={DARK[c]} />
             </linearGradient>
           ))}
           <radialGradient id="cell-sheen" cx="30%" cy="25%" r="90%">
@@ -169,7 +180,7 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
                 <rect x={col + 0.1} y={r + 0.1} width="5.8" height="5.8" rx="0.8" fill={`url(#yard-${c})`} className="yard-outer" />
                 <rect x={col + 0.8} y={r + 0.8} width="4.4" height="4.4" rx="0.6" className="yard-inner" />
                 {[[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]].map(([sx, sy], i) => (
-                  <circle key={i} cx={col + sx} cy={r + sy} r="0.55" className="spot" style={{ stroke: FILL[c] }} />
+                  <circle key={i} cx={col + sx} cy={r + sy} r="0.55" className="spot" style={{ fill: FILL[c], stroke: DARK[c] }} />
                 ))}
               </g>
             );
@@ -188,7 +199,7 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
 
           {COLORS.map((c) => HOME_COLUMN[c].map(([r, col], i) => (
             <rect key={c + i} x={col + 0.04} y={r + 0.04} width="0.92" height="0.92" rx="0.18"
-              fill={FILL[c]} opacity={0.45 + i * 0.11} className="home-cell" />
+              fill={FILL[c]} className="home-cell" />
           )))}
 
           <g className="center">
@@ -211,7 +222,7 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
             const pickable = canMove && p.color === myColor && state.movable.includes(p.idx);
             const done = p.prog === HOME;
             return (
-              <g key={p.key} className={`token ${pickable ? 'pickable' : ''} ${done ? 'done' : ''}`}
+              <g key={p.key} className={`token ${pickable ? 'pickable' : ''} ${done ? 'done' : ''} ${knocked.has(p.key) ? 'knocked' : ''}`}
                 style={{ transform: `translate(${p.x + dx}px, ${p.y + dy}px) scale(${done ? 0.6 : s})` }}
                 onClick={pickable ? () => onPick(p.idx) : undefined}
                 onPointerEnter={pickable ? () => setHover(p.idx) : undefined}

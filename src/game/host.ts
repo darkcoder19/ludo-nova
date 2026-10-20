@@ -12,7 +12,6 @@ export type Action =
   | { t: 'rematch' };
 
 const BOT_NAMES = ['Nova', 'Pixel', 'Blaze', 'Echo', 'Comet', 'Zippy'];
-const BOT_AVATARS = ['🤖', '👾', '🦊', '🐯'];
 
 export class GameHost {
   state: GameState;
@@ -64,12 +63,11 @@ export class GameHost {
     const s = this.state;
     const isHost = from === s.hostId;
     switch (a.t) {
-      case 'timer': if (isHost && s.phase === 'lobby' && [0, 10000, 15000, 20000, 30000].includes(a.ms)) this.set({ ...s, turnMs: a.ms }); return;
+      case 'timer': if (isHost && s.phase === 'lobby' && [15000, 30000, 45000, 60000].includes(a.ms)) this.set({ ...s, turnMs: a.ms }); return;
       case 'mode': if (isHost && s.phase === 'lobby') this.set({ ...s, mode: a.mode }); return;
       case 'addBot': {
         if (!isHost || s.phase !== 'lobby' || s.players.length >= 4) return;
-        const n = s.players.filter((p) => p.bot).length;
-        this.join(`bot-${Date.now()}-${s.players.length}`, BOT_NAMES[(n + Math.floor(Math.random() * 6)) % 6], BOT_AVATARS[n % 4], true);
+        this.join(`bot-${Date.now()}-${s.players.length}`, this.freeName(), this.freeAvatar(), true);
         return;
       }
       case 'kick': if (isHost && s.phase === 'lobby' && a.id !== s.hostId) this.set({ ...s, players: s.players.filter((p) => p.id !== a.id) }); return;
@@ -81,6 +79,18 @@ export class GameHost {
     if (s.phase !== 'playing' || s.players[s.turn].id !== from) return;
     if (a.t === 'roll' && !s.rolled) this.set(roll(s));
     if (a.t === 'move' && s.rolled) this.set(move(s, a.idx));
+  }
+
+  private freeName() {
+    const used = new Set(this.state.players.map((p) => p.name));
+    const free = BOT_NAMES.filter((x) => !used.has(x));
+    return free[Math.floor(Math.random() * free.length)] ?? 'Bot';
+  }
+
+  private freeAvatar() {
+    const used = new Set(this.state.players.map((p) => p.avatar));
+    const free = Array.from({ length: 15 }, (_, i) => `c${i}`).filter((a) => !used.has(a));
+    return free[Math.floor(Math.random() * free.length)] ?? 'c0';
   }
 
   /** Drives bots, auto-moves, dead turns and idle players so the game never stalls. */

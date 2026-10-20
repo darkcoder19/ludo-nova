@@ -12,7 +12,7 @@ export interface Profile {
   bestStreak: number;
 }
 
-export const AVATARS = ['🦁', '🐯', '🦊', '🐼', '🐸', '🦄', '🐙', '🐲', '🦅', '🐺', '👽', '🤠'];
+export const AVATARS = Array.from({ length: 15 }, (_, i) => `c${i}`);
 const KEY = 'ln-profile';
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -22,7 +22,7 @@ export function loadProfile(): Profile {
   return {
     id: p.id || (crypto.randomUUID?.() ?? String(Math.random()).slice(2)),
     name: p.name || '',
-    avatar: p.avatar || AVATARS[Math.floor(Math.random() * AVATARS.length)],
+    avatar: p.avatar && AVATARS.includes(p.avatar) ? p.avatar : AVATARS[Math.floor(Math.random() * AVATARS.length)],
     xp: p.xp || 0, games: p.games || 0, wins: p.wins || 0, captures: p.captures || 0,
     streak: p.streak || 0, lastDay: p.lastDay || '', bestStreak: p.bestStreak || 0,
   };

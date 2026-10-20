@@ -5,7 +5,7 @@ export const COLORS: Color[] = ['red', 'green', 'yellow', 'blue'];
 export const START: Record<Color, number> = { red: 0, green: 13, yellow: 26, blue: 39 };
 export const SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 export const HOME = 56; // progress: -1 yard, 0..50 track, 51..55 home column, 56 finished
-export const TURN_MS = 20000;
+export const TURN_MS = 30000;
 
 export type Mode = 'classic' | 'quick';
 

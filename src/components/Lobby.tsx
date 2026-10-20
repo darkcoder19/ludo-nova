@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { seatOrder, type GameState } from '../game/engine';
 import type { Session, Status } from '../game/net';
 import { sfx } from '../game/sound';
+import { Avatar } from './Avatar';
 import { Backdrop, ModePicker } from './Home';
 
 interface Props {
@@ -58,7 +59,7 @@ export function Lobby({ session, state, code, status, onLeave }: Props) {
             <div key={i} className={`seat ${p ? `filled ${c}` : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
               {p ? (
                 <>
-                  <div className="seat-av">{p.avatar}</div>
+                  <div className="seat-av"><Avatar id={p.avatar} size={64} /></div>
                   <div className="seat-name">{p.name}{p.id === session.myId && <em> (you)</em>}</div>
                   <div className="seat-tag">{p.id === state?.hostId ? '👑 Host' : p.bot ? 'Bot' : 'Ready'}</div>
                   {isHost && p.id !== state?.hostId && (
@@ -83,9 +84,9 @@ export function Lobby({ session, state, code, status, onLeave }: Props) {
           <div className="timer-pick">
             <span>⏱ Time per turn</span>
             <div className="seg">
-              {[0, 10000, 15000, 20000, 30000].map((ms) => (
+              {[15000, 30000, 45000, 60000].map((ms) => (
                 <button key={ms} disabled={!isHost} className={state.turnMs === ms ? 'on' : ''}
-                  onClick={() => { sfx.tap(); session.act({ t: 'timer', ms }); }}>{ms ? `${ms / 1000}s` : 'Off'}</button>
+                  onClick={() => { sfx.tap(); session.act({ t: 'timer', ms }); }}>{ms / 1000}s</button>
               ))}
             </div>
           </div>

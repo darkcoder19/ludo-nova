@@ -43,7 +43,6 @@ function createHostCore(myId: string, name: string, avatar: string, h: Handlers,
 export function localGame(myId: string, name: string, avatar: string, bots: number, mode: 'classic' | 'quick', h: Handlers): Session {
   const { host, emote } = createHostCore(myId, name, avatar, h, () => {});
   host.handle(myId, { t: 'mode', mode });
-  host.handle(myId, { t: 'timer', ms: 0 });
   for (let i = 0; i < bots; i++) host.handle(myId, { t: 'addBot' });
   host.handle(myId, { t: 'start' });
   h.onStatus('online');
