@@ -25,8 +25,8 @@ export function Lobby({ session, state, code, status, onLeave }: Props) {
     sfx.pop(); setCopied(true); setTimeout(() => setCopied(false), 1500);
   };
   const share = async () => {
-    const text = `Join my Ludo Nova game! Code: ${code}`;
-    if (navigator.share) { try { await navigator.share({ title: 'Ludo Nova', text, url: link }); } catch { /* cancelled */ } }
+    const text = `Join my LudoNova game! Code: ${code}`;
+    if (navigator.share) { try { await navigator.share({ title: 'LudoNova by Sarvimo', text, url: link }); } catch { /* cancelled */ } }
     else window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${link}`)}`, '_blank');
   };
 

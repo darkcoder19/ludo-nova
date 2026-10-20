@@ -9,6 +9,7 @@ type Tokens = GameState['tokens'];
 function useAnimatedTokens(target: Tokens): [Tokens, Set<string>] {
   const [shown, setShown] = useState<Tokens>(target);
   const [knocked, setKnocked] = useState<Set<string>>(new Set());
+  const hissing = useRef(false);
   const shownRef = useRef(shown);
   shownRef.current = shown;
 
@@ -39,7 +40,8 @@ function useAnimatedTokens(target: Tokens): [Tokens, Set<string>] {
       setKnocked(ko);
       if (!moved) return;
       if (stepped) sfx.step();
-      if (rewinding) sfx.pop();
+      if (rewinding && !hissing.current) sfx.hiss();
+      hissing.current = rewinding;
       shownRef.current = next;
       setShown(next);
       timer = setTimeout(step, rewinding && !stepped ? 70 : 150);

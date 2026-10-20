@@ -40,6 +40,7 @@ export function Home({ profile, onProfile, onStart, error }: Props) {
           <span /><span /><span /><span />
         </div>
         <h1>Ludo<em>Nova</em></h1>
+        <div className="by">by <b>Sarvimo</b></div>
         <p className="tag">Roll. Race. Rule the board.</p>
       </header>
 
@@ -107,7 +108,7 @@ export function Home({ profile, onProfile, onStart, error }: Props) {
       </section>
 
       {install && <button className="btn ghost install" onClick={install}>⬇ Install app</button>}
-      <footer className="foot">Free · No sign-up · Works offline vs bots</footer>
+      <footer className="foot">© Sarvimo · Free · No sign-up · Works offline vs bots</footer>
     </div>
   );
 }

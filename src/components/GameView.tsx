@@ -8,9 +8,9 @@ import { Confetti, type ConfettiHandle } from './Confetti';
 import { Dice } from './Dice';
 import { Backdrop } from './Home';
 import { Avatar } from './Avatar';
+import { TrollOverlay, TrollPicker, trollIndex } from './Trolls';
 
 const HEX: Record<Color, string> = { red: '#ff3d6e', green: '#2ee59d', yellow: '#ffc93c', blue: '#3d8bff' };
-const EMOJIS = ['😂', '😎', '🔥', '😭', '😡', '👏'];
 const CORNERS = ['tl', 'tr', 'br', 'bl'] as const;
 
 interface Props {
@@ -38,12 +38,33 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
   const [burst, setBurst] = useState<{ id: number; color: Color; done: number; total: number } | null>(null);
   const [splash, setSplash] = useState<{ id: number; p: Player; place: number } | null>(null);
   const left = useCountdown(state);
+  const [picker, setPicker] = useState(false);
+  const [troll, setTroll] = useState<Emote | null>(null);
+  const lastTroll = useRef(0);
+  const urgent = state.phase === 'playing' && state.turnMs > 0 && !cur?.bot && cur?.connected && left > 0 && left <= 5000;
+  const secs = Math.ceil(left / 1000);
+
+  // Tick-tock for the last five seconds of any human's turn.
+  useEffect(() => { if (urgent) sfx.tick(myTurn); }, [urgent, secs, myTurn]);
+
+  // Show the newest troll full-screen.
+  useEffect(() => {
+    const e = emotes.at(-1);
+    if (!e || e.id === lastTroll.current || trollIndex(e.emoji) < 0) return;
+    lastTroll.current = e.id;
+    setTroll(e);
+    sfx.troll();
+    const t = setTimeout(() => setTroll((cur) => (cur?.id === e.id ? null : cur)), 2800);
+    return () => clearTimeout(t);
+  }, [emotes]);
   const [result, setResult] = useState<{ place: number; xp: number } | null>(null);
   const confetti = useRef<ConfettiHandle>(null);
   const arena = useRef<HTMLDivElement>(null);
   const lastEvent = useRef(state.event?.id ?? 0);
   const lastRoll = useRef(state.rollId);
   const recorded = useRef(false);
+  const pending = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => pending.current.forEach(clearTimeout), []);
 
   // Sound, haptics and juice for each new game event.
   useEffect(() => {
@@ -51,7 +72,8 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
     const e = state.event;
     if (!e || e.id === lastEvent.current) return;
     lastEvent.current = e.id;
-    const delay = e.kind === 'roll' || e.kind === 'six' || e.kind === 'triple' ? 700 : 150;
+    // Home/win wait for the piece to finish walking (150ms per square).
+    const delay = e.kind === 'roll' || e.kind === 'six' || e.kind === 'triple' ? 700 : e.kind === 'home' || e.kind === 'win' ? 150 * state.dice + 250 : 150;
     const t = setTimeout(() => {
       if (e.kind !== 'move') setToast({ id: e.id, text: e.text, color: e.color });
       if (e.kind === 'six') sfx.six();
@@ -68,16 +90,16 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
       }
       if (e.kind === 'win') {
         const p = state.players.find((x) => x.color === e.color);
-        if (p) setTimeout(() => {
+        if (p) pending.current.push(setTimeout(() => {
           setSplash({ id: e.id, p, place: state.winners.indexOf(p.id) + 1 });
           sfx.win();
           const c = HEX[e.color];
           [0, 400, 800].forEach((d) => setTimeout(() => confetti.current?.burst(innerWidth * (0.2 + Math.random() * 0.6), innerHeight * 0.35, [c, '#fff', '#ffe08a'], 120), d));
-        }, 1300);
+        }, 1300));
       }
       if (e.kind === 'timeout') sfx.pop();
     }, delay);
-    return () => clearTimeout(t);
+    pending.current.push(t); // not cleared on re-run: a later roll must not cancel this effect
   }, [state.event, state.rollId, me?.color]);
 
   useEffect(() => {
@@ -139,9 +161,10 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
       {status.st === 'reconnecting' && <div className="banner warn">{status.msg}</div>}
 
       <div className="arena" ref={arena}>
+        {urgent && <div className={`big-count ${myTurn ? 'mine' : ''}`} key={secs}>{secs}</div>}
         {state.players.map((p) => (
           <PlayerCard key={p.id} p={p} state={state} corner={cornerOf(p.color)} isMe={p.id === session.myId} left={left}
-            emote={emotes.filter((e) => e.from === p.id).at(-1)} />
+            hyped={!!troll && troll.from === p.id} />
         ))}
         <Board state={state} myColor={me?.color ?? null} rotation={rotation} canMove={canMove}
           onPick={(idx) => { sfx.tap(); session.act({ t: 'move', idx }); }} />
@@ -159,7 +182,7 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
         <Dice value={state.dice} rollId={state.rollId} color={curColor} ready={canRoll}
           onRoll={() => session.act({ t: 'roll' })} onSettled={() => setDiceSettled(true)} />
         <div className="emotes">
-          {EMOJIS.map((e) => <button key={e} onClick={() => { sfx.pop(); session.emote(e); }}>{e}</button>)}
+          <button className="troll-open" onClick={() => { sfx.tap(); setPicker(true); }}>😈<small>Troll</small></button>
         </div>
       </div>
 
@@ -172,9 +195,10 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
       {burst && (
         <div className="home-burst" key={burst.id} style={{ ['--hc' as string]: HEX[burst.color] }}>
           <i className="ring" /><i className="ring" /><i className="ring" />
+          {Array.from({ length: 10 }, (_, k) => <i key={k} className="ray" style={{ ['--k' as string]: k }} />)}
           <div className="chip">
             <svg viewBox="-0.5 -0.5 1 1"><PawnIcon color={HEX[burst.color]} /></svg>
-            <b>Piece home!</b>
+            <b>PIECE HOME!</b>
             <div className="meter">{Array.from({ length: burst.total }, (_, i) => <i key={i} className={`${i < burst.done ? 'on' : ''} ${i === burst.done - 1 ? 'new' : ''}`} />)}</div>
             <small>{burst.done}/{burst.total} safe</small>
           </div>
@@ -191,12 +215,17 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
           </div>
         </div>
       )}
+      {picker && <TrollPicker onClose={() => setPicker(false)} onPick={(id) => { setPicker(false); session.emote(id); }} />}
+      {troll && (() => {
+        const from = state.players.find((x) => x.id === troll.from);
+        return from ? <TrollOverlay key={troll.id} troll={trollIndex(troll.emoji)} avatar={from.avatar} name={from.name} color={HEX[from.color]} /> : null;
+      })()}
       <Confetti ref={confetti} />
     </div>
   );
 }
 
-function PlayerCard({ p, state, corner, isMe, emote, left }: { p: Player; state: GameState; corner: string; isMe: boolean; emote?: Emote; left: number }) {
+function PlayerCard({ p, state, corner, isMe, hyped, left }: { p: Player; state: GameState; corner: string; isMe: boolean; hyped: boolean; left: number }) {
   const turn = state.phase === 'playing' && state.players[state.turn]?.id === p.id;
   const tokens = state.tokens[p.color] ?? [];
   const home = tokens.filter((t) => t === HOME).length;
@@ -209,8 +238,7 @@ function PlayerCard({ p, state, corner, isMe, emote, left }: { p: Player; state:
             <circle cx="20" cy="20" r="18" style={{ strokeDashoffset: 113 * (1 - left / state.turnMs), stroke: left < 5000 ? 'var(--red)' : '#fff' }} />
           </svg>
         )}
-        <Avatar id={p.avatar} size={40} className={turn ? 'wiggle' : ''} />
-        {emote && <span key={emote.id} className="emote-pop">{emote.emoji}</span>}
+        <Avatar id={p.avatar} size={40} hyped={turn || hyped} />
       </div>
       <div className="pinfo">
         <div className="pname">{p.name}{isMe && <em> you</em>}</div>
@@ -260,10 +288,10 @@ function Results({ state, myId, result, onRematch, onLeave }: {
 function PawnIcon({ color }: { color: string }) {
   return (
     <g>
-      <ellipse cx="0" cy="0.3" rx="0.33" ry="0.12" fill={color} />
-      <path d="M-0.25 0.3 Q-0.22 0.02 -0.1 -0.06 L0.1 -0.06 Q0.22 0.02 0.25 0.3 Z" fill={color} stroke="#fff" strokeWidth="0.03" />
-      <circle cx="0" cy="-0.17" r="0.17" fill={color} stroke="#fff" strokeWidth="0.03" />
-      <ellipse cx="-0.06" cy="-0.23" rx="0.06" ry="0.04" fill="#fff" />
+      <path d="M0 0.44 C-0.06 0.3 -0.36 0.08 -0.36 -0.12 A0.36 0.36 0 1 1 0.36 -0.12 C0.36 0.08 0.06 0.3 0 0.44 Z" fill={color} stroke="#1b1035" strokeWidth="0.04" />
+      <circle cx="0" cy="-0.12" r="0.18" fill="#fff" />
+      <circle cx="0" cy="-0.12" r="0.1" fill={color} />
+      <ellipse cx="-0.14" cy="-0.3" rx="0.08" ry="0.05" fill="#fff" opacity="0.7" />
     </g>
   );
 }

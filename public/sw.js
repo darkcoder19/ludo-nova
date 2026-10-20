@@ -1,5 +1,5 @@
 // Network-first for pages, cache-first for built assets. Lets the app open offline.
-const CACHE = 'ludo-nova-v1';
+const CACHE = 'ludo-nova-v2';
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));
   self.skipWaiting();

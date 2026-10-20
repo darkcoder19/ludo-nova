@@ -1,6 +1,6 @@
 {
-  "name": "Ludo Nova",
-  "short_name": "Ludo Nova",
+  "name": "LudoNova by Sarvimo",
+  "short_name": "LudoNova",
   "description": "Neon multiplayer Ludo with friends",
   "start_url": "/",
   "display": "standalone",
