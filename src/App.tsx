@@ -5,6 +5,8 @@ import { loadProfile, saveProfile, type Profile } from './game/profile';
 import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
 import { GameView } from './components/GameView';
+import { InterstitialAd, randomInterstitial, type Interstitial } from './ads/AdViews';
+import { adsEnabled } from './ads/premium';
 
 export type StartOpts =
   | { kind: 'host' }
@@ -20,6 +22,14 @@ export default function App() {
   const [emotes, setEmotes] = useState<Emote[]>([]);
   const [error, setError] = useState('');
   const sessionRef = useRef<Session | null>(null);
+  const [ad, setAd] = useState<{ ad: Interstitial; then: () => void } | null>(null);
+
+  /** Runs an action after a random Sarvimo video or banner ad (free players only). */
+  const withAd = useCallback((then: () => void) => {
+    if (!adsEnabled()) { then(); return; }
+    setAd({ ad: randomInterstitial(), then });
+  }, []);
+  const adLayer = ad && <InterstitialAd ad={ad.ad} onDone={() => { const t = ad.then; setAd(null); t(); }} />;
 
   const updateProfile = useCallback((p: Profile) => { setProfile(p); saveProfile(p); }, []);
 
@@ -51,12 +61,15 @@ export default function App() {
 
   useEffect(() => () => sessionRef.current?.leave(), []);
 
-  if (!session) return <Home profile={profile} onProfile={updateProfile} onStart={start} error={error} />;
+  if (!session) return <>{adLayer}<Home profile={profile} onProfile={updateProfile} onStart={(o) => withAd(() => start(o))} error={error} /></>;
   if (!state || state.phase === 'lobby')
-    return <Lobby session={session} state={state} code={code} status={status} onLeave={leave} />;
+    return <>{adLayer}<Lobby session={session} state={state} code={code} status={status} onLeave={leave} /></>;
   return (
-    <GameView session={session} state={state} status={status} emotes={emotes}
-      profile={profile} onProfile={updateProfile} onLeave={leave} />
+    <>
+      {adLayer}
+      <GameView session={session} state={state} status={status} emotes={emotes}
+        profile={profile} onProfile={updateProfile} onLeave={leave} withAd={withAd} />
+    </>
   );
 }
 

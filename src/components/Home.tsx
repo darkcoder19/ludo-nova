@@ -4,6 +4,8 @@ import type { Mode } from '../game/engine';
 import { AVATARS, levelFloor, levelOf, liveStreak, type Profile } from '../game/profile';
 import { sfx } from '../game/sound';
 import { Avatar, charOf } from './Avatar';
+import { BannerStrip } from '../ads/AdViews';
+import { adsEnabled } from '../ads/premium';
 
 interface Props {
   profile: Profile;
@@ -107,6 +109,7 @@ export function Home({ profile, onProfile, onStart, error }: Props) {
         )}
       </section>
 
+      {adsEnabled() && <BannerStrip />}
       {install && <button className="btn ghost install" onClick={install}>⬇ Install app</button>}
       <footer className="foot">© Sarvimo · Free · No sign-up · Works offline vs bots</footer>
     </div>

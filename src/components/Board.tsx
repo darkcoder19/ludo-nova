@@ -53,6 +53,26 @@ function useAnimatedTokens(target: Tokens): [Tokens, Set<string>] {
   return [shown, knocked];
 }
 
+/** Celebrations at the centre when a piece's walk actually ends at HOME. */
+function useHomeArrivals(shown: Tokens) {
+  const prev = useRef(shown);
+  const [list, setList] = useState<{ id: number; color: Color; idx: number }[]>([]);
+  useEffect(() => {
+    const fresh: { id: number; color: Color; idx: number }[] = [];
+    for (const c of Object.keys(shown) as Color[]) {
+      shown[c]!.forEach((p, i) => {
+        const was = prev.current[c]?.[i];
+        if (p === HOME && was !== undefined && was !== HOME) fresh.push({ id: Date.now() + Math.random(), color: c, idx: i });
+      });
+    }
+    prev.current = shown;
+    if (!fresh.length) return;
+    setList((l) => [...l, ...fresh]);
+    setTimeout(() => setList((l) => l.filter((x) => !fresh.includes(x))), 1400);
+  }, [shown]);
+  return list;
+}
+
 /** Short-lived ring bursts on a colour's start square whenever one of its pieces leaves the yard. */
 function useUnlockBursts(tokens: Tokens) {
   const prev = useRef(tokens);
@@ -101,6 +121,7 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
   const active = new Set(state.players.map((p) => p.color));
   const [hover, setHover] = useState<number | null>(null);
   const bursts = useUnlockBursts(state.tokens);
+  const homes = useHomeArrivals(shown);
 
   const pieces: Piece[] = [];
   for (const c of COLORS) {
@@ -224,7 +245,7 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
             const pickable = canMove && p.color === myColor && state.movable.includes(p.idx);
             const done = p.prog === HOME;
             return (
-              <g key={p.key} className={`token ${pickable ? 'pickable' : ''} ${done ? 'done' : ''} ${knocked.has(p.key) ? 'knocked' : ''}`}
+              <g key={p.key} className={`token ${pickable ? 'pickable' : ''} ${done ? 'done' : ''} ${done && homes.some((h) => h.color === p.color && h.idx === p.idx) ? 'arriving' : ''} ${knocked.has(p.key) ? 'knocked' : ''}`}
                 style={{ transform: `translate(${p.x + dx}px, ${p.y + dy}px) scale(${done ? 0.6 : s})` }}
                 onClick={pickable ? () => onPick(p.idx) : undefined}
                 onPointerEnter={pickable ? () => setHover(p.idx) : undefined}
@@ -249,6 +270,20 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
                 <circle r="0.5" stroke={FILL[b.color]} />
                 {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => (
                   <g key={k} transform={`rotate(${k * 45})`}><line x1="0" y1="-0.55" x2="0" y2="-0.85" stroke={FILL[b.color]} /></g>
+                ))}
+              </g>
+            );
+          })}
+
+          {homes.map((h) => {
+            const [x, y] = tokenXY(h.color, START[h.color], HOME, h.idx);
+            return (
+              <g key={h.id} className="home-pop" style={{ transform: `translate(${x}px, ${y}px)` }}>
+                <circle r="0.5" fill={FILL[h.color]} className="hp-glow" />
+                <circle r="0.6" stroke={FILL[h.color]} className="hp-ring" />
+                <circle r="0.6" stroke="#fff" className="hp-ring d2" />
+                {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => (
+                  <g key={k} transform={`rotate(${k * 45})`}><path d="M0 -0.5 L0.08 -0.8 L0 -1 L-0.08 -0.8 Z" fill="#ffe04a" className="hp-star" /></g>
                 ))}
               </g>
             );

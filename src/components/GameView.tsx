@@ -8,6 +8,8 @@ import { Confetti, type ConfettiHandle } from './Confetti';
 import { Dice } from './Dice';
 import { Backdrop } from './Home';
 import { Avatar, type Mood } from './Avatar';
+import { BannerStrip } from '../ads/AdViews';
+import { adsEnabled } from '../ads/premium';
 import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from './Trolls';
 
 const HEX: Record<Color, string> = { red: '#ff3d6e', green: '#2ee59d', yellow: '#ffc93c', blue: '#3d8bff' };
@@ -21,9 +23,10 @@ interface Props {
   profile: Profile;
   onProfile(p: Profile): void;
   onLeave(): void;
+  withAd(then: () => void): void;
 }
 
-export function GameView({ session, state, status, emotes, profile, onProfile, onLeave }: Props) {
+export function GameView({ session, state, status, emotes, profile, onProfile, onLeave, withAd }: Props) {
   const me = state.players.find((p) => p.id === session.myId) ?? null;
   const cur = state.players[state.turn];
   const myTurn = state.phase === 'playing' && cur?.id === session.myId;
@@ -168,6 +171,7 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
         <button className="btn ghost sm" onClick={toggleMute} aria-label="Sound">{muted ? '🔇' : '🔊'}</button>
       </div>
       {status.st === 'reconnecting' && <div className="banner warn">{status.msg}</div>}
+      {adsEnabled() && <BannerStrip />}
 
       <div className="arena" ref={arena}>
         {urgent && <div className={`big-count ${myTurn ? 'mine' : ''}`} key={secs}>{secs}</div>}
@@ -199,7 +203,7 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
 
       {state.phase === 'over' && result && (
         <Results state={state} myId={session.myId} result={result}
-          onRematch={state.hostId === session.myId ? () => session.act({ t: 'rematch' }) : undefined} onLeave={onLeave} />
+          onRematch={state.hostId === session.myId ? () => withAd(() => session.act({ t: 'rematch' })) : undefined} onLeave={() => withAd(onLeave)} />
       )}
       {burst && (
         <div className="home-burst" key={burst.id} style={{ ['--hc' as string]: HEX[burst.color] }}>

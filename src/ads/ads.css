@@ -1,0 +1,34 @@
+/* ---------- Sarvimo ads ---------- */
+.ad-strip { position: relative; display: flex; align-items: center; gap: 10px; flex: none; min-height: 52px; padding: 6px 10px; border-radius: 14px; text-decoration: none; color: var(--ink);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--ac) 28%, #120d2e), #120d2e 70%); border: 1px solid color-mix(in srgb, var(--ac) 55%, transparent); overflow: hidden; }
+.ad-strip::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.12) 50%, transparent 70%); transform: translateX(-100%); animation: ad-shine 4s ease-in-out infinite; }
+@keyframes ad-shine { 60%, 100% { transform: translateX(100%); } }
+.ad-strip img { width: 34px; height: 34px; border-radius: 9px; background: #fff; padding: 3px; flex: none; }
+.ad-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.ad-txt b { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-txt small { font-size: 0.7rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-cta { flex: none; font-weight: 800; font-size: 0.78rem; padding: 7px 10px; border-radius: 10px; background: var(--ac); color: #fff; }
+.ad-tag { position: absolute; top: 2px; right: 6px; font-style: normal; font-size: 0.55rem; font-weight: 800; color: var(--dim); letter-spacing: 0.08em; }
+.ad-strip .ad-tag { top: 1px; right: 4px; }
+.game .ad-strip { margin: 0 4px; min-height: 46px; padding: 4px 8px; }
+.game .ad-strip img { width: 30px; height: 30px; }
+
+.ad-ov { position: fixed; inset: 0; z-index: 60; background: rgba(4, 2, 14, 0.88); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: grid; place-items: center; padding: 16px; animation: fade 0.25s; }
+.ad-card { position: relative; width: min(520px, 100%); background: #150f36; border: 1px solid var(--line); border-radius: 22px; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); animation: pop-in 0.3s; }
+.ad-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; position: relative; }
+.ad-head img { width: 26px; height: 26px; border-radius: 7px; background: #fff; padding: 2px; }
+.ad-head b { flex: 1; font-size: 0.95rem; }
+.ad-head .ad-tag { position: static; background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 6px; }
+.ad-skip { font-weight: 800; font-size: 0.8rem; padding: 7px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); color: var(--dim); }
+.ad-skip.on { background: #fff; color: #150f36; animation: pop-in 0.3s; }
+.ad-video { position: relative; background: #000; aspect-ratio: 16 / 9; cursor: pointer; }
+.ad-video video { width: 100%; height: 100%; display: block; object-fit: contain; }
+.ad-mute { position: absolute; left: 10px; bottom: 10px; font-size: 0.78rem; font-weight: 800; padding: 6px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.6); }
+.ad-poster { cursor: pointer; padding: 34px 20px; text-align: center; background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--ac) 55%, transparent), transparent 70%), #1d1550; }
+.ad-poster img { width: 72px; height: 72px; border-radius: 18px; background: #fff; padding: 6px; animation: float 2.4s ease-in-out infinite; }
+.ad-poster h3 { margin: 14px 0 6px; font-size: 1.6rem; font-weight: 900; }
+.ad-poster p { margin: 0; color: var(--dim); font-weight: 600; }
+.ad-foot { display: flex; align-items: center; gap: 10px; padding: 12px; }
+.ad-foot span { flex: 1; font-size: 0.85rem; color: var(--dim); font-weight: 600; }
+.ad-progress { height: 3px; background: rgba(255, 255, 255, 0.08); }
+.ad-progress i { display: block; height: 100%; background: linear-gradient(90deg, #2b7bff, #00c97a); transition: width 1s linear; }

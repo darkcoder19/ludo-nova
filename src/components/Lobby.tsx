@@ -3,6 +3,8 @@ import { seatOrder, type GameState } from '../game/engine';
 import type { Session, Status } from '../game/net';
 import { sfx } from '../game/sound';
 import { Avatar } from './Avatar';
+import { BannerStrip } from '../ads/AdViews';
+import { adsEnabled } from '../ads/premium';
 import { Backdrop, ModePicker } from './Home';
 
 interface Props {
@@ -100,6 +102,7 @@ export function Lobby({ session, state, code, status, onLeave }: Props) {
       ) : (
         <div className="waiting-host"><span className="spinner" /> Waiting for host to start</div>
       )}
+      {adsEnabled() && <BannerStrip />}
     </div>
   );
 }
