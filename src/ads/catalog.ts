@@ -25,6 +25,14 @@ export const BANNERS: BannerAd[] = [
   { href: `${S}/payslip-maker`, product: 'Payslip Maker', title: 'Salary slips with PF, ESI, TDS', sub: 'Free payslip generator, PDF in seconds', cta: 'Make payslip', accent: '#ff2d55' },
   { href: `${S}/hr-letters`, product: 'HR Letters', title: 'Offer & experience letters', sub: 'Ready wording, your logo, saved as PDF', cta: 'Create letter', accent: '#ffb400' },
   { href: `${S}/calculators`, product: 'Money Calculators', title: 'EMI, SIP, FD, GST in one tap', sub: 'Instant answers, no sign-up', cta: 'Calculate', accent: '#2ee5c5' },
+  { href: `${S}/book`, product: 'Sarvimo Book', title: 'Let clients book you online', sub: 'Your own booking page in minutes', cta: 'Get bookings', accent: '#00b4d8' },
+  { href: `${S}/poll`, product: 'Meeting Polls', title: 'Find a time that works for all', sub: 'Share a poll, everyone picks slots', cta: 'Start a poll', accent: '#ff7ad9' },
+  { href: `${S}/bio`, product: 'Link in Bio', title: 'One link for all your links', sub: 'A clean bio page for Instagram & WhatsApp', cta: 'Make my page', accent: '#c77dff' },
+  { href: `${S}/forms`, product: 'Sarvimo Forms', title: 'Build forms people finish', sub: 'Surveys, sign-ups, registrations — free', cta: 'Build a form', accent: '#3a86ff' },
+  { href: S, product: 'PDF Tools', title: 'Merge, compress, sign PDFs', sub: 'Fast, private PDF & image tools', cta: 'Open tools', accent: '#e63946' },
+  { href: `${S}/khata`, product: 'Sarvimo Khata', title: 'Split bills without the fights', sub: 'Shared expenses for flatmates & family', cta: 'Split now', accent: '#06d6a0' },
+  { href: `${S}/docs`, product: 'Sarvimo on Telegram', title: 'Your tools, inside Telegram', sub: 'Use Sarvimo from the Telegram bot', cta: 'Learn how', accent: '#229ed9' },
+  { href: `${S}/pricing`, product: 'Sarvimo Plans', title: '50 sites → 1 free account', sub: 'Simple, transparent pricing for India', cta: 'See plans', accent: '#f72585' },
 ];
 
 const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];

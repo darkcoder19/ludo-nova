@@ -31,7 +31,8 @@ export async function db<T = unknown>(path: string, init: RequestInit & { prefer
     ...init,
     headers: {
       apikey: key,
-      authorization: `Bearer ${key}`,
+      // New sb_secret_ keys go only in apikey; legacy service_role JWTs also need the bearer header.
+      ...(key.startsWith('eyJ') ? { authorization: `Bearer ${key}` } : {}),
       'content-type': 'application/json',
       ...(init.prefer ? { prefer: init.prefer } : {}),
       ...init.headers,
