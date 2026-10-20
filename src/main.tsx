@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import SeedhiApp from './seedhi';
 import { ComingSoon, Hub } from './hub/Hub';
 import { currentSlug, GAMES } from './hub/games';
 import './hub/hub.css';
@@ -15,6 +16,7 @@ function Root() {
   document.title = game ? `${game.name} · Sarvimo Games` : 'Sarvimo Games';
   if (!game) return <Hub />;
   if (game.slug === 'ludonova') return <App />;
+  if (game.slug === 'seedhirush') return <SeedhiApp />;
   return <ComingSoon g={game} />;
 }
 

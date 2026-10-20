@@ -58,7 +58,7 @@ function TileArt({ slug }: { slug: string }) {
       </svg>
     );
   }
-  if (slug === 'slithernova') {
+  if (slug === 'seedhirush') {
     return (
       <svg viewBox="0 0 100 100">
         {Array.from({ length: 25 }, (_, k) => <rect key={k} x={6 + (k % 5) * 18} y={6 + Math.floor(k / 5) * 18} width="16" height="16" rx="3" fill={(k + Math.floor(k / 5)) % 2 ? '#fff' : '#ffe08a'} />)}
