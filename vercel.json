@@ -1,15 +1,21 @@
 {
   "redirects": [
-    { "source": "/", "destination": "/games/", "permanent": false },
+    { "source": "/", "destination": "/games", "permanent": false },
     { "source": "/ludonova/:path*", "destination": "/games/ludonova", "permanent": false }
   ],
   "rewrites": [
     { "source": "/games/api/:path*", "destination": "/api/:path*" },
-    { "source": "/games/(assets/.*|sw\.js|manifest\.webmanifest|icon.*|sarvimo-icon\.png)", "destination": "/$1" },
+    { "source": "/games/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/games/sw.js", "destination": "/sw.js" },
+    { "source": "/games/manifest.webmanifest", "destination": "/manifest.webmanifest" },
+    { "source": "/games/sarvimo-icon.png", "destination": "/sarvimo-icon.png" },
+    { "source": "/games/icon.svg", "destination": "/icon.svg" },
+    { "source": "/games/icon-192.png", "destination": "/icon-192.png" },
+    { "source": "/games/icon-512.png", "destination": "/icon-512.png" },
     { "source": "/games", "destination": "/index.html" },
     { "source": "/games/:path*", "destination": "/index.html" }
   ],
   "headers": [
-    { "source": "/(games/)?sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
   ]
 }
