@@ -34,6 +34,6 @@ export const PAGE_BANNER = pick(BANNERS);
 export const randomVideo = () => pick(VIDEOS);
 export const randomBanner = () => pick(BANNERS);
 
-export const SKIP_AFTER_S = 25;
+export const SKIP_AFTER_S = 37;
 
 export const openAd = (href: string, medium: string) => window.open(withUtm(href, medium), '_blank', 'noopener');

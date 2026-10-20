@@ -5,6 +5,7 @@ import { AVATARS, levelFloor, levelOf, liveStreak, type Profile } from '../game/
 import { sfx } from '../game/sound';
 import { Avatar, charOf } from './Avatar';
 import { BannerStrip } from '../ads/AdViews';
+import { AccountBar } from '../account/AccountViews';
 import { adsEnabled } from '../ads/premium';
 
 interface Props {
@@ -12,11 +13,12 @@ interface Props {
   onProfile(p: Profile): void;
   onStart(o: StartOpts): void;
   error: string;
+  onAdmin(): void;
 }
 
 type Panel = null | 'join' | 'solo';
 
-export function Home({ profile, onProfile, onStart, error }: Props) {
+export function Home({ profile, onProfile, onStart, error, onAdmin }: Props) {
   const [panel, setPanel] = useState<Panel>(() => (new URLSearchParams(location.search).get('room') ? 'join' : null));
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('room') ?? '');
   const [bots, setBots] = useState(3);
@@ -46,6 +48,7 @@ export function Home({ profile, onProfile, onStart, error }: Props) {
         <p className="tag">Roll. Race. Rule the board.</p>
       </header>
 
+      <AccountBar onAdmin={onAdmin} />
       <section className="card profile">
         <div className="avatar-row">
           {AVATARS.map((a) => (

@@ -32,3 +32,34 @@
 .ad-foot span { flex: 1; font-size: 0.85rem; color: var(--dim); font-weight: 600; }
 .ad-progress { height: 3px; background: rgba(255, 255, 255, 0.08); }
 .ad-progress i { display: block; height: 100%; background: linear-gradient(90deg, #2b7bff, #00c97a); transition: width 1s linear; }
+
+/* ---------- accounts / premium / admin ---------- */
+.acct { display: flex; align-items: center; gap: 10px; padding: 10px 12px; flex-wrap: wrap; }
+.acct-pitch { flex: 1; min-width: 140px; display: flex; flex-direction: column; }
+.acct-pitch small, .acct-who small { color: var(--dim); font-size: 0.75rem; }
+.gbtn { min-height: 40px; }
+.acct-err { width: 100%; color: var(--red); }
+.acct.signed img, .acct-dot, .urow img { width: 36px; height: 36px; border-radius: 50%; flex: none; }
+.acct-dot { display: grid; place-items: center; background: var(--accent); font-weight: 900; }
+.acct-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.acct-who b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem; }
+.btn.premium { background: linear-gradient(135deg, #ffd23f, #ff8c42); color: #2a1300; box-shadow: 0 6px 18px rgba(255, 180, 0, 0.35); }
+.ad-upsell { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px 12px; font-size: 0.82rem; color: var(--dim); font-weight: 600; }
+.ad-upsell:not(:has(button)) { display: none; }
+
+.screen.admin { max-width: 760px; height: 100dvh; overflow: hidden; }
+.admin .topbar b { font-weight: 900; }
+.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.stats button { background: var(--glass); border: 1px solid var(--line); border-radius: 14px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; }
+.stats button.on { border-color: var(--accent); background: rgba(155, 107, 255, 0.2); }
+.stats b { font-size: 1.3rem; font-weight: 900; }
+.stats small { font-size: 0.65rem; color: var(--dim); font-weight: 700; }
+.ulist { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; }
+.urow { display: flex; align-items: center; gap: 10px; padding: 10px; }
+.uinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.uinfo b, .uinfo small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uinfo small { font-size: 0.72rem; color: var(--dim); }
+.seen.now { color: var(--green); } .seen.today { color: #7fd8ff; } .seen.yesterday { color: var(--yellow); }
+.seg.plan { flex: none; }
+.seg.plan button { padding: 6px 10px; font-size: 0.75rem; }
+.seg.plan button.on.prem { background: linear-gradient(135deg, #ffd23f, #ff8c42); color: #2a1300; }

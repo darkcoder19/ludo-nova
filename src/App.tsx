@@ -7,6 +7,8 @@ import { Lobby } from './components/Lobby';
 import { GameView } from './components/GameView';
 import { InterstitialAd, randomInterstitial, type Interstitial } from './ads/AdViews';
 import { adsEnabled } from './ads/premium';
+import { refresh, useAccount } from './account/account';
+import { AdminDashboard } from './account/AccountViews';
 
 export type StartOpts =
   | { kind: 'host' }
@@ -22,6 +24,17 @@ export default function App() {
   const [emotes, setEmotes] = useState<Emote[]>([]);
   const [error, setError] = useState('');
   const sessionRef = useRef<Session | null>(null);
+  const account = useAccount(); // re-renders everything when plan changes (ads on/off)
+  const [admin, setAdmin] = useState(false);
+
+  // Back from Dodo checkout: pull the new plan (the webhook may land a moment later).
+  useEffect(() => {
+    const u = new URL(location.href);
+    if (u.searchParams.get('checkout') !== 'success') return;
+    u.searchParams.delete('checkout');
+    history.replaceState(null, '', u);
+    [0, 3000, 8000].forEach((ms) => setTimeout(refresh, ms));
+  }, []);
   const [ad, setAd] = useState<{ ad: Interstitial; then: () => void } | null>(null);
 
   /** Runs an action after a random Sarvimo video or banner ad (free players only). */
@@ -61,7 +74,8 @@ export default function App() {
 
   useEffect(() => () => sessionRef.current?.leave(), []);
 
-  if (!session) return <>{adLayer}<Home profile={profile} onProfile={updateProfile} onStart={(o) => withAd(() => start(o))} error={error} /></>;
+  if (admin && account?.admin) return <AdminDashboard onClose={() => setAdmin(false)} />;
+  if (!session) return <>{adLayer}<Home profile={profile} onProfile={updateProfile} onStart={(o) => withAd(() => start(o))} error={error} onAdmin={() => setAdmin(true)} /></>;
   if (!state || state.phase === 'lobby')
     return <>{adLayer}<Lobby session={session} state={state} code={code} status={status} onLeave={leave} /></>;
   return (
