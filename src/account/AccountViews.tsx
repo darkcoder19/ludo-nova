@@ -70,12 +70,12 @@ export function AdminDashboard({ onClose }: { onClose(): void }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'now' | 'today' | 'yesterday' | 'premium'>('all');
 
-  const load = () => api<{ users: Row[] }>('/api/admin/users').then((r) => setRows(r.users)).catch((e) => setErr(e.message));
+  const load = () => api<{ users: Row[] }>(`${import.meta.env.BASE_URL}api/admin/users`).then((r) => setRows(r.users)).catch((e) => setErr(e.message));
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
 
   const setPlan = async (r: Row, plan: 'free' | 'premium') => {
     setRows((rs) => rs!.map((x) => (x.id === r.id ? { ...x, plan, plan_source: 'admin' } : x)));
-    try { await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ userId: r.id, plan }) }); } catch (e) { setErr((e as Error).message); load(); }
+    try { await api(`${import.meta.env.BASE_URL}api/admin/users`, { method: 'POST', body: JSON.stringify({ userId: r.id, plan }) }); } catch (e) { setErr((e as Error).message); load(); }
   };
 
   const all = rows ?? [];

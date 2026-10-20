@@ -1,7 +1,7 @@
 // Network-first for pages, cache-first for built assets. Lets the app open offline.
-const CACHE = 'ludo-nova-v2';
+const CACHE = 'ludo-nova-v3';
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './icon.svg'])));
   self.skipWaiting();
 });
 self.addEventListener('activate', (e) => {
@@ -14,9 +14,9 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || url.origin !== location.origin) return;
   if (req.mode === 'navigate') {
     e.respondWith(fetch(req).then((res) => {
-      caches.open(CACHE).then((c) => c.put('/', res.clone()));
+      caches.open(CACHE).then((c) => c.put('./', res.clone()));
       return res;
-    }).catch(() => caches.match('/')));
+    }).catch(() => caches.match('./')));
     return;
   }
   e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => {

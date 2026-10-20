@@ -19,7 +19,7 @@ export function Lobby({ session, state, code, status, onLeave }: Props) {
   const [copied, setCopied] = useState(false);
   const isHost = state?.hostId === session.myId;
   const players = state?.players ?? [];
-  const link = `${location.origin}/?room=${code}`;
+  const link = `${location.origin}${import.meta.env.BASE_URL}?room=${code}`;
   const colors = seatOrder(Math.max(2, players.length));
 
   const copy = async () => {

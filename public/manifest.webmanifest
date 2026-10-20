@@ -2,14 +2,15 @@
   "name": "LudoNova by Sarvimo",
   "short_name": "LudoNova",
   "description": "Neon multiplayer Ludo with friends",
-  "start_url": "/",
+  "start_url": "/ludonova/",
+  "scope": "/ludonova/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b0820",
   "theme_color": "#0b0820",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

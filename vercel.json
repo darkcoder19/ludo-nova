@@ -1,5 +1,13 @@
 {
+  "redirects": [
+    { "source": "/", "destination": "/ludonova/", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/ludonova", "destination": "/index.html" },
+    { "source": "/ludonova/api/:path*", "destination": "/api/:path*" },
+    { "source": "/ludonova/:path*", "destination": "/:path*" }
+  ],
   "headers": [
-    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    { "source": "/(ludonova/)?sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
   ]
 }

@@ -6,7 +6,7 @@ import { openAd, PAGE_BANNER, randomBanner, randomVideo, SKIP_AFTER_S, type Bann
 export function BannerStrip({ ad = PAGE_BANNER }: { ad?: BannerAd }) {
   return (
     <a className="ad-strip" style={{ ['--ac' as string]: ad.accent }} href="#" onClick={(e) => { e.preventDefault(); openAd(ad.href, 'banner'); }}>
-      <img src="/sarvimo-icon.png" alt="" />
+      <img src={`${import.meta.env.BASE_URL}sarvimo-icon.png`} alt="" />
       <span className="ad-txt"><b>{ad.title}</b><small>{ad.product} · {ad.sub}</small></span>
       <span className="ad-cta">{ad.cta} ›</span>
       <i className="ad-tag">Ad</i>
@@ -39,7 +39,7 @@ export function InterstitialAd({ ad, onDone }: { ad: Interstitial; onDone(): voi
     <div className="ad-ov">
       <div className="ad-card">
         <div className="ad-head">
-          <img src="/sarvimo-icon.png" alt="" />
+          <img src={`${import.meta.env.BASE_URL}sarvimo-icon.png`} alt="" />
           <b>{ad.ad.product}</b>
           <i className="ad-tag">Ad</i>
           <button className={`ad-skip ${canSkip ? 'on' : ''}`} disabled={!canSkip} onClick={onDone}>
@@ -57,7 +57,7 @@ export function InterstitialAd({ ad, onDone }: { ad: Interstitial; onDone(): voi
           </div>
         ) : (
           <div className="ad-poster" style={{ ['--ac' as string]: ad.ad.accent }} onClick={visit}>
-            <img src="/sarvimo-icon.png" alt="" />
+            <img src={`${import.meta.env.BASE_URL}sarvimo-icon.png`} alt="" />
             <h3>{ad.ad.title}</h3>
             <p>{ad.ad.sub}</p>
           </div>

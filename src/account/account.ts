@@ -29,7 +29,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export async function refresh() {
   if (!token()) { publish(null); return; }
   try {
-    const { user } = await api<{ user: Account }>('/api/me');
+    const { user } = await api<{ user: Account }>(`${import.meta.env.BASE_URL}api/me`);
     publish(user);
   } catch (e) {
     if ((e as { status?: number }).status === 401) { setToken(null); publish(null); }
@@ -37,7 +37,7 @@ export async function refresh() {
 }
 
 export async function signInWithGoogle(credential: string) {
-  const { token: t, user } = await api<{ token: string; user: Account }>('/api/auth', { method: 'POST', body: JSON.stringify({ credential }) });
+  const { token: t, user } = await api<{ token: string; user: Account }>(`${import.meta.env.BASE_URL}api/auth`, { method: 'POST', body: JSON.stringify({ credential }) });
   setToken(t);
   publish(user);
 }
@@ -45,7 +45,7 @@ export async function signInWithGoogle(credential: string) {
 export function signOut() { setToken(null); publish(null); (window as any).google?.accounts.id.disableAutoSelect(); }
 
 export async function goPremium() {
-  const { url } = await api<{ url: string }>('/api/checkout', { method: 'POST' });
+  const { url } = await api<{ url: string }>(`${import.meta.env.BASE_URL}api/checkout`, { method: 'POST' });
   location.href = url;
 }
 
