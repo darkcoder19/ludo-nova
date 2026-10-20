@@ -1,9 +1,9 @@
 {
-  "name": "LudoNova by Sarvimo",
-  "short_name": "LudoNova",
+  "name": "Sarvimo Games",
+  "short_name": "Sarvimo Games",
   "description": "Neon multiplayer Ludo with friends",
-  "start_url": "/ludonova/",
-  "scope": "/ludonova/",
+  "start_url": "/games/",
+  "scope": "/games/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b0820",
