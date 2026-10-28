@@ -102,3 +102,9 @@
   .screen.game:not(.shell-game) .arena { padding-bottom: 8px; }
   .screen.game:not(.shell-game) .arena { grid-template-columns: minmax(200px, 280px) 1fr minmax(200px, 280px); }
 }
+
+/* Join / bots drawers float above the page (and the ad banner) */
+.home .actions { position: relative; z-index: 6; }
+.home .drawer { z-index: 50; border: 1px solid rgba(255, 255, 255, 0.18); }
+
+.room-chip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 52vw; }

@@ -106,7 +106,7 @@ function bankrupt(g: DGame, pid: string, creditor: string | null) {
 function toJail(g: DGame, pid: string) {
   g.pos[pid] = JAIL; g.jail[pid] = 3; g.doubles = 0; g.again = false; g.phase = 'end';
   fx(g, { kind: 'jail', pid });
-  g.note = `🚔 ${g.names[pid]} goes to Tihar!`;
+  g.note = `💍 Rishta pakka! ${g.names[pid]} is off to Sasural 👵`;
 }
 
 function startMove(g: DGame, pid: string, to: number, jump = false, salary = true) {
@@ -143,7 +143,7 @@ function land(g: DGame) {
       if (g.pot > 0) { g.cash[pid] += g.pot; fx(g, { kind: 'pot', pid, amount: g.pot }); g.note = `☕ ${g.names[pid]} grabbed the Chai pot: ${fmt(g.pot)}!`; g.pot = 0; }
       else g.note = `☕ ${g.names[pid]} takes a chai break`;
       return;
-    case 'jail': g.note = `${g.names[pid]} is just visiting Tihar`; return;
+    case 'jail': g.note = `${g.names[pid]} is just visiting Sasural`; return;
     default: g.note = `${g.names[pid]} is at Shuruaat`;
   }
 }
@@ -266,7 +266,7 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
       case 'skip': if (g.phase !== 'roll') return null; g.note = `⏰ ${g.names[me]} ran out of time`; g.again = false; endTurn(g); g.rollId++; return g;
       case 'bail':
         if (g.phase !== 'roll' || !g.jail[me] || g.cash[me] < BAIL) return null;
-        g.cash[me] -= BAIL; g.pot += BAIL; g.jail[me] = 0; fx(g, { kind: 'pay', pid: me, amount: BAIL }); g.note = `${g.names[me]} paid bail`; return g;
+        g.cash[me] -= BAIL; g.pot += BAIL; g.jail[me] = 0; fx(g, { kind: 'pay', pid: me, amount: BAIL }); g.note = `${g.names[me]} gave Saasu-ma shagun and escaped Sasural`; return g;
       case 'jugaad':
         if (g.phase !== 'roll' || !g.jail[me] || !g.jugaad[me]) return null;
         g.jugaad[me]--; g.jail[me] = 0; g.note = `${g.names[me]} used a Jugaad card 😎`; return g;
@@ -278,11 +278,11 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
         if (g.jail[me]) {
           if (dbl) g.jail[me] = 0;
           else if (--g.jail[me] === 0) pay(g, me, 'pot', BAIL);
-          else { g.phase = 'end'; g.note = `${g.names[me]} rolled ${d[0]}+${d[1]} — still in Tihar`; return g; }
+          else { g.phase = 'end'; g.note = `${g.names[me]} rolled ${d[0]}+${d[1]} — still stuck at Sasural 👵`; return g; }
           g.again = false;
         } else if (dbl) {
           g.doubles++;
-          if (g.doubles === 3) { toJail(g, me); g.note = `Three doubles! ${g.names[me]} is arrested 🚔`; return g; }
+          if (g.doubles === 3) { toJail(g, me); g.note = `Three doubles! Rishta pakka — ${g.names[me]} is off to Sasural 💍`; return g; }
           g.again = true;
         } else g.again = false;
         g.note = `${g.names[me]} rolled ${d[0]} + ${d[1]}${dbl ? ' — doubles!' : ''}`;

@@ -11,10 +11,8 @@ import { GAMES, gameUrl, type GameInfo } from './games';
 /** sarvimo.com/games — the game picker. */
 export function Hub() {
   const me = useAccount();
-  const [all, setAll] = useState(false);
   const [admin, setAdmin] = useState(() => new URLSearchParams(location.search).has('admin'));
   if (admin && me?.admin) return <AdminDashboard onClose={() => { setAdmin(false); history.replaceState(null, '', location.pathname); }} />;
-  const shown = all ? GAMES : GAMES.slice(0, 2);
   return (
     <div className="screen hub">
       <Backdrop />
@@ -30,11 +28,11 @@ export function Hub() {
 
       <div className="hub-row">
         <b>🎮 Games</b>
-        <button className="btn ghost xs" onClick={() => { sfx.tap(); setAll(!all); }}>{all ? 'Show less' : `Show all (${GAMES.length})`}</button>
+        <span className="dim small">{GAMES.length} games · all free</span>
       </div>
 
       <section className="gcards">
-        {shown.map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
+        {GAMES.map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
       </section>
 
       {adsEnabled() && <BannerStrip />}

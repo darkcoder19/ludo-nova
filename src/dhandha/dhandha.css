@@ -159,3 +159,25 @@
 .btn.sell { background: linear-gradient(135deg, #1b1035, #3a2a8a); color: #ffe08a; }
 
 .dk-sheet { max-width: 520px; margin: 0 auto; }
+
+/* ---------- big tiles: zoomed board + controls dock ---------- */
+.dk-stage { position: relative; flex: 1; min-height: 0; display: flex; }
+.dk-stage .dk-scroll { flex: 1; }
+.dk-stage .zoom-btn { position: absolute; left: auto; right: 8px; top: 8px; bottom: auto; z-index: 8; background: rgba(10, 6, 30, 0.75); border: 1px solid var(--line); }
+.dk-scroll.zoomed .dk-board { width: calc(min(100cqw, 100cqh) * 1.8); height: calc(min(100cqw, 100cqh) * 1.8); }
+.dk-scroll.zoomed { scroll-behavior: smooth; }
+.dk-dock { flex: none; display: grid; grid-template-columns: auto 1fr; grid-template-areas: 'dice note' 'dice act'; align-items: center; gap: 4px 12px;
+  padding: 8px 76px 8px 6px; border-radius: 18px; background: var(--glass); border: 1px solid var(--line); }
+.dk-dock .dk-dice { grid-area: dice; transform: scale(0.72); margin: -14px -10px; }
+.dk-dock .dk-note { grid-area: note; font-size: 0.8rem; min-height: 0; max-width: none; text-align: left; }
+.dk-dock .dk-actions { grid-area: act; justify-content: flex-start; min-height: 0; gap: 6px; }
+.dk-dock .dk-actions .btn.sm { font-size: 0.82rem; padding: 8px 12px; }
+.dk-dock .dk-actions .dim { font-size: 0.8rem; }
+@media (max-width: 699px) {
+  .dk-players { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .dk-p { flex-direction: column; padding: 3px 2px; gap: 1px; text-align: center; border-radius: 12px; }
+  .dk-p.turn { transform: none; }
+  .dk-pinfo b { font-size: 0.66rem; }
+  .dk-pinfo .cash { font-size: 0.72rem; }
+  .dk-p .floater { right: 0; left: 0; text-align: center; font-size: 0.8rem; }
+}

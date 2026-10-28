@@ -39,7 +39,8 @@ interface Floater { id: number; pid: string; text: string; good: boolean }
 
 export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act }: GameProps<DGame, DAction>) {
   const [shown, setShown] = useState<Record<string, number>>(() => ({ ...game.pos }));
-  const [zoom, setZoom] = useState(false);
+  // Phones open zoomed in so tiles are big; the board follows whoever is playing.
+  const [zoom, setZoom] = useState(() => innerWidth < 700);
   const [peek, setPeek] = useState<number | null>(null);
   const [manage, setManage] = useState(false);
   const [floaters, setFloaters] = useState<Floater[]>([]);
@@ -114,6 +115,31 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const bySq = new Map<number, string[]>();
   game.order.filter((id) => !game.out.includes(id)).forEach((id) => { const s = shown[id] ?? 0; bySq.set(s, [...(bySq.get(s) ?? []), id]); });
 
+  const controls = (
+    <>
+      <div className="dk-dice">
+        <Dice value={game.dice[0]} rollId={game.rollId} color={color(cur)} ready={ready && game.phase === 'roll'} onRoll={() => { setSettled(false); act({ t: 'roll' }); }} onSettled={() => setSettled(true)} />
+        <Dice value={game.dice[1]} rollId={game.rollId} color={color(cur)} ready={ready && game.phase === 'roll'} onRoll={() => { setSettled(false); act({ t: 'roll' }); }} />
+      </div>
+      <div className="dk-note" key={game.note}>{game.note}</div>
+
+      <div className="dk-actions">
+        {!mine && <span className="dim">{name(cur)} is thinking…</span>}
+        {mine && game.phase === 'roll' && (<>
+          {myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 Cards ({myProps.length})</button>}
+          {jailed && game.jugaad[me] > 0 && <button className="btn glass sm" onClick={() => act({ t: 'jugaad' })}>😎 Jugaad card</button>}
+          {jailed && <button className="btn glass sm" disabled={game.cash[me] < BAIL} onClick={() => act({ t: 'bail' })}>Shagun to Saasu-ma {fmt(BAIL)}</button>}
+          <button className="btn primary sm" disabled={!settled} onClick={() => { setSettled(false); act({ t: 'roll' }); }}>🎲 Roll{jailed ? ' for doubles' : ''}</button>
+        </>)}
+        {mine && game.phase === 'end' && (<>
+          {myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 My cards ({myProps.length})</button>}
+          <button className="btn primary sm" onClick={() => act({ t: 'end' })}>{game.again ? '🎲 Roll again' : 'End turn ›'}</button>
+        </>)}
+        {mine && game.phase === 'moving' && <span className="dim">Moving…</span>}
+      </div>
+    </>
+  );
+
   return (
     <div className="dk">
       <div className="dk-players">
@@ -132,6 +158,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
         })}
       </div>
 
+      <div className="dk-stage">
+      <button className="zoom-btn" onClick={() => setZoom(!zoom)}>{zoom ? '⤢ Whole board' : '🔍 Big tiles'}</button>
       <div className={`dk-scroll ${zoom ? 'zoomed' : ''}`} ref={scroller}>
         <div className="dk-board">
           {BOARD.map((s, i) => {
@@ -160,26 +188,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               <span className="pill trend" style={{ ['--g' as string]: GROUPS[game.trending].color }}>🔥 {GROUPS[game.trending].name} rent ×2</span>
               <span className="pill pot">☕ Chai pot {fmt(game.pot)}</span>
             </div>
-            <div className="dk-dice">
-              <Dice value={game.dice[0]} rollId={game.rollId} color={color(cur)} ready={ready && game.phase === 'roll'} onRoll={() => { setSettled(false); act({ t: 'roll' }); }} onSettled={() => setSettled(true)} />
-              <Dice value={game.dice[1]} rollId={game.rollId} color={color(cur)} ready={ready && game.phase === 'roll'} onRoll={() => { setSettled(false); act({ t: 'roll' }); }} />
-            </div>
-            <div className="dk-note" key={game.note}>{game.note}</div>
-
-            <div className="dk-actions">
-              {!mine && <span className="dim">{name(cur)} is thinking…</span>}
-              {mine && game.phase === 'roll' && (<>
-                {myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 Cards ({myProps.length})</button>}
-                {jailed && game.jugaad[me] > 0 && <button className="btn glass sm" onClick={() => act({ t: 'jugaad' })}>😎 Jugaad card</button>}
-                {jailed && <button className="btn glass sm" disabled={game.cash[me] < BAIL} onClick={() => act({ t: 'bail' })}>Pay bail {fmt(BAIL)}</button>}
-                <button className="btn primary sm" disabled={!settled} onClick={() => { setSettled(false); act({ t: 'roll' }); }}>🎲 Roll{jailed ? ' for doubles' : ''}</button>
-              </>)}
-              {mine && game.phase === 'end' && (<>
-                {myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 My cards ({myProps.length})</button>}
-                <button className="btn primary sm" onClick={() => act({ t: 'end' })}>{game.again ? '🎲 Roll again' : 'End turn ›'}</button>
-              </>)}
-              {mine && game.phase === 'moving' && <span className="dim">Moving…</span>}
-            </div>
+            {!zoom && controls}
           </div>
 
           {/* tokens */}
@@ -194,7 +203,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
         </div>
       </div>
 
-      <button className="zoom-btn" onClick={() => setZoom(!zoom)}>{zoom ? '⤡ Fit' : '🔍 Zoom'}</button>
+      </div>
+      {zoom && <div className="dk-dock">{controls}</div>}
 
       {mine && game.phase === 'buy' && sq.price && (
         <div className="dk-sheet">
@@ -285,10 +295,10 @@ function Deed({ i, game, name }: { i: number; game: DGame; name(pid: string): st
       {s.kind === 'utility' && <p>Rent is 40× the dice, or 100× if you own both boards.</p>}
       {s.tax && <p>Pay {fmt(s.tax)} into the Chai pot.</p>}
       {s.kind === 'chai' && <p>Land here to grab every rupee in the Chai pot: {fmt(game.pot)}.</p>}
-      {s.kind === 'police' && <p>Straight to Tihar. Do not pass Shuruaat.</p>}
+      {s.kind === 'police' && <p>Your rishta is fixed! Go straight to Sasural. Do not pass Shuruaat.</p>}
       {(s.kind === 'kismat' || s.kind === 'parivaar') && <p>Draw a {s.name} card. Could be shagun, could be a challan.</p>}
       {s.kind === 'start' && <p>Collect ₹2,000 salary every time you pass.</p>}
-      {s.kind === 'jail' && <p>Roll doubles, pay ₹500 bail, or use a Jugaad card to get out.</p>}
+      {s.kind === 'jail' && <p>Stuck with the in-laws! Roll doubles, give Saasu-ma ₹500 shagun, or use a Jugaad card to escape.</p>}
       {s.price && <div className="deed-foot">{o ? <>Owned by <b>{name(o)}</b>{game.mort[i] && ' · mortgaged'}</> : <>Price <b>{fmt(s.price)}</b></>}{g && s.group === game.trending && <span className="fire"> 🔥 trending</span>}</div>}
       {g && <div className="deed-set">{groupSquares(s.group!).map((k) => <span key={k} style={{ background: game.owner[k] ? '#fff' : 'transparent' }}>{BOARD[k].short}</span>)}</div>}
     </div>

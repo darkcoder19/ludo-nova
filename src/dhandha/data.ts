@@ -39,7 +39,7 @@ export const BOARD: Square[] = [
   { kind: 'kismat', name: 'Kismat', short: 'Kismat', icon: '🎲' },
   city('Indore', 'Indore', 1, 1000, 60),
   city('Nagpur', 'Nagpur', 1, 1200, 80),
-  { kind: 'jail', name: 'Tihar Jail', short: 'Jail', icon: '🚔' },
+  { kind: 'jail', name: 'Sasural', short: 'Sasural', icon: '👵' },
   city('Jodhpur', 'Jodhpur', 2, 1400, 100),
   { kind: 'utility', name: 'Bijli Board', short: 'Bijli', price: 1500, icon: '⚡' },
   city('Udaipur', 'Udaipur', 2, 1400, 100),
@@ -59,7 +59,7 @@ export const BOARD: Square[] = [
   city('Surat', 'Surat', 5, 2600, 220),
   { kind: 'utility', name: 'Jal Board', short: 'Jal', price: 1500, icon: '💧' },
   city('Ahmedabad', 'Ahmedabad', 5, 2800, 240),
-  { kind: 'police', name: 'Police Pakdo!', short: 'Police!', icon: '👮' },
+  { kind: 'police', name: 'Rishta Pakka!', short: 'Rishta Pakka', icon: '💍' },
   city('Kochi', 'Kochi', 6, 3000, 260),
   city('Chennai', 'Chennai', 6, 3000, 260),
   { kind: 'parivaar', name: 'Parivaar', short: 'Parivaar', icon: '👪' },
@@ -73,7 +73,7 @@ export const BOARD: Square[] = [
 
 export const SALARY = 2000;
 export const START_CASH = 15000;
-export const BAIL = 500;
+export const BAIL = 500; // shagun for Saasu-ma to leave Sasural early
 export const JAIL = 10;
 export const MAX_BUILD = 5; // 3 houses, then a hotel, then a villa
 
@@ -104,8 +104,8 @@ export const CARDS: Card[] = [
   { deck: 'kismat', title: 'Traffic challan', text: 'No helmet on the Activa. Pay ₹300.', fx: { t: 'cash', amount: -300 } },
   { deck: 'kismat', title: 'Mumbai calling', text: 'Big meeting at Nariman Point. Go to Mumbai.', fx: { t: 'goto', sq: 39 } },
   { deck: 'kismat', title: 'Wrong train!', text: 'Boarded the wrong platform. Go back 3 squares.', fx: { t: 'back', n: 3 } },
-  { deck: 'kismat', title: 'Caught!', text: 'Ticketless travel on Rajdhani. Go straight to Tihar.', fx: { t: 'jail' } },
-  { deck: 'kismat', title: 'Jugaad card', text: 'Uncle in the police. Keep this to get out of jail free.', fx: { t: 'free' } },
+  { deck: 'kismat', title: 'Rishta aaya!', text: 'Mummy fixed a rishta for you. Go straight to Sasural.', fx: { t: 'jail' } },
+  { deck: 'kismat', title: 'Jugaad card', text: 'Your bestie fakes an urgent call. Keep this to escape Sasural free.', fx: { t: 'free' } },
   { deck: 'kismat', title: 'Startup funded', text: 'Your chai startup raised a seed round. Collect ₹1,500.', fx: { t: 'cash', amount: 1500 } },
   { deck: 'kismat', title: 'Back to basics', text: 'Advance to Shuruaat. Collect ₹2,000.', fx: { t: 'goto', sq: 0 } },
   { deck: 'kismat', title: 'Monsoon damage', text: 'Pay ₹250 per house and ₹1,000 per hotel or villa for repairs.', fx: { t: 'repairs', perHouse: 250, perMall: 1000 } },
@@ -117,8 +117,8 @@ export const CARDS: Card[] = [
   { deck: 'parivaar', title: 'Doctor visit', text: 'Too many samosas. Pay ₹500.', fx: { t: 'cash', amount: -500 } },
   { deck: 'parivaar', title: 'Bengaluru trip', text: 'Family trip to Bengaluru. Advance there.', fx: { t: 'goto', sq: 37 } },
   { deck: 'parivaar', title: 'Tax refund', text: 'ITR refund arrived. Collect ₹800.', fx: { t: 'cash', amount: 800 } },
-  { deck: 'parivaar', title: 'Jugaad card', text: 'Neighbour is the jailer. Keep this to get out of jail free.', fx: { t: 'free' } },
-  { deck: 'parivaar', title: 'Pandit ji says', text: 'Bad stars! Go directly to Tihar.', fx: { t: 'jail' } },
+  { deck: 'parivaar', title: 'Jugaad card', text: 'Didi covers for you. Keep this to escape Sasural free.', fx: { t: 'free' } },
+  { deck: 'parivaar', title: 'Pandit ji says', text: 'Shubh muhurat! Go directly to Sasural.', fx: { t: 'jail' } },
   { deck: 'parivaar', title: 'Kitty party win', text: 'You won the kitty pot. Collect ₹500.', fx: { t: 'cash', amount: 500 } },
 ];
 

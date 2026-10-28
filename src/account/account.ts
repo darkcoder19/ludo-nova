@@ -22,7 +22,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const t = token();
   const res = await fetch(path, { ...init, headers: { 'content-type': 'application/json', ...(t ? { authorization: `Bearer ${t}` } : {}), ...init.headers } });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error || `HTTP ${res.status}`), { status: res.status });
+  if (!res.ok) {
+    const msg = res.status >= 500 ? 'Sign-in is down for a moment. Games still work — please try again later.' : body.error || `Something went wrong (${res.status})`;
+    throw Object.assign(new Error(msg), { status: res.status });
+  }
   return body as T;
 }
 
