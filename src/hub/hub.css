@@ -1,25 +1,68 @@
 /* ---------- Sarvimo Games hub ---------- */
+.screen.hub { gap: 14px; }
 .hub-head { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
-.hub-head img { width: 56px; height: 56px; border-radius: 16px; background: #fff; padding: 5px; }
+.hub-head img { width: 56px; height: 56px; border-radius: 16px; background: #fff; padding: 5px; box-shadow: 0 10px 30px rgba(43, 123, 255, 0.35); }
 .hub-head h1 { margin: 0; font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; line-height: 1; }
 .hub-head h1 em { font-style: normal; background: linear-gradient(90deg, #ffe04a, #ff4fd8); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hub-head p { margin: 6px 0 0; color: var(--dim); font-weight: 600; font-size: 0.9rem; }
 .hub-row { display: flex; align-items: center; justify-content: space-between; font-size: 1.1rem; }
-.tiles { display: grid; grid-template-columns: 1fr; gap: 14px; }
-@media (min-width: 620px) { .tiles { grid-template-columns: 1fr 1fr; } }
-.tile { display: flex; gap: 14px; align-items: stretch; padding: 12px; border-radius: 22px; text-decoration: none; color: var(--ink); position: relative; overflow: hidden;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--a) 30%, #150f36), color-mix(in srgb, var(--b) 22%, #150f36)); border: 1px solid color-mix(in srgb, var(--a) 50%, transparent);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); animation: pop-in 0.4s backwards; transition: transform 0.15s; }
-.tile:active { transform: scale(0.98); }
-.tile:hover .tile-art svg { transform: rotate(-6deg) scale(1.06); }
-.tile-art { flex: none; width: 104px; height: 104px; border-radius: 18px; background: rgba(255, 255, 255, 0.92); padding: 8px; display: grid; place-items: center; }
-.tile-art svg { width: 100%; height: 100%; transition: transform 0.25s; }
-.tile-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.tile-body small { color: var(--dim); font-weight: 800; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
-.tile-body b { font-size: 1.4rem; font-weight: 900; }
-.tile-body p { margin: 2px 0 0; font-size: 0.85rem; color: #d9d4f5; }
-.tile-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--dim); font-weight: 700; padding-top: 8px; }
-.tile-foot .play { color: #fff; background: var(--a); padding: 5px 12px; border-radius: 10px; font-weight: 900; }
-.tile.soon .play { background: rgba(255, 255, 255, 0.12); color: var(--dim); }
-.tile.big { flex-direction: column; align-items: center; text-align: center; }
-.tile.big .tile-art { width: 180px; height: 180px; }
+
+.gcards { display: grid; grid-template-columns: 1fr; gap: 18px; perspective: 900px; }
+@media (min-width: 640px) { .gcards { grid-template-columns: 1fr 1fr; } }
+
+.gcard { --rx: 0deg; --ry: 0deg; --gx: 50%; --gy: 0%; position: relative; display: block; text-decoration: none; color: #fff; border-radius: 26px; overflow: hidden;
+  background: linear-gradient(150deg, var(--a), var(--b)); transform: rotateX(var(--rx)) rotateY(var(--ry)); transform-style: preserve-3d;
+  transition: transform 0.18s ease-out, box-shadow 0.25s; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  animation: card-in 0.6s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; }
+@keyframes card-in { from { opacity: 0; transform: translateY(40px) rotateX(20deg) scale(0.92); } }
+.gcard:hover { box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55), 0 0 40px color-mix(in srgb, var(--a) 50%, transparent); }
+.gcard.going { animation: card-go 0.42s ease-in forwards; }
+@keyframes card-go { to { transform: scale(1.08); opacity: 0; filter: brightness(1.6); } }
+.gcard::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.35), transparent 50%),
+  repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 14px, transparent 14px 28px); pointer-events: none; }
+.gc-glare { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at var(--gx) var(--gy), rgba(255, 255, 255, 0.35), transparent 45%); mix-blend-mode: overlay; }
+.gc-scene { height: 150px; display: grid; place-items: center; background: rgba(10, 6, 30, 0.28); transform: translateZ(30px); }
+.scene { width: 100%; height: 100%; overflow: visible; }
+.gc-body { position: relative; padding: 14px 16px 16px; background: linear-gradient(180deg, rgba(10, 6, 30, 0.15), rgba(10, 6, 30, 0.55)); transform: translateZ(20px); }
+.gc-tags { display: flex; gap: 6px; }
+.gc-tags span { font-size: 0.66rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.2); }
+.gc-tags .live { background: rgba(0, 0, 0, 0.3); color: #7dffb6; animation: breathe 1.6s ease-in-out infinite; }
+.gcard h2 { margin: 6px 0 2px; font-size: 2rem; font-weight: 900; letter-spacing: -0.03em; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.25); }
+.gcard p { margin: 0; font-weight: 600; opacity: 0.92; font-size: 0.92rem; }
+.gc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 0.78rem; font-weight: 800; opacity: 0.95; }
+.gc-play { position: relative; overflow: hidden; background: #fff; color: #1b1035; padding: 8px 16px; border-radius: 14px; font-size: 0.95rem; font-weight: 900; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); }
+.gc-play i { font-style: normal; display: inline-block; animation: nudge-r 1.2s ease-in-out infinite; }
+@keyframes nudge-r { 50% { transform: translateX(4px); } }
+.gc-play::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.8) 50%, transparent 70%); transform: translateX(-120%); animation: ad-shine 2.6s ease-in-out infinite; }
+.gc-peek { position: absolute; right: 12px; top: 112px; display: flex; align-items: flex-end; gap: 0; transform: translateZ(50px); filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4)); pointer-events: none; }
+.gc-peek .avatar-svg:nth-child(2) { margin-left: -14px; }
+
+/* LudoNova scene */
+.ln-board { transform-origin: 100px 50px; animation: lnspin 9s linear infinite; }
+@keyframes lnspin { to { transform: rotate(360deg); } }
+.ln-die { transform-box: fill-box; transform-origin: center; }
+.ln-die.d1 { animation: diehop 1.4s ease-in-out infinite; }
+.ln-die.d2 { animation: diehop 1.4s 0.7s ease-in-out infinite; }
+@keyframes diehop { 0%, 100% { transform: translateY(0) rotate(0); } 40% { transform: translateY(-22px) rotate(180deg); } 60% { transform: translateY(0) rotate(360deg); } }
+.ln-spark { animation: sparkle 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ln-spark.s1 { animation-delay: 0.5s; } .ln-spark.s2 { animation-delay: 1s; }
+@keyframes sparkle { 50% { transform: scale(1.8); opacity: 0.4; } }
+
+/* SeedhiRush scene */
+.sr-snake { stroke-dasharray: 8 0; animation: srwiggle 1.6s ease-in-out infinite alternate; transform-origin: 140px 54px; }
+@keyframes srwiggle { to { transform: skewX(-6deg) translateX(3px); } }
+.sr-head { animation: srhead 1.6s ease-in-out infinite alternate; transform-origin: 150px 14px; }
+@keyframes srhead { to { transform: translate(4px, 2px) rotate(-8deg); } }
+.sr-tongue { animation: tongue 0.5s steps(2) infinite; }
+.sr-climber { animation: climb 2.4s ease-in-out infinite; }
+@keyframes climb { 0% { transform: translate(-12px, 28px); } 70% { transform: translate(8px, -44px); } 100% { transform: translate(8px, -44px); opacity: 0; } }
+
+/* DhandhaKing scene */
+.bld { transform-box: fill-box; transform-origin: bottom; animation: bld 2.6s ease-in-out infinite alternate; }
+.bld.b1 { animation-delay: 0.2s; } .bld.b2 { animation-delay: 0.5s; } .bld.b3 { animation-delay: 0.1s; } .bld.b4 { animation-delay: 0.7s; } .bld.b5 { animation-delay: 0.35s; }
+@keyframes bld { from { transform: scaleY(0.7); } to { transform: scaleY(1); } }
+.coin { animation: coinfall 2.4s linear infinite; }
+.coin.c1 { animation-delay: 0.5s; } .coin.c2 { animation-delay: 1.1s; } .coin.c3 { animation-delay: 1.6s; } .coin.c4 { animation-delay: 2s; }
+@keyframes coinfall { from { transform: translateY(0) rotate(0); } to { transform: translateY(140px) rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) { .gcard * { animation: none !important; } }

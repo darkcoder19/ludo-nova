@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import SeedhiApp from './seedhi';
+import DhandhaApp from './dhandha';
 import { ComingSoon, Hub } from './hub/Hub';
 import { currentSlug, GAMES } from './hub/games';
 import './hub/hub.css';
@@ -14,9 +15,12 @@ function Root() {
   const slug = currentSlug();
   const game = GAMES.find((g) => g.slug === slug);
   document.title = game ? `${game.name} · Sarvimo Games` : 'Sarvimo Games';
+  // Each game installs as its own home-screen app.
+  document.querySelector('link[rel=manifest]')?.setAttribute('href', `${import.meta.env.BASE_URL}${game ? `manifest-${game.slug}` : 'manifest'}.webmanifest`);
   if (!game) return <Hub />;
   if (game.slug === 'ludonova') return <App />;
   if (game.slug === 'seedhirush') return <SeedhiApp />;
+  if (game.slug === 'dhandhaking') return <DhandhaApp />;
   return <ComingSoon g={game} />;
 }
 

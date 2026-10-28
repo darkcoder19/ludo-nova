@@ -7,7 +7,10 @@ export const env = (k: string) => {
   return v;
 };
 
-export const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'yashmaheshwari2002@gmail.com').toLowerCase();
+// Comma-separated list in ADMIN_EMAILS (ADMIN_EMAIL still accepted).
+export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || 'yashmaheshwari2002@gmail.com,support@sarvimo.com')
+  .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+for (const e of ['yashmaheshwari2002@gmail.com', 'support@sarvimo.com']) if (!ADMIN_EMAILS.includes(e)) ADMIN_EMAILS.push(e);
 
 export const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -75,7 +78,7 @@ export async function currentUser(req: Request): Promise<UserRow | null> {
   return rows[0] ?? null;
 }
 
-export const isAdmin = (u: UserRow | null) => !!u && u.email.toLowerCase() === ADMIN_EMAIL;
+export const isAdmin = (u: UserRow | null) => !!u && ADMIN_EMAILS.includes(u.email.toLowerCase());
 
 export const publicUser = (u: UserRow) => ({
   id: u.id, email: u.email, name: u.name, picture: u.picture, plan: u.plan, admin: isAdmin(u),
