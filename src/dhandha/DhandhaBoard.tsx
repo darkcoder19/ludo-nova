@@ -4,33 +4,70 @@ import { Dice } from '../components/Dice';
 import { buzz, sfx } from '../game/sound';
 import type { GameProps } from '../shared/GameShell';
 import { BAIL, BOARD, BUILD_LEVELS, GROUPS, MAX_BUILD, RENT_MULT, buildIcon, fmt } from './data';
+import { MONUMENTS, Monument } from './Monument';
 import { canBuild, groupSquares, netWorth, nextBuildCost, ownsGroup, rentFor, sellValue, type DAction, type DGame } from './rules';
 
-// Board is a 12×12-unit square: 1.5-unit corners, 1-unit edge squares.
-const C = 1.5, S = 12;
-/** Grid placement (1-based row/col in an 11×11 CSS grid) for square i. */
-function cell(i: number): { r: number; c: number; side: 'b' | 'l' | 't' | 'r' | 'corner' } {
-  if (i === 0) return { r: 11, c: 11, side: 'corner' };
-  if (i < 10) return { r: 11, c: 11 - i, side: 'b' };
-  if (i === 10) return { r: 11, c: 1, side: 'corner' };
-  if (i < 20) return { r: 11 - (i - 10), c: 1, side: 'l' };
-  if (i === 20) return { r: 1, c: 1, side: 'corner' };
-  if (i < 30) return { r: 1, c: 1 + (i - 20), side: 't' };
-  if (i === 30) return { r: 1, c: 11, side: 'corner' };
-  return { r: 1 + (i - 30), c: 11, side: 'r' };
+// The 40 squares run round the edge of a grid: n squares along top/bottom, m down each side.
+// Square boards (PC) use 9/9; tall phone screens use 6/12 so tiles stay big with no scrolling.
+export interface Geo { n: number; m: number; K: number }
+const SQUARE: Geo = { n: 9, m: 9, K: 1.5 };
+const TALL: Geo = { n: 6, m: 12, K: 1.6 };
+type Side = 'b' | 'l' | 't' | 'r' | 'corner';
+
+/** Grid placement (1-based row/col) for square i. */
+function cell(i: number, { n, m }: Geo): { r: number; c: number; side: Side } {
+  const R = m + 2, C = n + 2, c1 = n + 1, c2 = n + m + 2, c3 = 2 * n + m + 3;
+  if (i === 0) return { r: R, c: C, side: 'corner' };
+  if (i < c1) return { r: R, c: C - i, side: 'b' };
+  if (i === c1) return { r: R, c: 1, side: 'corner' };
+  if (i < c2) return { r: R - (i - c1), c: 1, side: 'l' };
+  if (i === c2) return { r: 1, c: 1, side: 'corner' };
+  if (i < c3) return { r: 1, c: 1 + (i - c2), side: 't' };
+  if (i === c3) return { r: 1, c: C, side: 'corner' };
+  return { r: 1 + (i - c3), c: C, side: 'r' };
 }
-const unit = (k: number) => (k === 1 ? C / 2 : k === 11 ? S - C / 2 : C + (k - 2) + 0.5);
-/** Centre of square i in % of the board. */
-const centre = (i: number): [number, number] => { const { r, c } = cell(i); return [(unit(c) / S) * 100, (unit(r) / S) * 100]; };
+/** Centre of grid track k (1-based) as a fraction, given 1fr tracks between two K-fr corners. */
+const track = (k: number, count: number, K: number) => {
+  const total = 2 * K + count;
+  return (k === 1 ? K / 2 : k === count + 2 ? total - K / 2 : K + (k - 2) + 0.5) / total;
+};
+const centre = (i: number, g: Geo): [number, number] => { const { r, c } = cell(i, g); return [track(c, g.n, g.K) * 100, track(r, g.m, g.K) * 100]; };
 /** Where tokens park: on the tile's inner edge, so its name and price stay readable. */
-function park(i: number, k: number, n: number): [number, number] {
-  const [x, y] = centre(i), { side } = cell(i), u = 100 / S;
-  const spread = (k - (n - 1) / 2) * 1.9;
-  if (side === 'b') return [x + spread, y - 0.78 * u];
-  if (side === 't') return [x + spread, y + 0.78 * u];
-  if (side === 'l') return [x + 0.82 * u, y + spread];
-  if (side === 'r') return [x - 0.82 * u, y + spread];
-  return [x + (x < 50 ? 1 : -1) * 0.8 * u + spread, y + (y < 50 ? 1 : -1) * 0.8 * u];
+function park(i: number, k: number, cnt: number, g: Geo): [number, number] {
+  const [x, y] = centre(i, g), { side } = cell(i, g);
+  const ux = 100 / (2 * g.K + g.n), uy = 100 / (2 * g.K + g.m);
+  const spreadX = (k - (cnt - 1) / 2) * ux * 0.32, spreadY = (k - (cnt - 1) / 2) * uy * 0.32;
+  if (side === 'b') return [x + spreadX, y - 0.55 * g.K * uy];
+  if (side === 't') return [x + spreadX, y + 0.55 * g.K * uy];
+  if (side === 'l') return [x + 0.55 * g.K * ux, y + spreadY];
+  if (side === 'r') return [x - 0.55 * g.K * ux, y + spreadY];
+  return [x + (x < 50 ? 1 : -1) * 0.5 * g.K * ux + spreadX, y + (y < 50 ? 1 : -1) * 0.5 * g.K * uy];
+}
+
+/** Picks the layout and pixel size that fill the space without scrolling. */
+function useBoardFit() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ geo: Geo; w: number; h: number }>({ geo: SQUARE, w: 300, h: 300 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (h / w > 1.3) {
+        // Tall screen: fill the width and as much height as keeps tiles at most 1.6× taller than wide.
+        const geo = TALL, unitW = w / (2 * geo.K + geo.n);
+        setFit({ geo, w, h: Math.min(h, unitW * 1.6 * (2 * geo.K + geo.m)) });
+      } else {
+        const side = Math.min(w, h);
+        setFit({ geo: SQUARE, w: side, h: side });
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, ...fit };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -39,8 +76,8 @@ interface Floater { id: number; pid: string; text: string; good: boolean }
 
 export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act }: GameProps<DGame, DAction>) {
   const [shown, setShown] = useState<Record<string, number>>(() => ({ ...game.pos }));
-  // Phones open zoomed in so tiles are big; the board follows whoever is playing.
-  const [zoom, setZoom] = useState(() => innerWidth < 700);
+  const fit = useBoardFit();
+  const geo = fit.geo;
   const [peek, setPeek] = useState<number | null>(null);
   const [manage, setManage] = useState(false);
   const [floaters, setFloaters] = useState<Floater[]>([]);
@@ -48,7 +85,6 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const [settled, setSettled] = useState(true);
   const lastMove = useRef(game.move?.id ?? 0);
   const seenFx = useRef(new Set<number>());
-  const scroller = useRef<HTMLDivElement>(null);
 
   const cur = game.order[game.turn];
   const mine = cur === me;
@@ -97,13 +133,6 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
     }, game.move ? 0 : 400);
     return () => clearTimeout(t);
   }, [game.fx]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // In zoom mode keep the moving token in view.
-  useEffect(() => {
-    if (!zoom || !scroller.current) return;
-    const [x, y] = centre(shown[cur] ?? 0), el = scroller.current;
-    el.scrollTo({ left: (x / 100) * el.scrollWidth - el.clientWidth / 2, top: (y / 100) * el.scrollHeight - el.clientHeight / 2, behavior: 'smooth' });
-  }, [shown, zoom, cur]);
 
   const here = game.pos[cur];
   const sq = BOARD[here];
@@ -159,11 +188,10 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
       </div>
 
       <div className="dk-stage">
-      <button className="zoom-btn" onClick={() => setZoom(!zoom)}>{zoom ? '⤢ Whole board' : '🔍 Big tiles'}</button>
-      <div className={`dk-scroll ${zoom ? 'zoomed' : ''}`} ref={scroller}>
-        <div className="dk-board">
+      <div className="dk-scroll" ref={fit.ref}>
+        <div className="dk-board" style={{ width: fit.w, height: fit.h, ['--u' as string]: `${fit.w / (2 * geo.K + geo.n)}px`, gridTemplateColumns: `${geo.K}fr repeat(${geo.n}, 1fr) ${geo.K}fr`, gridTemplateRows: `${geo.K}fr repeat(${geo.m}, 1fr) ${geo.K}fr` }}>
           {BOARD.map((s, i) => {
-            const { r, c, side } = cell(i);
+            const { r, c, side } = cell(i, geo);
             const o = game.owner[i];
             const g = s.group != null ? GROUPS[s.group] : null;
             const trending = s.group === game.trending;
@@ -172,9 +200,9 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 style={{ gridRow: r, gridColumn: c, ['--g' as string]: g?.color ?? 'transparent', ['--o' as string]: o ? color(o) : 'transparent' }}
                 onClick={() => { sfx.tap(); setPeek(i); }}>
                 {g && <i className="bar">{game.build[i] > 0 && <em className={game.build[i] >= 4 ? 'mall' : ''}>{buildIcon(game.build[i])}</em>}</i>}
-                {s.icon && <span className="ic">{s.icon}</span>}
-                <span className="nm">{s.short}</span>
-                {s.price && !o && <span className="pr">{fmt(s.price)}</span>}
+                {s.kind === 'city' ? <Monument city={s.name} color={g!.color} className="tile-mon" /> : s.icon && <span className="ic">{s.icon}</span>}
+                <span className="tx"><span className="nm">{s.short}</span>
+                {s.price && !o && <span className="pr">{fmt(s.price)}</span>}</span>
                 {o && <span className="own" title={name(o)} />}
                 {trending && <span className="fire">🔥</span>}
               </button>
@@ -182,18 +210,18 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
           })}
 
           {/* centre */}
-          <div className="dk-centre">
+          <div className="dk-centre" style={{ gridRow: `2 / ${geo.m + 2}`, gridColumn: `2 / ${geo.n + 2}` }}>
             <div className="dk-brand"><b>Dhandha<em>King</em></b><small>Round {game.round}{game.maxRounds ? ` / ${game.maxRounds}` : ''}</small></div>
             <div className="dk-pills">
               <span className="pill trend" style={{ ['--g' as string]: GROUPS[game.trending].color }}>🔥 {GROUPS[game.trending].name} rent ×2</span>
               <span className="pill pot">☕ Chai pot {fmt(game.pot)}</span>
             </div>
-            {!zoom && controls}
+            {controls}
           </div>
 
           {/* tokens */}
           {[...bySq.entries()].flatMap(([s, ids]) => ids.map((id, k) => {
-            const [x, y] = park(s, k, ids.length);
+            const [x, y] = park(s, k, ids.length, geo);
             return (
               <div key={id} className={`dk-tok ${cur === id ? 'cur' : ''}`} style={{ left: `${x}%`, top: `${y}%`, ['--c' as string]: color(id) }}>
                 <Avatar id={avatarOf(id)} size={28} mood={mood(id)} hyped={cur === id} />
@@ -204,7 +232,6 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
       </div>
 
       </div>
-      {zoom && <div className="dk-dock">{controls}</div>}
 
       {mine && game.phase === 'buy' && sq.price && (
         <div className="dk-sheet">
@@ -249,7 +276,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 const can = mine && (game.phase === 'end' || game.phase === 'roll');
                 return (
                   <div key={i} className={`hcard ${game.mort[i] ? 'mort' : ''}`} style={{ ['--g' as string]: g?.color ?? '#9b6bff' }}>
-                    <div className="hc-top">{s.icon ?? '🏙️'}<b>{s.name}</b><small>{g?.name ?? (s.kind === 'train' ? 'Railway' : 'Utility')}</small></div>
+                    <div className="hc-top">{s.kind === 'city' ? <Monument city={s.name} color="#fff" className="hc-mon" /> : <span>{s.icon}</span>}<b>{s.name}</b><small>{s.kind === 'city' ? MONUMENTS[s.name]?.label : s.kind === 'train' ? 'Railway' : 'Utility'}</small></div>
                     <div className="hc-mid">
                       {g && <div className="hc-build">{game.build[i] ? buildIcon(game.build[i]) : '🟫'}<small>{BUILD_LEVELS[game.build[i]]}</small></div>}
                       <div className="hc-rent">Rent now <b>{fmt(rentFor(game, i, 7))}</b></div>
@@ -280,7 +307,7 @@ function Deed({ i, game, name }: { i: number; game: DGame; name(pid: string): st
   const base = s.rent ?? 0;
   return (
     <div className="deed" style={{ ['--g' as string]: g?.color ?? '#9b6bff' }}>
-      <div className="deed-top">{s.icon && <span>{s.icon}</span>}<b>{s.name}</b>{g && <small>{g.name}</small>}</div>
+      <div className="deed-top">{s.kind === 'city' ? <Monument city={s.name} color="#fff" className="deed-mon" /> : s.icon && <span>{s.icon}</span>}<b>{s.name}</b>{g && <small>{MONUMENTS[s.name]?.label} · {g.name}</small>}</div>
       {s.kind === 'city' && (
         <table>
           <tbody>

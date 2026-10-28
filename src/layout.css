@@ -108,3 +108,56 @@
 .home .drawer { z-index: 50; border: 1px solid rgba(255, 255, 255, 0.18); }
 
 .room-chip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 52vw; }
+.troll-top { flex: none; width: 38px; height: 38px; border-radius: 12px; font-size: 1.3rem; background: linear-gradient(135deg, #ff2d55, #9b6bff); box-shadow: 0 4px 14px rgba(255, 45, 85, 0.4); }
+.shell-game .note { padding-right: 0; }
+
+/* ---------- hub: all three cards fit, nothing clipped, no scrolling ---------- */
+.hub .gcards { flex: 0 1 auto; overflow: visible; margin: 0; padding: 0; grid-auto-rows: max-content; }
+.gcard { min-height: max-content; }
+@media (max-width: 639px) {
+  .hub .gcards { gap: 10px; }
+  .gcard { display: grid; grid-template-columns: 40% 1fr; border-radius: 20px; }
+  .hub .gc-scene { height: 100%; min-height: 128px; }
+  .gc-body { padding: 10px 12px; background: rgba(10, 6, 30, 0.35); display: flex; flex-direction: column; }
+  .gcard h2 { font-size: 1.35rem; margin: 4px 0 1px; }
+  .gcard p { font-size: 0.74rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .gc-tags .live { display: none; }
+  .gc-tags span { font-size: 0.58rem; }
+  .gc-foot { margin-top: auto; padding-top: 6px; font-size: 0.68rem; }
+  .gc-play { padding: 6px 12px; font-size: 0.85rem; }
+  .hub .gc-peek { top: auto; bottom: 6px; left: calc(40% - 50px); right: auto; transform: scale(0.7); transform-origin: bottom left; }
+  .hub-head h1 { font-size: 1.7rem; }
+  .hub-head p { font-size: 0.8rem; }
+}
+@media (min-width: 640px) {
+  .hub .gc-peek { top: calc(clamp(110px, 20dvh, 180px) - 40px); }
+}
+@media (max-width: 639px) {
+  .screen.hub { gap: 9px; }
+  .hub .gcards { flex: none; gap: 9px; }
+  .hub .gc-scene { min-height: 104px; }
+  .hub .acct .acct-pitch { display: none; }
+  .hub .acct { padding: 6px 10px; justify-content: center; }
+  .hub .foot { display: none; }
+  .hub .up-strip { padding: 6px 10px; }
+}
+
+/* short phones: trim secondary text so every home still fits one screen */
+@media (max-height: 740px) {
+  .screen.home, .screen.hub { gap: 7px; }
+  .hub-head p, .shell-home .shell-hero p, .hub .hub-row, .up-txt small, .acct-pitch small, .home .av small { display: none; }
+  .hub-head img { width: 42px; height: 42px; }
+  .hub .gc-scene { min-height: 82px; }
+  .hub .gcard p { -webkit-line-clamp: 1; }
+  .hub .gc-foot { padding-top: 2px; }
+  .shell-home .shell-art { width: 46px; height: 46px; border-radius: 14px; }
+  .shell-home .shell-hero h1 { font-size: 1.6rem; }
+  .home .av { width: 52px; padding: 3px 0; }
+  .home .av .avatar-svg { width: 40px; height: 40px; }
+  .acct { padding: 6px 10px; }
+  .up-strip { padding: 5px 10px; }
+  .up-crown { font-size: 1.2rem; }
+  .ad-strip, .game .ad-strip { min-height: 42px; padding: 3px 8px; }
+  .ad-strip img { width: 28px; height: 28px; }
+  .home .btn.big { padding: 10px 14px; font-size: 1rem; }
+}

@@ -321,6 +321,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
         <button className="btn ghost sm" onClick={() => { if (room.phase === 'over' || confirm('Leave this game?')) onLeave(); }}>✕</button>
         <div className="room-chip">{session.local ? `${cfg.name} · Practice` : `${cfg.name} · ${session.code}`}</div>
         <NoAdsChip />
+        <button className="troll-top" onClick={() => { sfx.tap(); setPicker(true); }}>😈</button>
         <button className="btn ghost sm" onClick={() => { setMuted(!muted); setMute(!muted); }}>{muted ? '🔇' : '🔊'}</button>
       </div>
       {status.st === 'reconnecting' && <div className="banner warn">{status.msg}</div>}
@@ -329,7 +330,6 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
         {urgent && <div className={`big-count ${mine ? 'mine' : ''}`} key={secs}>{secs}</div>}
         <cfg.Board {...props} />
       </div>
-      <button className="troll-open floating" onClick={() => { sfx.tap(); setPicker(true); }}>😈<small>Troll</small></button>
       {picker && <TrollPicker targets={room.players.filter((p) => p.id !== me).map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, color: color(p.id) }))}
         onClose={() => setPicker(false)} onPick={(m) => { setPicker(false); session.emote(m); }} />}
       {troll && (() => {
