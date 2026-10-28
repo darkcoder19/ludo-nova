@@ -75,10 +75,18 @@ export const SALARY = 2000;
 export const START_CASH = 15000;
 export const BAIL = 500;
 export const JAIL = 10;
-export const MAX_BUILD = 5; // 4 dukaan + 1 mall
+export const MAX_BUILD = 5; // 3 houses, then a hotel, then a villa
+
+/** What stands on a city with `n` buildings. */
+export const BUILD_LEVELS = ['Empty plot', '1 House', '2 Houses', '3 Houses', 'Hotel', 'Villa'];
+export const buildIcon = (n: number) => (n >= 5 ? '🏰' : n === 4 ? '🏨' : '🏠'.repeat(n));
+/** Building costs climb: houses at the group price, hotel ×1.5, villa ×2. */
+export const buildCost = (base: number, next: number) => (next === 5 ? base * 2 : next === 4 ? Math.round(base * 1.5) : base);
+/** The bank buys a city card back at 70% (20% if mortgaged), plus half of what was built. */
+export const SELL_RATE = 0.7;
 
 /** Rent multipliers for 0..5 buildings. */
-export const RENT_MULT = [1, 5, 15, 45, 62, 75];
+export const RENT_MULT = [1, 5, 15, 45, 65, 90];
 
 export type CardFx =
   | { t: 'cash'; amount: number }
@@ -100,7 +108,7 @@ export const CARDS: Card[] = [
   { deck: 'kismat', title: 'Jugaad card', text: 'Uncle in the police. Keep this to get out of jail free.', fx: { t: 'free' } },
   { deck: 'kismat', title: 'Startup funded', text: 'Your chai startup raised a seed round. Collect ₹1,500.', fx: { t: 'cash', amount: 1500 } },
   { deck: 'kismat', title: 'Back to basics', text: 'Advance to Shuruaat. Collect ₹2,000.', fx: { t: 'goto', sq: 0 } },
-  { deck: 'kismat', title: 'Monsoon damage', text: 'Pay ₹250 per dukaan and ₹1,000 per mall for repairs.', fx: { t: 'repairs', perHouse: 250, perMall: 1000 } },
+  { deck: 'kismat', title: 'Monsoon damage', text: 'Pay ₹250 per house and ₹1,000 per hotel or villa for repairs.', fx: { t: 'repairs', perHouse: 250, perMall: 1000 } },
   { deck: 'kismat', title: 'Shaadi season', text: 'Your cousin’s wedding. Pay every player ₹200 for gifts.', fx: { t: 'each', amount: -200 } },
   { deck: 'parivaar', title: 'Shagun mila!', text: 'Birthday shagun from everyone. Collect ₹300 from each player.', fx: { t: 'each', amount: 300 } },
   { deck: 'parivaar', title: 'Dadi’s savings', text: 'Dadi slipped you some cash. Collect ₹1,000.', fx: { t: 'cash', amount: 1000 } },

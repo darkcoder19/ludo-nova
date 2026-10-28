@@ -2,7 +2,7 @@ import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { BannerStrip } from '../ads/AdViews';
 import { adsEnabled } from '../ads/premium';
 import { useAccount } from '../account/account';
-import { AccountBar, AdminDashboard } from '../account/AccountViews';
+import { AccountBar, AdminDashboard, UpgradeStrip } from '../account/AccountViews';
 import { Avatar } from '../components/Avatar';
 import { Backdrop } from '../components/Home';
 import { sfx } from '../game/sound';
@@ -26,6 +26,7 @@ export function Hub() {
         </div>
       </header>
       <AccountBar onAdmin={() => setAdmin(true)} />
+      <UpgradeStrip />
 
       <div className="hub-row">
         <b>🎮 Games</b>

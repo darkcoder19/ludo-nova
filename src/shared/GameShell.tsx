@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { InterstitialAd, BannerStrip, randomInterstitial, type Interstitial } from '../ads/AdViews';
 import { adsEnabled } from '../ads/premium';
 import { useAccount } from '../account/account';
-import { AccountBar } from '../account/AccountViews';
+import { AccountBar, NoAdsChip, UpgradeStrip } from '../account/AccountViews';
 import { Avatar, charOf, type Mood } from '../components/Avatar';
 import { Confetti, type ConfettiHandle } from '../components/Confetti';
 import { Backdrop } from '../components/Home';
@@ -133,6 +133,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, error }: {
         <p>{cfg.tagline}</p>
       </header>
       <AccountBar onAdmin={() => (location.href = import.meta.env.BASE_URL + '?admin=1')} />
+      <UpgradeStrip />
       <section className="card profile">
         <div className="avatar-row">
           {AVATARS.map((a) => (
@@ -319,6 +320,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
       <div className="topbar">
         <button className="btn ghost sm" onClick={() => { if (room.phase === 'over' || confirm('Leave this game?')) onLeave(); }}>✕</button>
         <div className="room-chip">{session.local ? `${cfg.name} · Practice` : `${cfg.name} · ${session.code}`}</div>
+        <NoAdsChip />
         <button className="btn ghost sm" onClick={() => { setMuted(!muted); setMute(!muted); }}>{muted ? '🔇' : '🔊'}</button>
       </div>
       {status.st === 'reconnecting' && <div className="banner warn">{status.msg}</div>}

@@ -3,8 +3,8 @@ import { Avatar } from '../components/Avatar';
 import { Dice } from '../components/Dice';
 import { buzz, sfx } from '../game/sound';
 import type { GameProps } from '../shared/GameShell';
-import { BAIL, BOARD, GROUPS, MAX_BUILD, fmt } from './data';
-import { canBuild, groupSquares, netWorth, ownsGroup, rentFor, type DAction, type DGame } from './rules';
+import { BAIL, BOARD, BUILD_LEVELS, GROUPS, MAX_BUILD, RENT_MULT, buildIcon, fmt } from './data';
+import { canBuild, groupSquares, netWorth, nextBuildCost, ownsGroup, rentFor, sellValue, type DAction, type DGame } from './rules';
 
 // Board is a 12×12-unit square: 1.5-unit corners, 1-unit edge squares.
 const C = 1.5, S = 12;
@@ -22,6 +22,16 @@ function cell(i: number): { r: number; c: number; side: 'b' | 'l' | 't' | 'r' | 
 const unit = (k: number) => (k === 1 ? C / 2 : k === 11 ? S - C / 2 : C + (k - 2) + 0.5);
 /** Centre of square i in % of the board. */
 const centre = (i: number): [number, number] => { const { r, c } = cell(i); return [(unit(c) / S) * 100, (unit(r) / S) * 100]; };
+/** Where tokens park: on the tile's inner edge, so its name and price stay readable. */
+function park(i: number, k: number, n: number): [number, number] {
+  const [x, y] = centre(i), { side } = cell(i), u = 100 / S;
+  const spread = (k - (n - 1) / 2) * 1.9;
+  if (side === 'b') return [x + spread, y - 0.78 * u];
+  if (side === 't') return [x + spread, y + 0.78 * u];
+  if (side === 'l') return [x + 0.82 * u, y + spread];
+  if (side === 'r') return [x - 0.82 * u, y + spread];
+  return [x + (x < 50 ? 1 : -1) * 0.8 * u + spread, y + (y < 50 ? 1 : -1) * 0.8 * u];
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -77,6 +87,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
         if (f.kind === 'jail') { setMood(f.pid, 'sad', 5000); sfx.captured(); }
         if (f.kind === 'bankrupt') { setMood(f.pid, 'sad', 8000); sfx.lose(); buzz([100, 60, 200]); }
         if (f.kind === 'trend') sfx.turn();
+        if (f.kind === 'cardSold') { add.push({ id: f.id, pid: f.pid, text: `🏦 +${fmt(f.amount!)}`, good: true }); sfx.pop(); }
       }
       if (add.length) {
         setFloaters((l) => [...l, ...add]);
@@ -132,7 +143,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               <button key={i} className={`dk-sq ${side} k-${s.kind} ${o ? 'owned' : ''} ${game.mort[i] ? 'mort' : ''} ${trending ? 'trend' : ''} ${flash?.sq === i ? `flash-${flash.kind}` : ''} ${here === i ? 'here' : ''}`}
                 style={{ gridRow: r, gridColumn: c, ['--g' as string]: g?.color ?? 'transparent', ['--o' as string]: o ? color(o) : 'transparent' }}
                 onClick={() => { sfx.tap(); setPeek(i); }}>
-                {g && <i className="bar">{game.build[i] > 0 && (game.build[i] === MAX_BUILD ? <em className="mall">🏬</em> : <em>{'🏪'.repeat(game.build[i])}</em>)}</i>}
+                {g && <i className="bar">{game.build[i] > 0 && <em className={game.build[i] >= 4 ? 'mall' : ''}>{buildIcon(game.build[i])}</em>}</i>}
                 {s.icon && <span className="ic">{s.icon}</span>}
                 <span className="nm">{s.short}</span>
                 {s.price && !o && <span className="pr">{fmt(s.price)}</span>}
@@ -158,12 +169,13 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             <div className="dk-actions">
               {!mine && <span className="dim">{name(cur)} is thinking…</span>}
               {mine && game.phase === 'roll' && (<>
+                {myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 Cards ({myProps.length})</button>}
                 {jailed && game.jugaad[me] > 0 && <button className="btn glass sm" onClick={() => act({ t: 'jugaad' })}>😎 Jugaad card</button>}
                 {jailed && <button className="btn glass sm" disabled={game.cash[me] < BAIL} onClick={() => act({ t: 'bail' })}>Pay bail {fmt(BAIL)}</button>}
                 <button className="btn primary sm" disabled={!settled} onClick={() => { setSettled(false); act({ t: 'roll' }); }}>🎲 Roll{jailed ? ' for doubles' : ''}</button>
               </>)}
               {mine && game.phase === 'end' && (<>
-                {myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🏗️ My dhandha</button>}
+                {myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 My cards ({myProps.length})</button>}
                 <button className="btn primary sm" onClick={() => act({ t: 'end' })}>{game.again ? '🎲 Roll again' : 'End turn ›'}</button>
               </>)}
               {mine && game.phase === 'moving' && <span className="dim">Moving…</span>}
@@ -172,10 +184,9 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
 
           {/* tokens */}
           {[...bySq.entries()].flatMap(([s, ids]) => ids.map((id, k) => {
-            const [x, y] = centre(s);
-            const n = ids.length, dx = n > 1 ? (k % 2 ? 1.6 : -1.6) : 0, dy = n > 2 ? (k > 1 ? 1.6 : -1.6) : 0;
+            const [x, y] = park(s, k, ids.length);
             return (
-              <div key={id} className={`dk-tok ${cur === id ? 'cur' : ''}`} style={{ left: `calc(${x}% + ${dx}%)`, top: `calc(${y}% + ${dy}%)`, ['--c' as string]: color(id) }}>
+              <div key={id} className={`dk-tok ${cur === id ? 'cur' : ''}`} style={{ left: `${x}%`, top: `${y}%`, ['--c' as string]: color(id) }}>
                 <Avatar id={avatarOf(id)} size={28} mood={mood(id)} hyped={cur === id} />
               </div>
             );
@@ -218,22 +229,31 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
 
       {manage && (
         <div className="dk-manage" onClick={() => setManage(false)}>
-          <div className="card" onClick={(e) => e.stopPropagation()}>
-            <div className="row-between"><b>My dhandha · {fmt(game.cash[me])}</b><button className="btn ghost xs" onClick={() => setManage(false)}>✕</button></div>
-            <small className="dim">Own every city in a colour to build. 4 dukaan, then a mall. Net worth {fmt(netWorth(game, me))}</small>
-            <div className="mlist">
+          <div className="card hand" onClick={(e) => e.stopPropagation()}>
+            <div className="row-between"><b>🃏 My city cards · {fmt(game.cash[me])}</b><button className="btn ghost xs" onClick={() => setManage(false)}>✕</button></div>
+            <small className="dim">Own every city in a colour to build: 3 houses → hotel → villa. Net worth {fmt(netWorth(game, me))}</small>
+            <div className="hand-row">
               {myProps.map((i) => {
                 const s = BOARD[i], g = s.group != null ? GROUPS[s.group] : null;
                 const full = g && ownsGroup(game, me, s.group!);
+                const can = mine && (game.phase === 'end' || game.phase === 'roll');
                 return (
-                  <div key={i} className={`mrow ${game.mort[i] ? 'mort' : ''}`} style={{ ['--g' as string]: g?.color ?? '#888' }}>
-                    <i className="chip" />
-                    <div className="mi"><b>{s.name}</b><small>{game.mort[i] ? 'Mortgaged' : g ? `${game.build[i] === MAX_BUILD ? 'Mall' : `${game.build[i]} dukaan`} · rent ${fmt(rentFor(game, i, 7))}` : `rent ${fmt(rentFor(game, i, 7))}`}{g && !full ? ' · need full set' : ''}</small></div>
-                    {g && <button className="btn primary xs" disabled={!canBuild(game, me, i)} onClick={() => act({ t: 'build', sq: i })}>+ {fmt(g.build)}</button>}
-                    {game.build[i] > 0 && <button className="btn glass xs" onClick={() => act({ t: 'sell', sq: i })}>Sell</button>}
-                    {!game.build[i] && (game.mort[i]
-                      ? <button className="btn glass xs" onClick={() => act({ t: 'unmortgage', sq: i })}>Unmortgage</button>
-                      : <button className="btn ghost xs" onClick={() => act({ t: 'mortgage', sq: i })}>Mortgage</button>)}
+                  <div key={i} className={`hcard ${game.mort[i] ? 'mort' : ''}`} style={{ ['--g' as string]: g?.color ?? '#9b6bff' }}>
+                    <div className="hc-top">{s.icon ?? '🏙️'}<b>{s.name}</b><small>{g?.name ?? (s.kind === 'train' ? 'Railway' : 'Utility')}</small></div>
+                    <div className="hc-mid">
+                      {g && <div className="hc-build">{game.build[i] ? buildIcon(game.build[i]) : '🟫'}<small>{BUILD_LEVELS[game.build[i]]}</small></div>}
+                      <div className="hc-rent">Rent now <b>{fmt(rentFor(game, i, 7))}</b></div>
+                      {g && !full && <small className="dim">Collect all {groupSquares(s.group!).length} {g.name} cities to build</small>}
+                      {game.mort[i] && <small className="girvi">GIRVI · mortgaged</small>}
+                    </div>
+                    <div className="hc-actions">
+                      {g && game.build[i] < MAX_BUILD && <button className="btn primary xs" disabled={!can || !canBuild(game, me, i)} onClick={() => act({ t: 'build', sq: i })}>+ {BUILD_LEVELS[game.build[i] + 1].replace(/^d /, '')} {fmt(nextBuildCost(game, i))}</button>}
+                      {game.build[i] > 0 && <button className="btn glass xs" disabled={!can} onClick={() => act({ t: 'sell', sq: i })}>Sell building</button>}
+                      {!game.build[i] && (game.mort[i]
+                        ? <button className="btn glass xs" disabled={!can} onClick={() => act({ t: 'unmortgage', sq: i })}>Unmortgage</button>
+                        : <button className="btn ghost xs" disabled={!can} onClick={() => act({ t: 'mortgage', sq: i })}>Mortgage +{fmt(s.price! / 2)}</button>)}
+                      <button className="btn sell xs" disabled={!can} onClick={() => { if (confirm(`Sell the ${s.name} card to the bank for ${fmt(sellValue(game, i))}?`)) act({ t: 'sellCity', sq: i }); }}>🏦 Sell card {fmt(sellValue(game, i))}</button>
+                    </div>
                   </div>
                 );
               })}
@@ -256,9 +276,8 @@ function Deed({ i, game, name }: { i: number; game: DGame; name(pid: string): st
           <tbody>
             <tr><td>Rent</td><td>{fmt(base)}</td></tr>
             <tr><td>Full colour set</td><td>{fmt(base * 2)}</td></tr>
-            {[1, 2, 3, 4].map((n) => <tr key={n}><td>{'🏪'.repeat(n)}</td><td>{fmt(base * [1, 5, 15, 45, 62, 75][n])}</td></tr>)}
-            <tr><td>🏬 Mall</td><td>{fmt(base * 75)}</td></tr>
-            <tr><td>Build cost</td><td>{fmt(g!.build)}</td></tr>
+            {[1, 2, 3, 4, 5].map((n) => <tr key={n}><td>{buildIcon(n)} {BUILD_LEVELS[n]}</td><td>{fmt(base * RENT_MULT[n])}</td></tr>)}
+            <tr><td>House · Hotel · Villa cost</td><td>{fmt(g!.build)} · {fmt(g!.build * 1.5)} · {fmt(g!.build * 2)}</td></tr>
           </tbody>
         </table>
       )}

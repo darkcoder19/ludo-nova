@@ -21,7 +21,7 @@ export function DhandhaHero() {
 
 const cfg: ShellConfig<DGame, DAction> = {
   slug: 'dhandhaking', name: 'DhandhaKing', kind: 'Property tycoon', prefix: 'dhandhaking-v1-',
-  tagline: 'Buy Mumbai, build malls, bankrupt your friends.',
+  tagline: 'Buy Mumbai, build hotels and villas, bankrupt your friends.',
   rules: dhandhaRules, hero: <DhandhaHero />, Board: DhandhaBoard,
   options: [{ key: 'rounds', label: '⏳ Game length', choices: [
     { value: 'quick', label: '⚡ 15 rounds', hint: 'Richest wins · ~25 min' },

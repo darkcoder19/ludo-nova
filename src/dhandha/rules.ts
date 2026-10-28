@@ -1,8 +1,8 @@
 // DhandhaKing — property tycoon rules. Pure functions run by the room host.
 import { AUTO, type Rules, type Seat } from '../shared/room';
-import { BAIL, BOARD, CARDS, GROUPS, JAIL, MAX_BUILD, RENT_MULT, SALARY, START_CASH, fmt, type Card } from './data';
+import { BAIL, BOARD, BUILD_LEVELS, CARDS, GROUPS, JAIL, MAX_BUILD, RENT_MULT, SALARY, SELL_RATE, START_CASH, buildCost, fmt, type Card } from './data';
 
-export type FxKind = 'pay' | 'earn' | 'buy' | 'build' | 'sell' | 'jail' | 'bankrupt' | 'pot' | 'salary' | 'trend';
+export type FxKind = 'cardSold' | 'pay' | 'earn' | 'buy' | 'build' | 'sell' | 'jail' | 'bankrupt' | 'pot' | 'salary' | 'trend';
 export interface Fx { id: number; kind: FxKind; pid: string; other?: string; amount?: number; sq?: number }
 export interface DMove { id: number; pid: string; from: number; to: number; jump: boolean }
 
@@ -36,7 +36,7 @@ export interface DGame {
 export type DAction =
   | { t: 'roll' } | { t: 'buy' } | { t: 'pass' } | { t: 'cardOk' } | { t: 'end' } | { t: 'skip' } | { t: 'advance' }
   | { t: 'bail' } | { t: 'jugaad' }
-  | { t: 'build'; sq: number } | { t: 'sell'; sq: number } | { t: 'mortgage'; sq: number } | { t: 'unmortgage'; sq: number };
+  | { t: 'build'; sq: number } | { t: 'sell'; sq: number } | { t: 'sellCity'; sq: number } | { t: 'mortgage'; sq: number } | { t: 'unmortgage'; sq: number };
 
 let seq = 1;
 const clone = (g: DGame): DGame => ({ ...g, cash: { ...g.cash }, pos: { ...g.pos }, owner: [...g.owner], build: [...g.build], mort: [...g.mort], jail: { ...g.jail }, jugaad: { ...g.jugaad }, out: [...g.out], fx: [] });
@@ -72,7 +72,7 @@ export const netWorth = (g: DGame, pid: string) =>
 function raise(g: DGame, pid: string, need: number) {
   const mine = BOARD.map((_, i) => i).filter((i) => g.owner[i] === pid);
   for (const i of [...mine].sort((a, b) => g.build[b] - g.build[a])) {
-    while (g.cash[pid] < need && g.build[i] > 0) { g.build[i]--; g.cash[pid] += GROUPS[BOARD[i].group!].build / 2; }
+    while (g.cash[pid] < need && g.build[i] > 0) { g.cash[pid] += Math.round(buildCost(GROUPS[BOARD[i].group!].build, g.build[i]) / 2); g.build[i]--; }
   }
   for (const i of mine) if (g.cash[pid] < need && !g.mort[i] && g.build[i] === 0) { g.mort[i] = true; g.cash[pid] += BOARD[i].price! / 2; }
 }
@@ -164,7 +164,7 @@ function applyCard(g: DGame) {
     case 'free': g.jugaad[pid]++; break;
     case 'repairs': {
       let total = 0;
-      g.build.forEach((b, i) => { if (g.owner[i] === pid) total += b === MAX_BUILD ? f.perMall + 4 * f.perHouse : b * f.perHouse; });
+      g.build.forEach((b, i) => { if (g.owner[i] === pid) total += b >= 4 ? f.perMall + 3 * f.perHouse : b * f.perHouse; });
       pay(g, pid, 'pot', total);
       break;
     }
@@ -190,8 +190,19 @@ function endTurn(g: DGame) {
 const canBuild = (g: DGame, pid: string, sq: number) => {
   const s = BOARD[sq];
   return s.kind === 'city' && g.owner[sq] === pid && ownsGroup(g, pid, s.group!) && groupSquares(s.group!).every((i) => !g.mort[i])
-    && g.build[sq] < MAX_BUILD && g.cash[pid] >= GROUPS[s.group!].build;
+    && g.build[sq] < MAX_BUILD && g.cash[pid] >= nextBuildCost(g, sq);
 };
+
+/** Price of the next building on a city. */
+export const nextBuildCost = (g: DGame, sq: number) => buildCost(GROUPS[BOARD[sq].group!].build, g.build[sq] + 1);
+
+/** What the bank pays for a city card (and everything built on it). */
+export function sellValue(g: DGame, sq: number) {
+  const s = BOARD[sq];
+  let built = 0;
+  for (let n = 1; n <= g.build[sq]; n++) built += buildCost(GROUPS[s.group ?? 0]?.build ?? 0, n);
+  return Math.round(s.price! * (g.mort[sq] ? 0.2 : SELL_RATE) + built / 2);
+}
 
 export const isOver = (g: DGame) => active(g).length <= 1 || (g.maxRounds > 0 && g.round > g.maxRounds);
 
@@ -222,7 +233,7 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
       case 'buy': return g.cash[pid] - s.price! >= 1200 ? { t: 'buy' } : { t: 'pass' };
       case 'card': return { t: 'cardOk' };
       case 'end': {
-        const target = BOARD.map((_, i) => i).filter((i) => canBuild(g, pid, i) && g.cash[pid] - GROUPS[BOARD[i].group!].build > 3000)
+        const target = BOARD.map((_, i) => i).filter((i) => canBuild(g, pid, i) && g.cash[pid] - nextBuildCost(g, i) > 3000)
           .sort((a, b) => g.build[a] - g.build[b])[0];
         return target != null ? { t: 'build', sq: target } : { t: 'end' };
       }
@@ -291,15 +302,24 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
       case 'end': if (g.phase !== 'end') return null; endTurn(g); return g;
       case 'build': {
         if ((g.phase !== 'end' && g.phase !== 'roll') || !canBuild(g, me, a.sq)) return null;
-        const cost = GROUPS[BOARD[a.sq].group!].build;
+        const cost = nextBuildCost(g, a.sq);
         g.cash[me] -= cost; g.build[a.sq]++;
         fx(g, { kind: 'build', pid: me, sq: a.sq, amount: cost });
-        g.note = `${g.names[me]} built ${g.build[a.sq] === MAX_BUILD ? 'a MALL 🏬' : 'a dukaan 🏪'} in ${BOARD[a.sq].name}`;
+        g.note = `${g.names[me]} built ${g.build[a.sq] === 5 ? 'a VILLA 🏰' : g.build[a.sq] === 4 ? 'a HOTEL 🏨' : 'a house 🏠'} in ${BOARD[a.sq].name}`;
         return g;
       }
       case 'sell': {
         if ((g.phase !== 'end' && g.phase !== 'roll') || g.owner[a.sq] !== me || !g.build[a.sq]) return null;
-        g.build[a.sq]--; g.cash[me] += GROUPS[BOARD[a.sq].group!].build / 2; fx(g, { kind: 'sell', pid: me, sq: a.sq });
+        g.cash[me] += Math.round(buildCost(GROUPS[BOARD[a.sq].group!].build, g.build[a.sq]) / 2); g.build[a.sq]--; fx(g, { kind: 'sell', pid: me, sq: a.sq });
+        g.note = `${g.names[me]} sold a building in ${BOARD[a.sq].name} (now ${BUILD_LEVELS[g.build[a.sq]]})`;
+        return g;
+      }
+      case 'sellCity': {
+        if ((g.phase !== 'end' && g.phase !== 'roll') || g.owner[a.sq] !== me) return null;
+        const v = sellValue(g, a.sq);
+        g.cash[me] += v; g.owner[a.sq] = null; g.build[a.sq] = 0; g.mort[a.sq] = false;
+        fx(g, { kind: 'cardSold', pid: me, sq: a.sq, amount: v });
+        g.note = `🃏 ${g.names[me]} sold the ${BOARD[a.sq].name} card to the bank for ${fmt(v)}`;
         return g;
       }
       case 'mortgage': {

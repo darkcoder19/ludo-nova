@@ -5,7 +5,7 @@ import { AVATARS, levelFloor, levelOf, liveStreak, type Profile } from '../game/
 import { sfx } from '../game/sound';
 import { Avatar, charOf } from './Avatar';
 import { BannerStrip } from '../ads/AdViews';
-import { AccountBar } from '../account/AccountViews';
+import { AccountBar, UpgradeStrip } from '../account/AccountViews';
 import { adsEnabled } from '../ads/premium';
 
 interface Props {
@@ -49,6 +49,7 @@ export function Home({ profile, onProfile, onStart, error, onAdmin }: Props) {
       </header>
 
       <AccountBar onAdmin={onAdmin} />
+      <UpgradeStrip />
       <section className="card profile">
         <div className="avatar-row">
           {AVATARS.map((a) => (

@@ -4,7 +4,8 @@ import { setPremium } from '../ads/premium';
 
 export interface Account { id: string; email: string; name: string | null; picture: string | null; plan: 'free' | 'premium'; admin: boolean }
 
-export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+// Public OAuth client id (Sarvimo Web); safe to ship in the bundle.
+export const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) || '198403227613-aj868ub4vt2mj52j101fbucd46q8ed3j.apps.googleusercontent.com';
 const KEY = 'ln-token';
 const token = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
 const setToken = (t: string | null) => { try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch { /* ignore */ } };

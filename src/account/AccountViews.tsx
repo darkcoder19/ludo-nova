@@ -32,19 +32,75 @@ export function AccountBar({ onAdmin }: { onAdmin(): void }) {
   );
 }
 
+// ---- Premium (No Ads) upsell ----
+let openSheet: (() => void) | null = null;
+/** Opens the upgrade sheet from anywhere. */
+export const askUpgrade = () => openSheet?.();
+
 export function PremiumButton({ small = false }: { small?: boolean }) {
   const me = useAccount();
+  if (me?.plan === 'premium') return null;
+  return (
+    <button className={`btn premium ${small ? 'xs' : 'sm'}`} onClick={(e) => { e.stopPropagation(); askUpgrade(); }}>
+      {small ? '👑 ₹99/mo' : '👑 Remove ads · ₹99/month'}
+    </button>
+  );
+}
+
+/** Wide "No Ads" banner for home pages. */
+export function UpgradeStrip() {
+  const me = useAccount();
+  if (me?.plan === 'premium') return <div className="up-strip on">👑 Premium · ad-free on every Sarvimo game</div>;
+  return (
+    <button className="up-strip" onClick={askUpgrade}>
+      <span className="up-crown">👑</span>
+      <span className="up-txt"><b>No Ads. Just games.</b><small>Premium ₹99/month · every Sarvimo game</small></span>
+      <span className="up-cta">Upgrade</span>
+    </button>
+  );
+}
+
+/** Tiny chip for game screens. */
+export function NoAdsChip() {
+  const me = useAccount();
+  if (me?.plan === 'premium') return null;
+  return <button className="noads-chip" onClick={askUpgrade}>👑 No Ads</button>;
+}
+
+/** The sheet: sign in with Google if needed, then pay ₹99/month via Dodo. Mount once per page. */
+export function UpgradeSheet() {
+  const me = useAccount();
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  if (!GOOGLE_CLIENT_ID || me?.plan === 'premium') return null;
-  const go = async () => {
-    if (!me) { alert('Sign in with Google on the home screen first, then upgrade.'); return; }
-    setBusy(true);
-    try { await goPremium(); } catch (e) { alert((e as Error).message); setBusy(false); }
+  const [err, setErr] = useState('');
+  const btn = useRef<HTMLDivElement>(null);
+  useEffect(() => { openSheet = () => { setErr(''); setOpen(true); }; return () => { openSheet = null; }; }, []);
+  useEffect(() => { if (open && !me && btn.current) renderGoogleButton(btn.current, setErr); }, [open, me]);
+  if (!open) return null;
+  const pay = async () => {
+    setBusy(true); setErr('');
+    try { await goPremium(); } catch (e) { setErr((e as Error).message === 'Already premium' ? 'You are already Premium 👑' : 'Payments are being set up — please try again soon.'); setBusy(false); }
   };
   return (
-    <button className={`btn premium ${small ? 'xs' : 'sm'}`} disabled={busy} onClick={go}>
-      {busy ? '…' : small ? '👑 ₹99/mo' : '👑 Remove ads · ₹99/month'}
-    </button>
+    <div className="up-ov" onClick={() => setOpen(false)}>
+      <div className="up-card" onClick={(e) => e.stopPropagation()}>
+        <button className="up-x" onClick={() => setOpen(false)}>✕</button>
+        <div className="up-hero">👑</div>
+        <h2>Go Premium</h2>
+        <p className="up-price"><b>₹99</b>/month</p>
+        <ul>
+          <li>🚫 No video or banner ads, ever</li>
+          <li>⚡ Jump straight into rooms and rematches</li>
+          <li>🎮 Works on LudoNova, SeedhiRush, DhandhaKing and every new game</li>
+          <li>💛 Supports Sarvimo, made in India</li>
+        </ul>
+        {me?.plan === 'premium' ? <div className="up-done">You're Premium. Enjoy! 🎉</div>
+          : me ? <button className="btn premium big" disabled={busy} onClick={pay}>{busy ? 'Opening checkout…' : 'Pay ₹99/month'}</button>
+          : (<><small className="dim">Step 1 · sign in so we remember your plan</small><div ref={btn} className="gbtn" /></>)}
+        {err && <small className="acct-err">{err}</small>}
+        <small className="dim">Cancel any time. Secure checkout by Dodo Payments.</small>
+      </div>
+    </div>
   );
 }
 

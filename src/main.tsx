@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { UpgradeSheet } from './account/AccountViews';
 import SeedhiApp from './seedhi';
 import DhandhaApp from './dhandha';
 import { ComingSoon, Hub } from './hub/Hub';
@@ -9,6 +10,7 @@ import './hub/hub.css';
 import './styles.css';
 import './fun.css';
 import './ads/ads.css';
+import './layout.css';
 
 // /games → hub, /games/<slug> → that game.
 function Root() {
@@ -24,7 +26,7 @@ function Root() {
   return <ComingSoon g={game} />;
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode><Root /></StrictMode>);
+createRoot(document.getElementById('root')!).render(<StrictMode><Root /><UpgradeSheet /></StrictMode>);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   addEventListener('load', () => navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }));

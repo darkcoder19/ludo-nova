@@ -9,6 +9,7 @@ import { Dice } from './Dice';
 import { Backdrop } from './Home';
 import { Avatar, type Mood } from './Avatar';
 import { BannerStrip } from '../ads/AdViews';
+import { NoAdsChip } from '../account/AccountViews';
 import { adsEnabled } from '../ads/premium';
 import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from './Trolls';
 
@@ -168,6 +169,7 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
       <div className="topbar">
         <button className="btn ghost sm" onClick={() => { if (state.phase === 'over' || confirm('Leave this game?')) onLeave(); }}>✕</button>
         <div className="room-chip">{session.local ? 'Practice' : `Room ${session.code}`}{state.mode === 'quick' && ' · ⚡'}</div>
+        <NoAdsChip />
         <button className="btn ghost sm" onClick={toggleMute} aria-label="Sound">{muted ? '🔇' : '🔊'}</button>
       </div>
       {status.st === 'reconnecting' && <div className="banner warn">{status.msg}</div>}
