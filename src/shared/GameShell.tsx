@@ -38,6 +38,10 @@ export interface ShellConfig<G, A> {
   hero: ReactNode;
   options?: { key: string; label: string; choices: { value: string; label: string; hint?: string }[] }[];
   Board(props: GameProps<G, A>): ReactNode;
+  /** Optional how-to-play / rule book overlay. */
+  Guide?(props: { onClose(): void }): ReactNode;
+  /** Optional extra stats on the results screen. */
+  summary?(g: G, name: (pid: string) => string): ReactNode;
 }
 
 type Screen = 'home' | 'room';
@@ -116,6 +120,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, error }: {
   const [opts, setOpts] = useState<Record<string, string>>(() => Object.fromEntries((cfg.options ?? []).map((o) => [o.key, o.choices[0].value])));
   const [nameErr, setNameErr] = useState(false);
   const install = useInstallPrompt();
+  const [guide, setGuide] = useState(false);
 
   const go = (k: 'host' | 'join' | 'solo', arg?: string | number) => {
     if (!profile.name.trim()) { setNameErr(true); sfx.pop(); return; }
@@ -148,6 +153,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, error }: {
       {error && <div className="banner err">{error}</div>}
       <section className="actions">
         <button className="btn primary big" onClick={() => go('host')}><span className="ic">✦</span> Create Room</button>
+        {cfg.Guide && <button className="btn ghost how-btn" onClick={() => setGuide(true)}>▶ How to play · 📖 Rule book</button>}
         <button className={`btn glass big ${panel === 'join' ? 'active' : ''}`} onClick={() => setPanel(panel === 'join' ? null : 'join')}><span className="ic">⇥</span> Join Room</button>
         {panel === 'join' && (
           <form className="card drawer" onSubmit={(e) => { e.preventDefault(); if (code.length >= 5) go('join', code); }}>
@@ -166,6 +172,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, error }: {
       </section>
       {adsEnabled() && <BannerStrip />}
       <footer className="foot">© Sarvimo · Free to play</footer>
+      {guide && cfg.Guide && <cfg.Guide onClose={() => setGuide(false)} />}
     </div>
   );
 }
@@ -264,6 +271,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
   const confettiRef = useRef<ConfettiHandle>(null);
   const [muted, setMute] = useState(isMuted());
   const [picker, setPicker] = useState(false);
+  const [guide, setGuide] = useState(false);
   const [troll, setTroll] = useState<Emote | null>(null);
   const [moods, setMoods] = useState<Record<string, { m: Mood; id: number }>>({});
   const lastTroll = useRef(0);
@@ -321,6 +329,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
         <button className="btn ghost sm" onClick={() => { if (room.phase === 'over' || confirm('Leave this game?')) onLeave(); }}>✕</button>
         <div className="room-chip">{session.local ? `${cfg.name} · Practice` : `${cfg.name} · ${session.code}`}</div>
         <NoAdsChip />
+        {cfg.Guide && <button className="help-top" onClick={() => setGuide(true)}>?</button>}
         <button className="troll-top" onClick={() => { sfx.tap(); setPicker(true); }}>😈</button>
         <button className="btn ghost sm" onClick={() => { setMuted(!muted); setMute(!muted); }}>{muted ? '🔇' : '🔊'}</button>
       </div>
@@ -351,6 +360,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
                 </li> : null;
               })}
             </ol>
+            {cfg.summary?.(game, (id) => room.players.find((p) => p.id === id)?.name ?? '?')}
             <div className="row">
               {room.hostId === me ? <button className="btn primary" onClick={() => withAd(() => session.act({ t: 'rematch' }))}>↻ Rematch</button> : <div className="dim small">Waiting for host…</div>}
               <button className="btn glass" onClick={onLeave}>Home</button>
@@ -358,6 +368,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
           </div>
         </div>
       )}
+      {guide && cfg.Guide && <cfg.Guide onClose={() => setGuide(false)} />}
       <Confetti ref={confettiRef} />
     </div>
   );

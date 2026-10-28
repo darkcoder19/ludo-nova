@@ -11,9 +11,13 @@ const token = () => { try { return localStorage.getItem(KEY); } catch { return n
 const setToken = (t: string | null) => { try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch { /* ignore */ } };
 
 let current: Account | null = null;
+let checked = false;
+/** True while a saved session exists but hasn't been confirmed yet. */
+export const hasToken = () => !checked && !!token();
 const subs = new Set<(a: Account | null) => void>();
 function publish(a: Account | null) {
   current = a;
+  checked = true;
   setPremium(a?.plan === 'premium');
   subs.forEach((f) => f(a));
 }
@@ -37,6 +41,7 @@ export async function refresh() {
     publish(user);
   } catch (e) {
     if ((e as { status?: number }).status === 401) { setToken(null); publish(null); }
+    else publish(current); // offline or server hiccup: stop waiting, keep whatever we had
   }
 }
 

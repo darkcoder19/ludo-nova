@@ -1,7 +1,11 @@
 import { GameShell, type ShellConfig } from '../shared/GameShell';
 import { DhandhaBoard } from './DhandhaBoard';
+import { DhandhaGuide } from './Guide';
+import { BOARD, fmt } from './data';
+import { netWorth } from './rules';
 import { dhandhaRules, type DAction, type DGame } from './rules';
 import './dhandha.css';
+import './dhandha2.css';
 
 export function DhandhaHero() {
   return (
@@ -22,7 +26,14 @@ export function DhandhaHero() {
 const cfg: ShellConfig<DGame, DAction> = {
   slug: 'dhandhaking', name: 'DhandhaKing', kind: 'Property tycoon', prefix: 'dhandhaking-v1-',
   tagline: 'Buy Mumbai, build hotels and villas, bankrupt your friends.',
-  rules: dhandhaRules, hero: <DhandhaHero />, Board: DhandhaBoard,
+  rules: dhandhaRules, hero: <DhandhaHero />, Board: DhandhaBoard, Guide: DhandhaGuide,
+  summary: (g, name) => (
+    <div className="dk-stats">
+      {g.order.map((id) => (
+        <div key={id}><b>{name(id)}</b><span>💰 {fmt(netWorth(g, id))}</span><span>🏙️ {BOARD.filter((_, i) => g.owner[i] === id).length} cities</span><span>🏠 {g.stats.built[id] ?? 0} built</span><span>📥 {fmt(g.stats.rent[id] ?? 0)} rent</span></div>
+      ))}
+    </div>
+  ),
   options: [{ key: 'rounds', label: '⏳ Game length', choices: [
     { value: 'quick', label: '⚡ 15 rounds', hint: 'Richest wins · ~25 min' },
     { value: 'classic', label: '👑 Classic', hint: 'Last seth standing' },

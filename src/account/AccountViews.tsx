@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, goPremium, GOOGLE_CLIENT_ID, renderGoogleButton, signOut, useAccount, type Account } from './account';
+import { api, goPremium, GOOGLE_CLIENT_ID, hasToken, renderGoogleButton, signOut, useAccount, type Account } from './account';
 
 /** Home-screen account row: Google sign-in, or the signed-in chip with premium / admin actions. */
 export function AccountBar({ onAdmin }: { onAdmin(): void }) {
@@ -7,14 +7,18 @@ export function AccountBar({ onAdmin }: { onAdmin(): void }) {
   const btn = useRef<HTMLDivElement>(null);
   const [err, setErr] = useState('');
 
+  const restoring = !me && hasToken(); // saved login still loading — don't flash the Google button
   useEffect(() => {
-    if (!me && btn.current) renderGoogleButton(btn.current, setErr);
-  }, [me]);
+    const el = btn.current;
+    if (!me && !restoring && el) renderGoogleButton(el, setErr);
+    return () => { if (el) el.innerHTML = ''; };
+  }, [me, restoring]);
 
   if (!GOOGLE_CLIENT_ID) return null;
+  if (restoring) return <div key="restoring" className="acct card"><span className="spinner" /> <small className="dim">Signing you in…</small></div>;
   if (!me) {
     return (
-      <div className="acct card">
+      <div key="signed-out" className="acct card">
         <div className="acct-pitch"><b>Save your progress</b><small>Sign in to go ad-free with Premium</small></div>
         <div ref={btn} className="gbtn" />
         {err && <small className="acct-err">{err}</small>}
@@ -22,7 +26,7 @@ export function AccountBar({ onAdmin }: { onAdmin(): void }) {
     );
   }
   return (
-    <div className="acct card signed">
+    <div key="signed-in" className="acct card signed">
       {me.picture ? <img src={me.picture} alt="" referrerPolicy="no-referrer" /> : <span className="acct-dot">{me.email[0].toUpperCase()}</span>}
       <div className="acct-who"><b>{me.name || me.email}</b><small>{me.plan === 'premium' ? '👑 Premium · no ads' : 'Free plan'}</small></div>
       {me.admin && <button className="btn glass xs" onClick={onAdmin}>Admin</button>}
@@ -75,7 +79,11 @@ export function UpgradeSheet() {
   const [err, setErr] = useState('');
   const btn = useRef<HTMLDivElement>(null);
   useEffect(() => { openSheet = () => { setErr(''); setOpen(true); }; return () => { openSheet = null; }; }, []);
-  useEffect(() => { if (open && !me && btn.current) renderGoogleButton(btn.current, setErr); }, [open, me]);
+  useEffect(() => {
+    const el = btn.current;
+    if (open && !me && el) renderGoogleButton(el, setErr);
+    return () => { if (el) el.innerHTML = ''; };
+  }, [open, me]);
   if (!open) return null;
   const pay = async () => {
     setBusy(true); setErr('');
