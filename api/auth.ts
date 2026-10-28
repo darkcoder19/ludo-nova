@@ -1,5 +1,5 @@
 // POST { credential } — a Google Identity Services ID token. Verifies it, upserts the user, returns a session.
-import { db, env, issueToken, json, publicUser, type UserRow } from './_lib';
+import { db, env, issueToken, json, publicUser, type UserRow } from './_lib.js';
 
 export async function POST(req: Request) {
   const { credential } = (await req.json().catch(() => ({}))) as { credential?: string };

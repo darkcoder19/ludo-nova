@@ -1,5 +1,5 @@
 // GET — every player, newest activity first. Admin only.
-import { currentUser, db, isAdmin, json, type UserRow } from '../_lib';
+import { currentUser, db, isAdmin, json, type UserRow } from '../_lib.js';
 
 export async function GET(req: Request) {
   const me = await currentUser(req);

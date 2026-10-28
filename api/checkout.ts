@@ -1,6 +1,6 @@
 // POST — starts a Dodo checkout for LudoNova Premium (₹99/month) and returns its URL.
 import DodoPayments from 'dodopayments';
-import { currentUser, env, json } from './_lib';
+import { currentUser, env, json } from './_lib.js';
 
 export async function POST(req: Request) {
   const user = await currentUser(req);

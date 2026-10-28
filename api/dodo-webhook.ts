@@ -1,6 +1,6 @@
 // Dodo webhook: the only thing (besides the admin) that flips a player to premium or back to free.
 import DodoPayments from 'dodopayments';
-import { db, env, json } from './_lib';
+import { db, env, json } from './_lib.js';
 
 type Sub = { subscription_id: string; status: string; customer?: { email?: string }; metadata?: Record<string, string> | null };
 

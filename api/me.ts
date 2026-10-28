@@ -1,5 +1,5 @@
 // GET — the signed-in user. Doubles as the activity heartbeat (updates last_active_at).
-import { currentUser, db, json, publicUser } from './_lib';
+import { currentUser, db, json, publicUser } from './_lib.js';
 
 export async function GET(req: Request) {
   const user = await currentUser(req);
