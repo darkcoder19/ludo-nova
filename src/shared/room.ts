@@ -1,6 +1,6 @@
 // Generic multiplayer rooms for Sarvimo Games. A game supplies pure `Rules`; this file runs the
-// lobby, bots, turn timer and PeerJS networking. The host's browser is the authority.
-import Peer, { type DataConnection } from 'peerjs';
+// lobby, bots, turn timer and networking (see link.ts). The host's browser is the authority.
+import { openGuest, openHost, type GuestLink, type HostLink, type Status } from './link';
 
 export interface Seat { id: string; name: string; avatar: string; bot: boolean; connected: boolean }
 
@@ -139,11 +139,9 @@ export class RoomHost<G, A> {
 }
 
 // ---------------- networking ----------------
-const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const makeCode = () => Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
 
 export interface Emote { from: string; emoji: string; id: number }
-export type Status = 'connecting' | 'online' | 'reconnecting' | 'closed';
+export type { Status };
 export interface Handlers<G> { onState(s: RoomState<G>): void; onEmote(e: Emote): void; onStatus(st: Status, msg?: string): void }
 export interface RoomSession<A> { code: string; myId: string; local: boolean; act(a: RoomAction<A>): void; emote(m: string): void; leave(): void }
 
@@ -169,83 +167,51 @@ export function soloRoom<G, A>(rules: Rules<G, A>, me: Me, bots: number, options
 }
 
 export function hostRoom<G, A>(prefix: string, rules: Rules<G, A>, me: Me, h: Handlers<G>, onCode: (c: string) => void): RoomSession<A> {
-  const conns = new Map<DataConnection, string>();
-  const { host, emote } = core(rules, me, h, (m) => conns.forEach((_, c) => c.open && c.send(m)));
-  let peer: Peer;
-  let closed = false;
+  const conns = new Map<GuestLink, string>();
+  let link: HostLink | null = null; // the host emits its first state before the link exists
+  const { host, emote } = core(rules, me, h, (m) => link?.broadcast(m, conns.keys()));
   const session: RoomSession<A> = {
     code: '', myId: me.id, local: false,
     act: (a) => host.handle(me.id, a), emote: (e) => emote(me.id, e),
-    leave: () => { closed = true; host.dispose(); peer?.destroy(); },
+    leave: () => { host.dispose(); link?.close(); },
   };
-  const open = (attempt = 0) => {
-    const code = makeCode();
-    peer = new Peer(prefix + code);
-    h.onStatus('connecting');
-    peer.on('open', () => { session.code = code; onCode(code); h.onStatus('online'); });
-    peer.on('error', (err) => {
-      if (closed) return;
-      if (err.type === 'unavailable-id' && attempt < 5) { peer.destroy(); open(attempt + 1); return; }
-      if (err.type !== 'peer-unavailable') h.onStatus('reconnecting', 'Connection trouble — retrying…');
-    });
-    peer.on('disconnected', () => { if (!closed) setTimeout(() => !closed && !peer.destroyed && peer.reconnect(), 1500); });
-    peer.on('connection', (conn) => {
-      conn.on('data', (raw) => {
-        const m = raw as GuestMsg<A>;
-        if (m.t === 'hello') {
-          if (!host.join(m.id, m.name, m.avatar)) { conn.send({ t: 'full' }); setTimeout(() => conn.close(), 300); return; }
-          conns.set(conn, m.id);
-          host.emit();
-          return;
-        }
-        const id = conns.get(conn);
-        if (!id) return;
-        if (m.t === 'act') host.handle(id, m.a);
-        if (m.t === 'emote') emote(id, String(m.emoji).slice(0, 80));
-      });
-      conn.on('close', () => {
-        const id = conns.get(conn);
-        conns.delete(conn);
-        if (id && ![...conns.values()].includes(id)) host.setConnected(id, false);
-      });
-    });
-  };
-  open();
+  link = openHost(prefix, {
+    onCode: (code) => { session.code = code; onCode(code); },
+    onStatus: h.onStatus,
+    onData: (l, raw) => {
+      const m = raw as GuestMsg<A>;
+      if (m.t === 'hello') {
+        if (!host.join(m.id, m.name, m.avatar)) { l.send({ t: 'full' } satisfies HostMsg<G>); setTimeout(() => l.close(), 300); return; }
+        conns.set(l, m.id);
+        host.emit();
+        return;
+      }
+      const id = conns.get(l);
+      if (!id) return;
+      if (m.t === 'act') host.handle(id, m.a);
+      if (m.t === 'emote') emote(id, String(m.emoji).slice(0, 80));
+    },
+    onClose: (l) => {
+      const id = conns.get(l);
+      conns.delete(l);
+      if (id && ![...conns.values()].includes(id)) host.setConnected(id, false);
+    },
+  });
   return session;
 }
 
 export function joinRoom<G, A>(prefix: string, code: string, me: Me, h: Handlers<G>): RoomSession<A> {
-  const peer = new Peer();
-  let conn: DataConnection | null = null;
-  let closed = false, gotState = false, retries = 0;
-  const connect = () => {
-    if (closed) return;
-    conn = peer.connect(prefix + code.toUpperCase(), { reliable: true });
-    conn.on('open', () => { retries = 0; conn!.send({ t: 'hello', id: me.id, name: me.name, avatar: me.avatar } satisfies GuestMsg<A>); });
-    conn.on('data', (raw) => {
+  const hello: GuestMsg<A> = { t: 'hello', id: me.id, name: me.name, avatar: me.avatar };
+  const link = openGuest(prefix, code, me.id, hello, {
+    onStatus: h.onStatus,
+    onFail: (msg) => h.onStatus('closed', msg),
+    onData: (raw) => {
       const m = raw as HostMsg<G>;
-      if (m.t === 'state') { gotState = true; h.onStatus('online'); h.onState(m.s); }
+      if (m.t === 'state') { h.onStatus('online'); h.onState(m.s); }
       if (m.t === 'emote') h.onEmote(m.e);
-      if (m.t === 'full') { closed = true; h.onStatus('closed', 'That room is full or already playing.'); }
-    });
-    conn.on('close', () => {
-      if (closed) return;
-      h.onStatus('reconnecting', 'Lost the host — reconnecting…');
-      if (retries++ < 20) setTimeout(connect, 2000); else h.onStatus('closed', 'The host left the room.');
-    });
-  };
-  h.onStatus('connecting');
-  peer.on('open', connect);
-  peer.on('error', (err) => {
-    if (closed) return;
-    if (err.type === 'peer-unavailable') {
-      if (!gotState) { closed = true; h.onStatus('closed', `No room found with code ${code.toUpperCase()}.`); }
-      else if (retries++ < 20) setTimeout(connect, 2000); else h.onStatus('closed', 'The host left the room.');
-      return;
-    }
-    h.onStatus('reconnecting', 'Connection trouble — retrying…');
+      if (m.t === 'full') { link.close(); h.onStatus('closed', 'That room is full or already playing.'); }
+    },
   });
-  peer.on('disconnected', () => { if (!closed) setTimeout(() => !closed && !peer.destroyed && peer.reconnect(), 1500); });
-  const send = (m: GuestMsg<A>) => conn?.open && conn.send(m);
-  return { code: code.toUpperCase(), myId: me.id, local: false, act: (a) => send({ t: 'act', a }), emote: (e) => send({ t: 'emote', emoji: e }), leave: () => { closed = true; peer.destroy(); } };
+  const send = (m: GuestMsg<A>) => link.send(m);
+  return { code: code.toUpperCase(), myId: me.id, local: false, act: (a) => send({ t: 'act', a }), emote: (e) => send({ t: 'emote', emoji: e }), leave: () => link.close() };
 }

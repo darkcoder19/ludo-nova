@@ -13,7 +13,7 @@ import { NoAdsChip } from '../account/AccountViews';
 import { adsEnabled } from '../ads/premium';
 import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from './Trolls';
 
-const HEX: Record<Color, string> = { red: '#ff3d6e', green: '#2ee59d', yellow: '#ffc93c', blue: '#3d8bff' };
+const HEX: Record<Color, string> = { red: '#ff2e88', green: '#12d6b4', yellow: '#ffab1a', blue: '#7a5cff' };
 const CORNERS = ['tl', 'tr', 'br', 'bl'] as const;
 
 interface Props {

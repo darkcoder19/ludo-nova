@@ -161,3 +161,22 @@
   .ad-strip img { width: 28px; height: 28px; }
   .home .btn.big { padding: 10px 14px; font-size: 1rem; }
 }
+
+/* results: per-player stats live inside the podium row; the card always fits without scrolling */
+.podium b .pod-extra { display: flex; flex-wrap: wrap; gap: 3px 6px; margin-top: 2px; font-size: 0.72rem; font-weight: 700; color: var(--dim); }
+.podium b .pod-extra .award { font-style: normal; font-size: 0.66rem; padding: 0 7px; }
+.shell-game .results::after { content: 'Sarvimo Games'; }
+.results { max-height: calc(100dvh - 24px); }
+@media (max-height: 720px) {
+  .results { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
+  .results .crown { font-size: 2.2rem; line-height: 1; }
+  .results h2 { font-size: 1.6rem; }
+  .podium { gap: 5px; }
+  .podium li { padding: 5px 10px; }
+}
+
+/* guest still connecting to the host's room */
+.card.joining { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 28px 18px; }
+.card.joining .spinner { width: 34px; height: 34px; }
+.card.joining b { font-size: 1.05rem; }
+.card.joining small { color: var(--dim); font-weight: 600; max-width: 320px; }

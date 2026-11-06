@@ -30,15 +30,15 @@
 .dk-sq.t .bar { left: 0; right: 0; bottom: 0; height: 26%; }
 .dk-sq.l .bar { top: 0; bottom: 0; right: 0; width: 24%; }
 .dk-sq.r .bar { top: 0; bottom: 0; left: 0; width: 24%; }
-.dk-sq .bar em { font-style: normal; font-size: calc(var(--u) * 0.18); line-height: 1; letter-spacing: -calc(var(--u) * 0.036); }
+.dk-sq .bar em { font-style: normal; font-size: calc(var(--u) * 0.18); line-height: 1; letter-spacing: calc(var(--u) * -0.036); }
 .dk-sq.l .bar em, .dk-sq.r .bar em { writing-mode: vertical-rl; }
 .dk-sq .bar em.mall { font-size: calc(var(--u) * 0.312); animation: float 2s ease-in-out infinite; }
 .dk-sq .nm { font-size: calc(var(--u) * 0.258); font-weight: 800; line-height: 1.05; text-align: center; padding: 0 calc(var(--u) * 0.036); word-break: break-word; }
 .dk-sq .pr { font-size: calc(var(--u) * 0.21); font-weight: 700; color: #6b5f8f; }
 .dk-sq .ic { font-size: calc(var(--u) * 0.384); line-height: 1; }
 .dk-sq.b .nm, .dk-sq.b .pr { transform: translateY(calc(var(--u) * 0.144)); }
-.dk-sq.t .nm, .dk-sq.t .pr { transform: translateY(-calc(var(--u) * 0.144)); }
-.dk-sq.l .nm, .dk-sq.l .pr { transform: translateX(-calc(var(--u) * 0.12)); }
+.dk-sq.t .nm, .dk-sq.t .pr { transform: translateY(calc(var(--u) * -0.144)); }
+.dk-sq.l .nm, .dk-sq.l .pr { transform: translateX(calc(var(--u) * -0.12)); }
 .dk-sq.r .nm, .dk-sq.r .pr { transform: translateX(calc(var(--u) * 0.12)); }
 .dk-sq.corner { background: linear-gradient(135deg, #ffe08a, #ffb400); }
 .dk-sq.corner .ic { font-size: calc(var(--u) * 0.552); }
@@ -56,7 +56,7 @@
 @keyframes trendglow { 50% { box-shadow: inset 0 0 0 calc(var(--u) * 0.066) var(--o), 0 0 calc(var(--u) * 0.288) #ff8c42; } }
 .dk-sq .fire { position: absolute; top: calc(var(--u) * 0.024); left: calc(var(--u) * 0.024); font-size: calc(var(--u) * 0.192); animation: flick 0.6s ease-in-out infinite alternate; }
 @keyframes flick { to { transform: scale(1.25) rotate(8deg); } }
-.dk-sq.here { outline: calc(var(--u) * 0.06) solid var(--turn); outline-offset: -calc(var(--u) * 0.03); z-index: 1; }
+.dk-sq.here { outline: calc(var(--u) * 0.06) solid var(--turn); outline-offset: calc(var(--u) * -0.03); z-index: 1; }
 .dk-sq.flash-sold { animation: soldflash 0.9s ease-out; z-index: 2; }
 @keyframes soldflash { 0% { transform: scale(1.5); box-shadow: 0 0 calc(var(--u) * 0.48) #ffd23f; } 100% { transform: scale(1); } }
 .dk-sq.flash-build { animation: buildpop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1); z-index: 2; }
@@ -78,11 +78,11 @@
 .dk-actions .btn.sm { font-size: max(0.8rem, calc(var(--u) * 0.312)); }
 .dk-actions .dim { font-size: calc(var(--u) * 0.312); }
 
-.dk-tok { position: absolute; width: calc(var(--u) * 0.648); height: calc(var(--u) * 0.648); margin: -calc(var(--u) * 0.324) 0 0 -calc(var(--u) * 0.324); border-radius: 50%; background: var(--c); border: calc(var(--u) * 0.054) solid #fff;
+.dk-tok { position: absolute; width: calc(var(--u) * 0.648); height: calc(var(--u) * 0.648); margin: calc(var(--u) * -0.324) 0 0 calc(var(--u) * -0.324); border-radius: 50%; background: var(--c); border: calc(var(--u) * 0.054) solid #fff;
   display: grid; place-items: center; box-shadow: 0 calc(var(--u) * 0.096) calc(var(--u) * 0.168) rgba(0, 0, 0, 0.45); transition: left 0.16s ease-out, top 0.16s ease-out; z-index: 5; pointer-events: none; }
 .dk-tok .avatar-svg { width: 92%; height: 92%; }
 .dk-tok.cur { z-index: 6; animation: tokbob 0.8s ease-in-out infinite; }
-@keyframes tokbob { 50% { transform: translateY(-calc(var(--u) * 0.096)); } }
+@keyframes tokbob { 50% { transform: translateY(calc(var(--u) * -0.096)); } }
 
 .zoom-btn { position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 18px); z-index: 8; font-weight: 800; font-size: 0.8rem; padding: 6px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.55); }
 
@@ -133,7 +133,7 @@
 @keyframes rise { from { transform: scaleY(0.85); } to { transform: scaleY(1); } }
 
 /* tokens park on the inner edge of a tile */
-.dk-tok { width: calc(var(--u) * 0.552); height: calc(var(--u) * 0.552); margin: -calc(var(--u) * 0.276) 0 0 -calc(var(--u) * 0.276); border-width: calc(var(--u) * 0.042); }
+.dk-tok { width: calc(var(--u) * 0.552); height: calc(var(--u) * 0.552); margin: calc(var(--u) * -0.276) 0 0 calc(var(--u) * -0.276); border-width: calc(var(--u) * 0.042); }
 
 /* card hand */
 .dk-manage .card.hand { max-height: 82dvh; }

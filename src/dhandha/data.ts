@@ -11,6 +11,7 @@ export interface Square {
   group?: number;  // colour set index for cities
   tax?: number;
   icon?: string;
+  flavour?: string;
 }
 
 export interface Group { name: string; color: string; build: number }
@@ -29,51 +30,51 @@ export const GROUPS: Group[] = [
 const city = (name: string, short: string, group: number, price: number, rent: number): Square => ({ kind: 'city', name, short, group, price, rent });
 
 export const BOARD: Square[] = [
-  { kind: 'start', name: 'Shuruaat', short: 'START', icon: '🚩' },
+  { kind: 'start', name: 'Payday', short: 'PAYDAY', icon: '💸', flavour: '₹2,000 credited. Seth-ji ka UPI never fails.' },
   city('Patna', 'Patna', 0, 600, 20),
-  { kind: 'parivaar', name: 'Mohalla', short: 'Mohalla', icon: '🏘️' },
+  { kind: 'parivaar', name: 'Group Chat', short: 'GC', icon: '💬', flavour: '142 unread messages. One is about money.' },
   city('Ranchi', 'Ranchi', 0, 600, 40),
-  { kind: 'tax', name: 'Income Tax', short: 'Tax', tax: 2000, icon: '🧾' },
-  { kind: 'train', name: 'Rajdhani Express', short: 'Rajdhani', price: 2000, icon: '🚆' },
+  { kind: 'tax', name: 'Semester Fees', short: 'FEES', tax: 2000, icon: '🧾', flavour: 'Fees due. Again.' },
+  { kind: 'train', name: 'Midnight Metro', short: 'METRO', price: 2000, icon: '🚇', flavour: 'Last metro, packed like a WhatsApp forward.' },
   city('Bhopal', 'Bhopal', 1, 1000, 60),
-  { kind: 'kismat', name: 'Kismat', short: 'Kismat', icon: '🎲' },
+  { kind: 'kismat', name: 'Plot Twist', short: 'TWIST', icon: '🌀', flavour: 'Life said: hold my chai.' },
   city('Gwalior', 'Gwalior', 1, 1000, 60),
   city('Nagpur', 'Nagpur', 1, 1200, 80),
-  { kind: 'jail', name: 'Sasural', short: 'Sasural', icon: '👵' },
+  { kind: 'jail', name: 'Detention Room', short: 'DETENTION', icon: '🏫', flavour: 'Attendance 62%. Sit here and think about your life.' },
   city('Jodhpur', 'Jodhpur', 2, 1400, 100),
-  { kind: 'utility', name: 'Bijli Board', short: 'Bijli', price: 1500, icon: '⚡' },
+  { kind: 'utility', name: 'Hostel WiFi', short: 'WIFI', price: 1500, icon: '📶', flavour: 'Rent = dice × ₹40, or × ₹100 if you own both.' },
   city('Udaipur', 'Udaipur', 2, 1400, 100),
   city('Jaipur', 'Jaipur', 2, 1600, 120),
-  { kind: 'train', name: 'Shatabdi Express', short: 'Shatabdi', price: 2000, icon: '🚄' },
+  { kind: 'train', name: 'Bike Taxi', short: 'BIKE TXI', price: 2000, icon: '🛵', flavour: 'Bhaiya, OTP bata do.' },
   city('Varanasi', 'Varanasi', 3, 1800, 140),
-  { kind: 'parivaar', name: 'Mohalla', short: 'Mohalla', icon: '🏘️' },
+  { kind: 'parivaar', name: 'Group Chat', short: 'GC', icon: '💬', flavour: '142 unread messages. One is about money.' },
   city('Kanpur', 'Kanpur', 3, 1800, 140),
   city('Lucknow', 'Lucknow', 3, 2000, 160),
-  { kind: 'chai', name: 'Chai Break', short: 'Chai', icon: '☕' },
+  { kind: 'chai', name: 'Tapri Jackpot', short: 'TAPRI', icon: '☕', flavour: 'Cutting chai plus all the fines in the tapri gullak.' },
   city('Guwahati', 'Guwahati', 4, 2200, 180),
-  { kind: 'kismat', name: 'Kismat', short: 'Kismat', icon: '🎲' },
+  { kind: 'kismat', name: 'Plot Twist', short: 'TWIST', icon: '🌀', flavour: 'Life said: hold my chai.' },
   city('Bhubaneswar', 'BBSR', 4, 2200, 180),
   city('Kolkata', 'Kolkata', 4, 2400, 200),
-  { kind: 'train', name: 'Duronto Express', short: 'Duronto', price: 2000, icon: '🚅' },
+  { kind: 'train', name: 'Sleeper Bus', short: 'SLEEPER', price: 2000, icon: '🚌', flavour: 'Recliner seat, zero sleep.' },
   city('Vadodara', 'Baroda', 5, 2600, 220),
   city('Surat', 'Surat', 5, 2600, 220),
-  { kind: 'utility', name: 'Jal Board', short: 'Jal', price: 1500, icon: '💧' },
+  { kind: 'utility', name: 'Data Recharge', short: 'RECHARGE', price: 1500, icon: '📱', flavour: '1.5 GB/day, gone by noon.' },
   city('Ahmedabad', 'Amdavad', 5, 2800, 240),
-  { kind: 'police', name: 'Shaadi Invite', short: 'Shaadi!', icon: '💌' },
+  { kind: 'police', name: 'Proxy Pakdi Gayi!', short: 'PROXY!', icon: '🚨', flavour: 'Your friend gave proxy, prof noticed. Straight to Detention.' },
   city('Kochi', 'Kochi', 6, 3000, 260),
   city('Chennai', 'Chennai', 6, 3000, 260),
-  { kind: 'parivaar', name: 'Mohalla', short: 'Mohalla', icon: '🏘️' },
+  { kind: 'parivaar', name: 'Group Chat', short: 'GC', icon: '💬', flavour: '142 unread messages. One is about money.' },
   city('Hyderabad', 'Hyd', 6, 3200, 280),
-  { kind: 'train', name: 'Vande Bharat', short: 'Vande B.', price: 2000, icon: '🚝' },
-  { kind: 'kismat', name: 'Kismat', short: 'Kismat', icon: '🎲' },
+  { kind: 'train', name: 'Vande Bharat', short: 'VANDE', price: 2000, icon: '🚄', flavour: 'Fastest flex on rails.' },
+  { kind: 'kismat', name: 'Plot Twist', short: 'TWIST', icon: '🌀', flavour: 'Life said: hold my chai.' },
   city('Bengaluru', "B'luru", 7, 3500, 350),
-  { kind: 'tax', name: 'GST', short: 'GST', tax: 1000, icon: '💸' },
+  { kind: 'tax', name: 'Platform Fee', short: 'PLT FEE', tax: 1000, icon: '🧾', flavour: 'Food ₹200, fees ₹1,000. Classic.' },
   city('Mumbai', 'Mumbai', 7, 4000, 500),
 ];
 
 export const SALARY = 2000;
 export const START_CASH = 15000;
-export const BAIL = 500; // shagun for Saasu-ma to leave Sasural early
+export const BAIL = 500; // late fine to leave Detention early
 export const JAIL = 10;
 export const MAX_BUILD = 5; // 3 houses, then a hotel, then a villa
 
@@ -97,29 +98,29 @@ export type CardFx =
   | { t: 'free' }
   | { t: 'repairs'; perHouse: number; perMall: number };
 
-export interface Card { title: string; text: string; fx: CardFx; deck: 'kismat' | 'parivaar' }
+export interface Card { title: string; text: string; fx: CardFx; deck: 'kismat' | 'parivaar'; /** also hands you a random power-up */ power?: boolean }
 
 export const CARDS: Card[] = [
-  { deck: 'kismat', title: 'Lottery lagi!', text: 'Your Diwali lottery ticket won. Collect ₹2,000.', fx: { t: 'cash', amount: 2000 } },
-  { deck: 'kismat', title: 'Traffic challan', text: 'No helmet on the Activa. Pay ₹300.', fx: { t: 'cash', amount: -300 } },
-  { deck: 'kismat', title: 'Mumbai calling', text: 'Big meeting at Nariman Point. Go to Mumbai.', fx: { t: 'goto', sq: 39 } },
-  { deck: 'kismat', title: 'Wrong train!', text: 'Boarded the wrong platform. Go back 3 squares.', fx: { t: 'back', n: 3 } },
-  { deck: 'kismat', title: 'Shaadi ka card!', text: 'Your saala’s wedding invite arrived. Pack your bags — straight to Sasural.', fx: { t: 'jail' } },
-  { deck: 'kismat', title: 'Jugaad card', text: 'Your bestie fakes an urgent call. Keep this to escape Sasural free.', fx: { t: 'free' } },
-  { deck: 'kismat', title: 'Startup funded', text: 'Your chai startup raised a seed round. Collect ₹1,500.', fx: { t: 'cash', amount: 1500 } },
-  { deck: 'kismat', title: 'Back to basics', text: 'Advance to Shuruaat. Collect ₹2,000.', fx: { t: 'goto', sq: 0 } },
-  { deck: 'kismat', title: 'Monsoon damage', text: 'Pay ₹250 per house and ₹1,000 per hotel or villa for repairs.', fx: { t: 'repairs', perHouse: 250, perMall: 1000 } },
-  { deck: 'kismat', title: 'Shaadi season', text: 'Your cousin’s wedding. Pay every player ₹200 for gifts.', fx: { t: 'each', amount: -200 } },
-  { deck: 'parivaar', title: 'Shagun mila!', text: 'The whole mohalla came to your birthday. Collect ₹300 from every player.', fx: { t: 'each', amount: 300 } },
-  { deck: 'parivaar', title: 'Dadi’s savings', text: 'Dadi slipped you some cash. Collect ₹1,000.', fx: { t: 'cash', amount: 1000 } },
-  { deck: 'parivaar', title: 'School fees', text: 'Tuition fees due. Pay ₹1,000.', fx: { t: 'cash', amount: -1000 } },
-  { deck: 'parivaar', title: 'FD matured', text: 'Your fixed deposit matured. Collect ₹1,500.', fx: { t: 'cash', amount: 1500 } },
-  { deck: 'parivaar', title: 'Doctor visit', text: 'Too many samosas. Pay ₹500.', fx: { t: 'cash', amount: -500 } },
-  { deck: 'parivaar', title: 'Bengaluru trip', text: 'Mohalla WhatsApp group planned a trip. Advance to Bengaluru.', fx: { t: 'goto', sq: 37 } },
-  { deck: 'parivaar', title: 'Tax refund', text: 'ITR refund arrived. Collect ₹800.', fx: { t: 'cash', amount: 800 } },
-  { deck: 'parivaar', title: 'Jugaad card', text: 'Sharma aunty covers for you. Keep this to escape Sasural free.', fx: { t: 'free' } },
-  { deck: 'parivaar', title: 'Pandit ji says', text: 'Shubh muhurat! Go directly to Sasural.', fx: { t: 'jail' } },
-  { deck: 'parivaar', title: 'Kitty party win', text: 'You won the kitty pot. Collect ₹500.', fx: { t: 'cash', amount: 500 } },
+  { deck: 'kismat', title: 'Reel went viral', text: '2M views on your chai-pouring reel. Brands are calling.', fx: { t: 'cash', amount: 2000 }, power: true },
+  { deck: 'kismat', title: 'Finfluencer course', text: 'You bought a "get rich quick" course. It did not work.', fx: { t: 'cash', amount: -800 } },
+  { deck: 'kismat', title: 'Placement offer', text: 'A Bengaluru startup wants you. Pack up and go to Bengaluru.', fx: { t: 'goto', sq: 37 } },
+  { deck: 'kismat', title: 'Missed the metro', text: 'Doors closed on your face. Go back 3 squares.', fx: { t: 'back', n: 3 } },
+  { deck: 'kismat', title: 'Proxy caught', text: 'Prof counted heads. Straight to Detention.', fx: { t: 'jail' } },
+  { deck: 'kismat', title: 'Doctor\u2019s Note', text: '"Viral fever" 🤒. Keep it to walk out of Detention free.', fx: { t: 'free' } },
+  { deck: 'kismat', title: 'Client paid!', text: 'Freelance logo money finally hit your account.', fx: { t: 'cash', amount: 1500 }, power: true },
+  { deck: 'kismat', title: 'Salary came early', text: 'HR pressed the button early. Go to Payday.', fx: { t: 'goto', sq: 0 }, power: true },
+  { deck: 'kismat', title: 'Warden inspection', text: 'Pay ₹250 per house and ₹1,000 per hotel or villa.', fx: { t: 'repairs', perHouse: 250, perMall: 1000 } },
+  { deck: 'kismat', title: 'Birthday treat', text: 'Your bday, your bill. Pay every player ₹200.', fx: { t: 'each', amount: -200 } },
+  { deck: 'parivaar', title: 'Split settled', text: 'Everyone finally paid you back on Splitwise. Collect ₹300 from each player.', fx: { t: 'each', amount: 300 } },
+  { deck: 'parivaar', title: 'Mom\u2019s UPI', text: '"Kuch kha lena beta." ❤️', fx: { t: 'cash', amount: 1000 } },
+  { deck: 'parivaar', title: 'Fees reminder', text: 'Late fee on lab fees. Again.', fx: { t: 'cash', amount: -1000 } },
+  { deck: 'parivaar', title: 'Scholarship!', text: 'Your name is on the merit list.', fx: { t: 'cash', amount: 1500 } },
+  { deck: 'parivaar', title: '3 AM biryani', text: 'Plus platform fee, plus tip, plus regret.', fx: { t: 'cash', amount: -500 } },
+  { deck: 'parivaar', title: 'Tapri calling', text: '"Chai pe chalein?" Go to the Tapri Jackpot.', fx: { t: 'goto', sq: 20 } },
+  { deck: 'parivaar', title: 'Cashback lagi', text: 'The scratch card actually worked for once.', fx: { t: 'cash', amount: 800 } },
+  { deck: 'parivaar', title: 'Doctor\u2019s Note', text: 'A senior forged a really good one. Keep it to leave Detention free.', fx: { t: 'free' } },
+  { deck: 'parivaar', title: 'Backlog in Maths', text: 'Results are out. Go to Detention.', fx: { t: 'jail' } },
+  { deck: 'parivaar', title: 'Hackathon trip', text: 'Your team is flying to Hyderabad. Go there now.', fx: { t: 'goto', sq: 34 } },
 ];
 
 export const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -133,7 +134,7 @@ export const CITY_FESTIVALS: Record<string, CityEventDef> = {
   Gwalior: { title: 'Tansen Samaroh', reason: 'Music lovers flock to Gwalior Fort', emoji: '🎶', mult: 2 },
   Nagpur: { title: 'Orange Season', reason: 'Nagpur oranges are selling like hot cakes', emoji: '🍊', mult: 2 },
   Jodhpur: { title: 'Marwar Festival', reason: 'Camel races and folk music in the Blue City', emoji: '🐪', mult: 2 },
-  Udaipur: { title: 'Royal Wedding', reason: 'A celebrity shaadi has booked every palace', emoji: '💍', mult: 3 },
+  Udaipur: { title: 'Film Shoot', reason: 'A Bollywood crew has booked every palace', emoji: '🎬', mult: 3 },
   Jaipur: { title: 'Literature Festival', reason: 'Authors and fans pack the Pink City', emoji: '📚', mult: 2 },
   Varanasi: { title: 'Dev Deepawali', reason: 'A million diyas light up the ghats', emoji: '🪔', mult: 3 },
   Kanpur: { title: 'Leather Trade Fair', reason: 'Buyers from around the world in Kanpur', emoji: '👞', mult: 2 },
@@ -155,4 +156,28 @@ export const CITY_SLUMPS: CityEventDef[] = [
   { title: 'Power Cut', reason: 'Bijli gone for days — shops shut early', emoji: '🔌', mult: 0.5 },
   { title: 'Traffic Jam', reason: 'A 6-hour jam keeps tourists away', emoji: '🚗', mult: 0.5 },
   { title: 'Water Shortage', reason: 'Tankers only — hotels half empty', emoji: '🚱', mult: 0.5 },
+];
+
+// ---- Power-ups (hand of max 2) ----
+export type Power = 'shield' | 'double' | 'tele';
+export const POWERS: Record<Power, { name: string; icon: string; text: string }> = {
+  shield: { name: 'Rent Shield', icon: '🛡️', text: 'Blocks the next rent you would pay. Used automatically.' },
+  double: { name: 'Double Dhamaka', icon: '💥', text: 'Play it: the next rent you collect is doubled.' },
+  tele: { name: 'Teleport', icon: '🌀', text: 'Play it, then tap any unowned tile to jump there.' },
+};
+export const MAX_POWERS = 2;
+export const AUCTION_STEP = 200;
+export const STREAK_BONUS = 500;
+/** From this round on (quick games), every rent is x1.5 so games finish on time. */
+export const PLACEMENT_ROUND = 4; // Placement Season: the last 4 rounds, every rent is x1.5
+
+// ---- Tapri spin wheel ----
+export type SpinPrize = 'pot' | 'half' | 'cash' | 'power' | 'house' | 'none';
+export const WHEEL: { prize: SpinPrize; label: string; color: string }[] = [
+  { prize: 'pot', label: 'FULL GULLAK', color: '#ffd23f' },
+  { prize: 'cash', label: '+₹500', color: '#00c97a' },
+  { prize: 'power', label: 'POWER-UP', color: '#9b6bff' },
+  { prize: 'half', label: 'HALF GULLAK', color: '#ff8c42' },
+  { prize: 'house', label: 'FREE HOUSE', color: '#2b7bff' },
+  { prize: 'none', label: 'SETH-JI KEEPS', color: '#ff2d55' },
 ];

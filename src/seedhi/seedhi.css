@@ -19,8 +19,9 @@
 
 /* ---------- SeedhiRush ---------- */
 .seedhi { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-.seedhi-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
-.seedhi-board { height: 100%; max-width: 100%; aspect-ratio: 1; filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.55)); overflow: visible; }
+/* The board is a square that always fits the space left over: never cut off, never scrolls. */
+.seedhi-wrap { flex: 1; min-height: 0; min-width: 0; position: relative; container-type: size; }
+.seedhi-board { position: absolute; inset: 0; margin: auto; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.55)); overflow: visible; }
 .sq-num { font-size: 0.22px; font-weight: 800; fill: rgba(27, 16, 53, 0.55); }
 .sq-crown { font-size: 0.45px; text-anchor: middle; }
 .snake .tongue { animation: tongue 1.2s steps(2) infinite; }

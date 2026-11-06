@@ -70,4 +70,6 @@ export const sfx = {
   troll: () => [392, 523, 330, 659].forEach((f, i) => tone(f, 0.12, 'square', 0.06, i * 0.07)),
   hiss: () => hiss(),
   pop: () => tone(1200, 0.08, 'sine', 0.08, 0, 500),
+  tink: (k = 0) => tone(1500 + (k % 4) * 120, 0.05, 'sine', 0.05),
+  thud: () => tone(140, 0.12, 'sine', 0.12, 0, 70),
 };

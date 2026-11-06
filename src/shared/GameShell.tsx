@@ -11,6 +11,7 @@ import { Backdrop } from '../components/Home';
 import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from '../components/Trolls';
 import { AVATARS, loadProfile, recordGame, saveProfile, type Profile } from '../game/profile';
 import { buzz, isMuted, setMuted, sfx } from '../game/sound';
+import { Joining } from '../components/Joining';
 import { hostRoom, joinRoom, soloRoom, TIMER_CHOICES, type Emote, type RoomSession, type RoomState, type Rules, type Status } from './room';
 
 export const SEAT_COLORS = ['#ff2d55', '#2b7bff', '#00c97a', '#ffb400'];
@@ -42,6 +43,8 @@ export interface ShellConfig<G, A> {
   Guide?(props: { onClose(): void }): ReactNode;
   /** Optional extra stats on the results screen. */
   summary?(g: G, name: (pid: string) => string): ReactNode;
+  /** Optional per-player line shown inside that player's podium row. */
+  podiumExtra?(g: G, pid: string): ReactNode;
 }
 
 type Screen = 'home' | 'room';
@@ -227,6 +230,7 @@ function ShellLobby<G, A>({ cfg, session, room, code, status, onLeave }: {
           <button className="btn primary sm" onClick={share} disabled={!code}>↗ Invite friends</button>
         </div>
       </section>
+      {!room ? <Joining status={status} /> : (<>
       <section className="seats">
         {Array.from({ length: max }, (_, i) => {
           const p = players[i];
@@ -257,6 +261,7 @@ function ShellLobby<G, A>({ cfg, session, room, code, status, onLeave }: {
       {isHost
         ? <button className="btn primary big start" disabled={players.length < 2} onClick={() => { sfx.turn(); session.act({ t: 'start' }); }}>{players.length < 2 ? 'Waiting for players…' : `Start game · ${players.length} players`}</button>
         : <div className="waiting-host"><span className="spinner" /> Waiting for host to start</div>}
+      </>)}
       {adsEnabled() && <BannerStrip />}
     </div>
   );
@@ -356,7 +361,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
               {result.map((id, i) => {
                 const p = room.players.find((x) => x.id === id);
                 return p ? <li key={id} className={id === me ? 'me' : ''} style={{ ['--c' as string]: color(id), animationDelay: `${i * 120}ms` }}>
-                  <span>{['🥇', '🥈', '🥉', '4️⃣'][i]}</span><span className="av"><Avatar id={p.avatar} size={34} mood={i === 0 ? 'cool' : null} /></span><b>{p.name}</b>
+                  <span>{['🥇', '🥈', '🥉', '4️⃣'][i]}</span><span className="av"><Avatar id={p.avatar} size={34} mood={i === 0 ? 'cool' : null} /></span><b>{p.name}{cfg.podiumExtra && <span className="pod-extra">{cfg.podiumExtra(game, id)}</span>}</b>
                 </li> : null;
               })}
             </ol>

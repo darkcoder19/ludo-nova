@@ -2,41 +2,44 @@ import { GameShell, type ShellConfig } from '../shared/GameShell';
 import { DhandhaBoard } from './DhandhaBoard';
 import { DhandhaGuide } from './Guide';
 import { BOARD, fmt } from './data';
-import { netWorth } from './rules';
-import { dhandhaRules, type DAction, type DGame } from './rules';
+import { SethJi } from './Monument';
+import { dhandhaRules, netWorth, type DAction, type DGame } from './rules';
 import './dhandha.css';
 import './dhandha2.css';
+import './dhandha3.css';
 
 export function DhandhaHero() {
-  return (
-    <svg viewBox="0 0 100 100" className="hero-svg">
-      <rect x="6" y="6" width="88" height="88" rx="10" fill="#fff7e6" stroke="#1b1035" strokeWidth="3" />
-      {['#ff2d55', '#2b49ff', '#ffd23f', '#00c97a', '#ff8c42', '#5ec8ff'].map((c, k) => <rect key={k} x={8 + k * 14} y="8" width="12" height="8" fill={c} />)}
-      <g className="hero-city">
-        <rect x="20" y="52" width="14" height="30" fill="#9b6bff" stroke="#1b1035" strokeWidth="2" />
-        <rect x="38" y="36" width="18" height="46" fill="#2b49ff" stroke="#1b1035" strokeWidth="2" />
-        <rect x="60" y="46" width="16" height="36" fill="#ff8c42" stroke="#1b1035" strokeWidth="2" />
-        {[42, 48, 54, 60, 66, 72].map((y) => <rect key={y} x="42" y={y} width="10" height="3" fill="#ffd23f" />)}
-      </g>
-      <g className="hero-coin"><circle cx="72" cy="28" r="12" fill="#ffd23f" stroke="#b8860b" strokeWidth="3" /><text x="72" y="33" textAnchor="middle" fontSize="14" fontWeight="900" fill="#7a5200">₹</text></g>
-    </svg>
-  );
+  return <SethJi mood="happy" />;
+}
+
+/** Fun end-of-game titles, one per stat, for whoever topped it. */
+function awards(g: DGame): Record<string, string[]> {
+  const out: Record<string, string[]> = Object.fromEntries(g.order.map((id) => [id, []]));
+  const top = (rec: Record<string, number>, min = 1) => {
+    const best = Math.max(...g.order.map((id) => rec[id] ?? 0));
+    return best >= min ? g.order.filter((id) => (rec[id] ?? 0) === best) : [];
+  };
+  top(g.stats.rent, 500).forEach((id) => out[id].push('👑 Rent Lord'));
+  top(g.stats.bought, 3).forEach((id) => out[id].push('📸 Real-Estate Influencer'));
+  top(g.stats.built, 2).forEach((id) => out[id].push('🏗️ Builder Bro'));
+  top(g.stats.potWins, 1).forEach((id) => out[id].push('☕ Tapri Regular'));
+  g.order.filter((id) => !g.out.includes(id) && (g.stats.minCash[id] ?? 15000) < 1500 && netWorth(g, id) > 8000).forEach((id) => out[id].push('🔥 Comeback Kid'));
+  return out;
 }
 
 const cfg: ShellConfig<DGame, DAction> = {
   slug: 'dhandhaking', name: 'DhandhaKing', kind: 'Property tycoon', prefix: 'dhandhaking-v1-',
-  tagline: 'Buy Mumbai, build hotels and villas, bankrupt your friends.',
+  tagline: 'Buy cities, spin the Tapri wheel, outbid your friends — Seth-ji is watching.',
   rules: dhandhaRules, hero: <DhandhaHero />, Board: DhandhaBoard, Guide: DhandhaGuide,
-  summary: (g, name) => (
-    <div className="dk-stats">
-      {g.order.map((id) => (
-        <div key={id}><b>{name(id)}</b><span>💰 {fmt(netWorth(g, id))}</span><span>🏙️ {BOARD.filter((_, i) => g.owner[i] === id).length} cities</span><span>🏠 {g.stats.built[id] ?? 0} built</span><span>📥 {fmt(g.stats.rent[id] ?? 0)} rent</span></div>
-      ))}
-    </div>
+  podiumExtra: (g, id) => (
+    <>
+      <span>💰 {fmt(netWorth(g, id))} · 🏙️ {BOARD.filter((_, i) => g.owner[i] === id).length} · 🏠 {g.stats.built[id] ?? 0} · 📥 {fmt(g.stats.rent[id] ?? 0)}</span>
+      {awards(g)[id].map((a) => <i key={a} className="award">{a}</i>)}
+    </>
   ),
   options: [{ key: 'rounds', label: '⏳ Game length', choices: [
     { value: 'quick', label: '⚡ 15 rounds', hint: 'Richest wins · ~25 min' },
-    { value: 'classic', label: '👑 Classic', hint: 'Last seth standing' },
+    { value: 'classic', label: '👑 Classic', hint: 'Last one standing · max 40 rounds' },
   ] }],
 };
 

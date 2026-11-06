@@ -6,10 +6,11 @@
   --glass: rgba(255, 255, 255, 0.07);
   --glass-hi: rgba(255, 255, 255, 0.14);
   --line: rgba(255, 255, 255, 0.12);
-  --red: #ff3d6e;
-  --green: #2ee59d;
-  --yellow: #ffc93c;
-  --blue: #3d8bff;
+  /* Ludo team colours: Rani Pink, Aqua Teal, Mango, Ultraviolet */
+  --red: #ff2e88;
+  --green: #12d6b4;
+  --yellow: #ffab1a;
+  --blue: #7a5cff;
   --accent: #9b6bff;
   --accent2: #ff4fd8;
   --radius: 20px;
@@ -374,7 +375,7 @@ input { font: inherit; color: inherit; }
 @keyframes sparks { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.6); } }
 
 /* ---------- v4: vivid board ---------- */
-:root { --red: #ff2d55; --green: #00c97a; --yellow: #ffb400; --blue: #2b7bff; }
+:root { --red: #ff2e88; --green: #12d6b4; --yellow: #ffab1a; --blue: #7a5cff; } /* Rani Pink, Aqua Teal, Mango, Ultraviolet */
 .board { filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.65)); }
 .board-bg { fill: #ffffff; stroke: #2a1b6b; stroke-width: 0.22; }
 .cell { fill: #ffffff; stroke: #cfc6e8; stroke-width: 0.04; }
@@ -412,3 +413,8 @@ input { font: inherit; color: inherit; }
 .dance { animation: dance 0.7s ease-in-out infinite; }
 @keyframes dance { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-12px) rotate(8deg) scale(1.06); } }
 .podium .av { display: inline-flex; }
+
+/* Ludo yards: dotted pattern + gloss over the colour, inner box ringed in the team colour */
+.yard-deco { pointer-events: none; }
+.yard.off .yard-deco { opacity: 0.2; }
+.yard-inner { stroke-width: 0.06; stroke-opacity: 0.35; }

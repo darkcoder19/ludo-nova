@@ -92,7 +92,6 @@ export function SeedhiBoard({ room, game, me, color, mood, setMood, confetti, ac
       <div className="seedhi-wrap">
         <svg className="seedhi-board" viewBox="-0.15 -0.15 10.3 10.3">
           <defs>
-            <linearGradient id="rail" x1="0" x2="1"><stop offset="0" stopColor="#c68642" /><stop offset="1" stopColor="#8b5a2b" /></linearGradient>
             <filter id="sh"><feDropShadow dx="0.04" dy="0.08" stdDeviation="0.06" floodOpacity="0.45" /></filter>
           </defs>
           <rect x="-0.15" y="-0.15" width="10.3" height="10.3" rx="0.4" fill="#2a1b6b" />
@@ -114,8 +113,12 @@ export function SeedhiBoard({ room, game, me, color, mood, setMood, confetti, ac
             const rungs = Math.max(2, Math.round(len * 2.2));
             return (
               <g key={f} filter="url(#sh)" className="ladder">
-                <line x1={a[0] + nx} y1={a[1] + ny} x2={b[0] + nx} y2={b[1] + ny} stroke="url(#rail)" strokeWidth="0.09" strokeLinecap="round" />
-                <line x1={a[0] - nx} y1={a[1] - ny} x2={b[0] - nx} y2={b[1] - ny} stroke="url(#rail)" strokeWidth="0.09" strokeLinecap="round" />
+                {[1, -1].map((k) => (
+                  <g key={k}>
+                    <line x1={a[0] + nx * k} y1={a[1] + ny * k} x2={b[0] + nx * k} y2={b[1] + ny * k} stroke="#8b5a2b" strokeWidth="0.1" strokeLinecap="round" />
+                    <line x1={a[0] + nx * k} y1={a[1] + ny * k} x2={b[0] + nx * k} y2={b[1] + ny * k} stroke="#d39a5c" strokeWidth="0.035" strokeLinecap="round" />
+                  </g>
+                ))}
                 {Array.from({ length: rungs }, (_, i) => {
                   const t = (i + 0.5) / rungs, cx = a[0] + dx * t, cy = a[1] + dy * t;
                   return <line key={i} x1={cx + nx} y1={cy + ny} x2={cx - nx} y2={cy - ny} stroke="#a0693a" strokeWidth="0.06" />;

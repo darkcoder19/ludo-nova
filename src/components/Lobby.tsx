@@ -5,6 +5,7 @@ import { sfx } from '../game/sound';
 import { Avatar } from './Avatar';
 import { BannerStrip } from '../ads/AdViews';
 import { adsEnabled } from '../ads/premium';
+import { Joining } from './Joining';
 import { Backdrop, ModePicker } from './Home';
 
 interface Props {
@@ -53,6 +54,7 @@ export function Lobby({ session, state, code, status, onLeave }: Props) {
         </div>
       </section>
 
+      {!state ? <Joining status={status} /> : (<>
       <section className="seats">
         {[0, 1, 2, 3].map((i) => {
           const p = players[i];
@@ -102,6 +104,7 @@ export function Lobby({ session, state, code, status, onLeave }: Props) {
       ) : (
         <div className="waiting-host"><span className="spinner" /> Waiting for host to start</div>
       )}
+      </>)}
       {adsEnabled() && <BannerStrip />}
     </div>
   );

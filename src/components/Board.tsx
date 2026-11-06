@@ -95,7 +95,8 @@ function useUnlockBursts(tokens: Tokens) {
 }
 
 const FILL: Record<Color, string> = { red: 'var(--red)', green: 'var(--green)', yellow: 'var(--yellow)', blue: 'var(--blue)' };
-const DARK: Record<Color, string> = { red: '#c4113f', green: '#00965e', yellow: '#e08a00', blue: '#1450c8' };
+const DARK: Record<Color, string> = { red: '#b8005a', green: '#00857a', yellow: '#e2600a', blue: '#4320c8' };
+const LIGHT: Record<Color, string> = { red: '#ff8cc0', green: '#7cf5dc', yellow: '#ffd76a', blue: '#b6a4ff' };
 
 // How pieces sharing one square are arranged: [dx, dy] offsets and a scale, by count.
 const STACK: Record<number, { at: [number, number][]; s: number }> = {
@@ -180,10 +181,18 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
           ))}
           {COLORS.map((c) => (
             <linearGradient key={c} id={`yard-${c}`} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor={FILL[c]} />
+              <stop offset="0%" stopColor={LIGHT[c]} />
+              <stop offset="45%" stopColor={FILL[c]} />
               <stop offset="100%" stopColor={DARK[c]} />
             </linearGradient>
           ))}
+          <pattern id="yard-dots" width="0.5" height="0.5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <circle cx="0.25" cy="0.25" r="0.07" fill="#fff" fillOpacity="0.28" />
+          </pattern>
+          <linearGradient id="yard-gloss" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.35" />
+            <stop offset="50%" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
           <radialGradient id="cell-sheen" cx="30%" cy="25%" r="90%">
             <stop offset="0%" stopColor="#fff" stopOpacity="0.22" />
             <stop offset="100%" stopColor="#fff" stopOpacity="0.06" />
@@ -201,7 +210,9 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
             return (
               <g key={c} className={`yard ${c} ${turnColor === c ? 'turn' : ''} ${active.has(c) ? '' : 'off'}`}>
                 <rect x={col + 0.1} y={r + 0.1} width="5.8" height="5.8" rx="0.8" fill={`url(#yard-${c})`} className="yard-outer" />
-                <rect x={col + 0.8} y={r + 0.8} width="4.4" height="4.4" rx="0.6" className="yard-inner" />
+                <rect x={col + 0.1} y={r + 0.1} width="5.8" height="5.8" rx="0.8" fill="url(#yard-dots)" className="yard-deco" />
+                <rect x={col + 0.1} y={r + 0.1} width="5.8" height="2.9" rx="0.8" fill="url(#yard-gloss)" className="yard-deco" />
+                <rect x={col + 0.8} y={r + 0.8} width="4.4" height="4.4" rx="0.6" className="yard-inner" style={{ stroke: DARK[c] }} />
                 {[[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]].map(([sx, sy], i) => (
                   <circle key={i} cx={col + sx} cy={r + sy} r="0.55" className="spot" style={{ fill: FILL[c], stroke: DARK[c] }} />
                 ))}
