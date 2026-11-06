@@ -29,14 +29,16 @@ const GIVE_UP_AFTER = 90000;
 
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 // A room code starts with its game's letter, so a code typed into another game's Join box still finds its room.
-const GAME_LETTER: Record<string, string> = { ludonova: 'N', seedhirush: 'S', dhandhaking: 'D' };
+export const GAME_LETTER: Record<string, string> = { ludonova: 'N', seedhirush: 'S', dhandhaking: 'D' };
+/** The game a room code was made in, read from its first letter. */
+export const gameOfCode = (code: string) => Object.keys(GAME_LETTER).find((g) => GAME_LETTER[g] === code.trim().toUpperCase()[0]);
 const pick = () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
 export const makeCode = (prefix = '') => (GAME_LETTER[prefix.replace(/-v\d+-$/, '')] ?? pick()) + Array.from({ length: 4 }, pick).join('');
 
 /** If `code` belongs to a game other than `here`, open that game and join there. Returns true when leaving. */
 export function routeToGame(code: string, here: string): boolean {
   const c = code.trim().toUpperCase();
-  const game = Object.keys(GAME_LETTER).find((g) => GAME_LETTER[g] === c[0]);
+  const game = gameOfCode(c);
   if (!game || game === here) return false;
   location.href = `${env.BASE_URL}${game}?room=${c}&join=1`;
   return true;

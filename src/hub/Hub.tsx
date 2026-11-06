@@ -7,6 +7,7 @@ import { Avatar } from '../components/Avatar';
 import { Backdrop } from '../components/Home';
 import { sfx } from '../game/sound';
 import { GAMES, gameUrl, type GameInfo } from './games';
+import { GAME_LETTER, gameOfCode, routeToGame } from '../shared/link';
 
 /** sarvimo.com/games — the game picker. */
 export function Hub() {
@@ -25,6 +26,7 @@ export function Hub() {
       </header>
       <AccountBar onAdmin={() => setAdmin(true)} />
       <UpgradeStrip />
+      <JoinBox />
 
       <div className="hub-row">
         <b>🎮 Games</b>
@@ -38,6 +40,33 @@ export function Hub() {
       {adsEnabled() && <BannerStrip />}
       <footer className="foot">© Sarvimo · Free to play · Install any game on your phone</footer>
     </div>
+  );
+}
+
+/** Join any game's room from here: the code's first letter says which game it is. */
+function JoinBox() {
+  const [code, setCode] = useState('');
+  const [err, setErr] = useState('');
+  const game = gameOfCode(code);
+  const join = () => {
+    if (code.length < 5) return;
+    sfx.tap();
+    if (!routeToGame(code, '')) setErr('Codes start with N, S or D. Older code? Join from inside its game.');
+  };
+  return (
+    <form className="hub-join" onSubmit={(e) => { e.preventDefault(); join(); }}>
+      <input className="hj-code" placeholder="ROOM CODE" maxLength={5} value={code} aria-label="Room code"
+        onChange={(e) => { setErr(''); setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); }} />
+      <div className="hj-letters">
+        {GAMES.map((g) => (
+          <span key={g.slug} className={game === g.slug ? 'on' : ''} style={{ ['--a' as string]: g.colors[0] }} title={g.name}>
+            <b>{GAME_LETTER[g.slug]}</b><small>{g.name.replace(/(Nova|Rush|King)$/, '')}</small>
+          </span>
+        ))}
+      </div>
+      <button className="btn primary sm" disabled={code.length < 5}>Join</button>
+      {err && <small className="hj-err">{err}</small>}
+    </form>
   );
 }
 

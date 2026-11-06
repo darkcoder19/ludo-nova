@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, goPremium, GOOGLE_CLIENT_ID, hasToken, renderGoogleButton, signOut, useAccount, type Account } from './account';
+import { ADS_ON } from '../ads/premium';
 
 /** Home-screen account row: Google sign-in, or the signed-in chip with premium / admin actions. */
 export function AccountBar({ onAdmin }: { onAdmin(): void }) {
@@ -43,7 +44,7 @@ export const askUpgrade = () => openSheet?.();
 
 export function PremiumButton({ small = false }: { small?: boolean }) {
   const me = useAccount();
-  if (me?.plan === 'premium') return null;
+  if (!ADS_ON || me?.plan === 'premium') return null; // nothing to remove while ads are off
   return (
     <button className={`btn premium ${small ? 'xs' : 'sm'}`} onClick={(e) => { e.stopPropagation(); askUpgrade(); }}>
       {small ? '👑 ₹99/mo' : '👑 Remove ads · ₹99/month'}
@@ -54,6 +55,7 @@ export function PremiumButton({ small = false }: { small?: boolean }) {
 /** Wide "No Ads" banner for home pages. */
 export function UpgradeStrip() {
   const me = useAccount();
+  if (!ADS_ON) return null; // nothing to remove while ads are off
   if (me?.plan === 'premium') return <div className="up-strip on">👑 Premium · ad-free on every Sarvimo game</div>;
   return (
     <button className="up-strip" onClick={askUpgrade}>
@@ -67,7 +69,7 @@ export function UpgradeStrip() {
 /** Tiny chip for game screens. */
 export function NoAdsChip() {
   const me = useAccount();
-  if (me?.plan === 'premium') return null;
+  if (!ADS_ON || me?.plan === 'premium') return null; // nothing to remove while ads are off
   return <button className="noads-chip" onClick={askUpgrade}>👑 No Ads</button>;
 }
 

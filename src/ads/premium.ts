@@ -1,5 +1,7 @@
-// Who sees ads. Until accounts exist, everyone is a free player.
-// Will be backed by the signed-in user's plan (free / premium).
+// Who sees ads: free players, unless ads are switched off altogether.
 let premium = false;
 export const setPremium = (p: boolean) => { premium = p; };
-export const adsEnabled = () => !premium;
+
+/** Ads are switched off for now. Set to true to bring back Sarvimo ads and the "No Ads" upgrade prompts. */
+export const ADS_ON = false;
+export const adsEnabled = () => ADS_ON && !premium;

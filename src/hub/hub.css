@@ -66,3 +66,17 @@
 @keyframes coinfall { from { transform: translateY(0) rotate(0); } to { transform: translateY(140px) rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) { .gcard * { animation: none !important; } }
+
+/* join any game's room from the hub; the code's first letter picks the game */
+.hub-join { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border-radius: 16px; background: var(--glass); border: 1px solid var(--line); flex: none; }
+.hub-join .hj-code { width: 7.2em; min-width: 0; flex: 1 1 6em; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.25);
+  font-weight: 900; letter-spacing: 0.18em; text-align: center; font-size: 1rem; }
+.hub-join .hj-code::placeholder { letter-spacing: 0.06em; font-weight: 700; color: var(--dim); font-size: 0.8rem; }
+.hj-letters { display: flex; gap: 4px; }
+.hj-letters span { display: flex; flex-direction: column; align-items: center; min-width: 40px; padding: 2px 4px; border-radius: 8px; line-height: 1.05;
+  border: 1px solid color-mix(in srgb, var(--a) 45%, transparent); background: color-mix(in srgb, var(--a) 12%, transparent); transition: transform 0.2s, background 0.2s; }
+.hj-letters b { font-size: 0.85rem; }
+.hj-letters small { font-size: 0.55rem; font-weight: 700; color: var(--dim); }
+.hj-letters span.on { background: var(--a); border-color: var(--a); transform: scale(1.1); box-shadow: 0 0 14px color-mix(in srgb, var(--a) 70%, transparent); }
+.hj-letters span.on small { color: #fff; }
+.hj-err { width: 100%; color: #ff8fa3; font-weight: 700; font-size: 0.72rem; }
