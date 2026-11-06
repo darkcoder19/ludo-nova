@@ -368,3 +368,9 @@
 .dk.v5 .dk-board.tight .power { min-width: 0; padding: 2px 8px; }
 .dk.v5 .dk-board.tight .power span { font-size: 14px; }
 .dk.v5 .dk-board.tight .season { font-size: 9px; }
+
+/* small toasts stack in one column instead of piling onto the same spot */
+.toast-stack { position: fixed; left: 50%; top: 20%; z-index: 33; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: max-content; max-width: 92vw; pointer-events: none; }
+.toast-stack > .toast-pop, .toast-stack > .landpop { position: static; left: auto; top: auto; transform: none; max-width: 92vw; animation: stackpop 2.6s ease forwards; }
+@keyframes stackpop { 0% { opacity: 0; transform: translateY(-14px) scale(0.85); } 12%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-8px); } }

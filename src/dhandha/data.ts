@@ -170,6 +170,8 @@ export const AUCTION_STEP = 200;
 export const STREAK_BONUS = 500;
 /** From this round on (quick games), every rent is x1.5 so games finish on time. */
 export const PLACEMENT_ROUND = 4; // Placement Season: the last 4 rounds, every rent is x1.5
+/** Classic has no round limit, so rents climb instead: from round START, every EVERY rounds, rent x STEP (compounding). */
+export const MEHNGAI = { START: 15, EVERY: 4, STEP: 1.5 };
 
 // ---- Tapri spin wheel ----
 export type SpinPrize = 'pot' | 'half' | 'cash' | 'power' | 'house' | 'none';

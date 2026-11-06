@@ -105,6 +105,7 @@ export class RoomHost<G, A> {
         if (!isHost || s.phase !== 'over') return;
         const players = s.players.filter((p) => p.connected || p.bot);
         if (players.length >= 2) this.set({ ...s, players, phase: 'playing', game: this.rules.start(players, s.options) });
+        else this.set({ ...s, players, phase: 'lobby', game: null }); // everyone else left: back to the lobby
         return;
       }
       case 'game': {
@@ -202,12 +203,17 @@ export function hostRoom<G, A>(prefix: string, rules: Rules<G, A>, me: Me, h: Ha
 
 export function joinRoom<G, A>(prefix: string, code: string, me: Me, h: Handlers<G>): RoomSession<A> {
   const hello: GuestMsg<A> = { t: 'hello', id: me.id, name: me.name, avatar: me.avatar };
+  let seated = false;
   const link = openGuest(prefix, code, me.id, hello, {
     onStatus: h.onStatus,
     onFail: (msg) => h.onStatus('closed', msg),
     onData: (raw) => {
       const m = raw as HostMsg<G>;
-      if (m.t === 'state') { h.onStatus('online'); h.onState(m.s); }
+      if (m.t === 'state') {
+        if (m.s.players.some((p) => p.id === me.id)) seated = true;
+        else if (seated && m.s.phase === 'lobby') { link.close(); h.onStatus('closed', 'The host removed you from the room.'); return; }
+        h.onStatus('online'); h.onState(m.s);
+      }
       if (m.t === 'emote') h.onEmote(m.e);
       if (m.t === 'full') { link.close(); h.onStatus('closed', 'That room is full or already playing.'); }
     },

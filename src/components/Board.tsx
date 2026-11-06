@@ -6,7 +6,7 @@ import { sfx } from '../game/sound';
 type Tokens = GameState['tokens'];
 
 /** Walks tokens forward one square at a time so moves read as hops, not teleports. */
-function useAnimatedTokens(target: Tokens): [Tokens, Set<string>] {
+function useAnimatedTokens(target: Tokens, fresh: boolean): [Tokens, Set<string>] {
   const [shown, setShown] = useState<Tokens>(target);
   const [knocked, setKnocked] = useState<Set<string>>(new Set());
   const hissing = useRef(false);
@@ -14,6 +14,8 @@ function useAnimatedTokens(target: Tokens): [Tokens, Set<string>] {
   shownRef.current = shown;
 
   useEffect(() => {
+    // A new game (or rematch) starts from scratch: no walking, no capture rewinds back to the yard.
+    if (fresh) { shownRef.current = target; setShown(target); setKnocked(new Set()); return; }
     let timer: ReturnType<typeof setTimeout>;
     const step = () => {
       const cur = shownRef.current;
@@ -117,7 +119,7 @@ interface Props {
 }
 
 export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
-  const [shown, knocked] = useAnimatedTokens(state.tokens);
+  const [shown, knocked] = useAnimatedTokens(state.tokens, state.event?.kind === 'start');
   const turnColor = state.players[state.turn]?.color;
   const active = new Set(state.players.map((p) => p.color));
   const [hover, setHover] = useState<number | null>(null);

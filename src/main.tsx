@@ -28,6 +28,23 @@ function Root() {
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Root /><UpgradeSheet /></StrictMode>);
 
+// A tab or installed app left open after a deploy keeps running the old build, and an old host can't
+// see guests on the new relay. So reload into the new build, but only from a home screen, never mid-game.
+if (import.meta.env.PROD) {
+  const build = (s: string) => s.match(/index-[\w-]+\.js/)?.[0];
+  const mine = build([...document.scripts].map((s) => s.src).join(' '));
+  const idle = () => !document.hidden && !!document.querySelector('.screen.home, .screen.hub') && !document.querySelector('.ad-ov');
+  const checkForUpdate = async () => {
+    if (!mine || !idle()) return;
+    try {
+      const live = build(await (await fetch(location.pathname, { cache: 'no-store' })).text());
+      if (live && live !== mine && idle()) location.reload();
+    } catch { /* offline: keep the current build */ }
+  };
+  document.addEventListener('visibilitychange', checkForUpdate);
+  setInterval(checkForUpdate, 5 * 60_000);
+}
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   addEventListener('load', () => navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }));
 }

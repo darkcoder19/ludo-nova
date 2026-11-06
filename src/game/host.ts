@@ -72,9 +72,13 @@ export class GameHost {
       }
       case 'kick': if (isHost && s.phase === 'lobby' && a.id !== s.hostId) this.set({ ...s, players: s.players.filter((p) => p.id !== a.id) }); return;
       case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) this.set(startGame(s)); return;
-      case 'rematch':
-        if (isHost && s.phase === 'over') this.set(startGame({ ...s, players: s.players.filter((p) => p.connected || p.bot) }));
+      case 'rematch': {
+        if (!isHost || s.phase !== 'over') return;
+        const players = s.players.filter((p) => p.connected || p.bot);
+        // Everyone else left: back to the lobby to invite friends or add bots, not a one-player game.
+        this.set(players.length >= 2 ? startGame({ ...s, players }) : { ...newLobby(s.hostId), mode: s.mode, turnMs: s.turnMs, players });
         return;
+      }
     }
     if (s.phase !== 'playing' || s.players[s.turn].id !== from) return;
     if (a.t === 'roll' && !s.rolled) this.set(roll(s));

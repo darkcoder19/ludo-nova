@@ -84,12 +84,17 @@ export function hostRoom(myId: string, name: string, avatar: string, h: Handlers
 }
 
 export function joinRoom(code: string, myId: string, name: string, avatar: string, h: Handlers): Session {
+  let seated = false;
   const link = openGuest(PREFIX, code, myId, { t: 'hello', id: myId, name, avatar } satisfies GuestMsg, {
     onStatus: h.onStatus,
     onFail: (msg) => h.onStatus('closed', msg),
     onData: (raw) => {
       const m = raw as HostMsg;
-      if (m.t === 'state') { h.onStatus('online'); h.onState(m.s); }
+      if (m.t === 'state') {
+        if (m.s.players.some((p) => p.id === myId)) seated = true;
+        else if (seated && m.s.phase === 'lobby') { link.close(); h.onStatus('closed', 'The host removed you from the room.'); return; }
+        h.onStatus('online'); h.onState(m.s);
+      }
       if (m.t === 'emote') h.onEmote(m.e);
       if (m.t === 'full') { link.close(); h.onStatus('closed', 'That room is full or already playing.'); }
     },

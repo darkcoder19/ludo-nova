@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AUCTION_STEP, BAIL, BOARD, CARDS, GROUPS, MAX_POWERS, PLACEMENT_ROUND, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
+import { AUCTION_STEP, BAIL, BOARD, CARDS, GROUPS, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
 import { ArtDefs, Buildings, SethJi, TilePic } from './Monument';
 
 const STEPS = [
@@ -11,7 +11,7 @@ const STEPS = [
   { t: 'Spin the Tapri wheel ☕', d: 'Fees and fines go into the Tapri gullak. Land on Tapri Jackpot and spin: full gullak, half, a power-up, a free house… or Seth-ji keeps it.', scene: 'wheel' },
   { t: 'Play power-ups ⚡', d: 'Rent Shield blocks a rent, Double Dhamaka doubles the next rent you collect, Teleport jumps you to any unowned tile.', scene: 'powers' },
   { t: 'Ride the trends', d: 'A film shoot or festival can make a city trend (rent ×2 or ×3). Bad news makes it slump (rent ×½).', scene: 'event' },
-  { t: 'Placement Season 🎓', d: `In the last ${PLACEMENT_ROUND} rounds every rent is ×1.5. Most net worth wins and becomes the DhandhaKing.`, scene: 'win' },
+  { t: 'Rents climb as you go 📈', d: `Quick: the last ${PLACEMENT_ROUND} rounds are Placement Season (rent ×1.5) and the richest wins. Classic has no round limit: from round ${MEHNGAI.START}, Mehngai pushes every rent ×${MEHNGAI.STEP} every ${MEHNGAI.EVERY} rounds until one tycoon is left.`, scene: 'win' },
 ];
 
 function Scene({ kind }: { kind: string }) {
@@ -157,7 +157,8 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
             </ul>
 
             <h3>👑 Winning</h3>
-            <p><b>Quick:</b> after 15 rounds the richest player (cash + cities + buildings) wins. <b>Classic:</b> last one standing, or the richest after 40 rounds. Either way, the last {PLACEMENT_ROUND} rounds are <b>Placement Season</b>: every rent ×1.5.</p>
+            <p><b>Quick:</b> after 15 rounds the richest player (cash + cities + buildings) wins. The last {PLACEMENT_ROUND} rounds are <b>Placement Season</b>: every rent ×1.5.</p>
+            <p><b>Classic:</b> no round limit. The game goes on until only one player is not bankrupt. From round {MEHNGAI.START}, <b>Mehngai</b> (inflation) kicks in: every {MEHNGAI.EVERY} rounds all rents go up ×{MEHNGAI.STEP} again (×1.5, ×2.3, ×3.4, ×5…), so the game always ends.</p>
             <p className="dim">At the end everyone gets awards: Rent Lord, Real-Estate Influencer, Builder Bro, Tapri Regular and Comeback Kid.</p>
           </div>
         )}

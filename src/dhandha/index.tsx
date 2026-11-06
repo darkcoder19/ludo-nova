@@ -39,7 +39,7 @@ const cfg: ShellConfig<DGame, DAction> = {
   ),
   options: [{ key: 'rounds', label: '⏳ Game length', choices: [
     { value: 'quick', label: '⚡ 15 rounds', hint: 'Richest wins · ~25 min' },
-    { value: 'classic', label: '👑 Classic', hint: 'Last one standing · max 40 rounds' },
+    { value: 'classic', label: '👑 Classic', hint: 'Last one standing · no round limit' },
   ] }],
 };
 

@@ -1,5 +1,5 @@
-// Network-first for pages, cache-first for built assets. Lets the app open offline.
-const CACHE = 'ludo-nova-v3';
+// Network-first for pages, cache-first for built (hashed) assets. Lets the app open offline.
+const CACHE = 'ludo-nova-v4';
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './icon.svg'])));
   self.skipWaiting();
@@ -19,6 +19,8 @@ self.addEventListener('fetch', (e) => {
     }).catch(() => caches.match('./')));
     return;
   }
+  // Only hashed build files are safe to serve from cache; anything else (e.g. the update check) goes to the network.
+  if (!url.pathname.includes('/assets/')) return;
   e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
     return res;

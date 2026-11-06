@@ -1,7 +1,7 @@
 // DhandhaKing — property tycoon rules ("Campus to Crorepati"). Pure functions run by the room host.
 import { AUTO, type Rules, type Seat } from '../shared/room';
 import {
-  AUCTION_STEP, BAIL, BOARD, BUILD_LEVELS, CARDS, CITY_FESTIVALS, CITY_SLUMPS, GROUPS, JAIL, MAX_BUILD, MAX_POWERS, PLACEMENT_ROUND,
+  AUCTION_STEP, BAIL, BOARD, BUILD_LEVELS, CARDS, CITY_FESTIVALS, CITY_SLUMPS, GROUPS, JAIL, MAX_BUILD, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND,
   RENT_MULT, SALARY, SELL_RATE, START_CASH, STREAK_BONUS, WHEEL, buildCost, fmt, type Card, type Power,
 } from './data';
 
@@ -71,6 +71,10 @@ export const groupSquares = (grp: number) => BOARD.map((s, i) => (s.group === gr
 export const ownsGroup = (g: DGame, pid: string, grp: number) => groupSquares(grp).every((i) => g.owner[i] === pid);
 export const placementStart = (g: DGame) => g.maxRounds - PLACEMENT_ROUND;
 export const placementOn = (g: DGame) => g.maxRounds > 0 && g.round >= placementStart(g);
+/** Classic (no round limit): how many Mehngai steps have kicked in. */
+export const mehngaiLevel = (g: DGame) => (g.maxRounds > 0 || g.round < MEHNGAI.START ? 0 : 1 + Math.floor((g.round - MEHNGAI.START) / MEHNGAI.EVERY));
+/** Everything that scales rent with time: Placement Season (quick) or Mehngai (classic). */
+export const rentBoost = (g: DGame) => (placementOn(g) ? 1.5 : MEHNGAI.STEP ** mehngaiLevel(g));
 
 export function rentFor(g: DGame, sq: number, diceSum: number): number {
   const s = BOARD[sq], o = g.owner[sq];
@@ -87,8 +91,7 @@ export function rentFor(g: DGame, sq: number, diceSum: number): number {
     const n = BOARD.filter((b, i) => b.kind === 'utility' && g.owner[i] === o).length;
     r = diceSum * (n === 2 ? 100 : 40);
   }
-  if (placementOn(g)) r *= 1.5;
-  return Math.round(r);
+  return Math.round(r * rentBoost(g));
 }
 
 export const netWorth = (g: DGame, pid: string) =>
@@ -291,6 +294,7 @@ function tickRound(g: DGame) {
   for (const e of g.events.filter((x) => x.rounds <= 0)) fx(g, { kind: 'eventEnd', pid: g.order[0], sq: e.sq });
   g.events = g.events.filter((e) => e.rounds > 0);
   if (g.maxRounds > 0 && g.round === placementStart(g)) fx(g, { kind: 'placement', pid: g.order[0] });
+  if (g.maxRounds === 0 && g.round >= MEHNGAI.START && (g.round - MEHNGAI.START) % MEHNGAI.EVERY === 0) fx(g, { kind: 'placement', pid: g.order[0], text: 'mehngai', amount: rentBoost(g) });
   if (g.round < 3 || g.events.length >= 2 || g.round - g.lastEventRound < 2 || Math.random() > 0.35) return;
   const cities = BOARD.map((b, i) => (b.kind === 'city' && !g.events.some((e) => e.sq === i) ? i : -1)).filter((i) => i >= 0);
   const sq = cities[Math.floor(Math.random() * cities.length)];
@@ -353,7 +357,7 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
       order, names: Object.fromEntries(players.map((p) => [p.id, p.name])), cash: z(START_CASH), pos: z(0),
       owner: BOARD.map(() => null), build: BOARD.map(() => 0), mort: BOARD.map(() => false), jail: z(0), jugaad: z(0),
       turn: Math.floor(Math.random() * order.length), dice: [1, 1], rollId: 0, doubles: 0, again: false, phase: 'roll',
-      move: null, card: null, out: [], round: 1, maxRounds: options.rounds === 'classic' ? 40 : 15, pot: 0,
+      move: null, card: null, out: [], round: 1, maxRounds: options.rounds === 'classic' ? 0 : 15, pot: 0,
       events: [], lastEventRound: 0, hand: Object.fromEntries(order.map((id) => [id, [] as Power[]])), dblArmed: z(false), streak: z(0), lastRentRound: z(-9),
       spin: null, auction: null,
       stats: { rent: z(0), bought: z(0), peak: z(START_CASH), built: z(0), potWins: z(0), minCash: z(START_CASH) },

@@ -6,7 +6,7 @@ import type { GameProps } from '../shared/GameShell';
 import { BAIL, BOARD, BUILD_LEVELS, GROUPS, MAX_BUILD, POWERS, RENT_MULT, WHEEL, fmt, type Card, type Power } from './data';
 import { ArtDefs, Buildings, MONUMENTS, SethJi, TilePic, type SethMood } from './Monument';
 import {
-  canBuild, groupSquares, netWorth, nextBuildCost, ownsGroup, placementOn, rentFor, sellValue, takeoverPrice,
+  canBuild, groupSquares, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, sellValue, takeoverPrice,
   type CityEvent, type DAction, type DGame, type Fx,
 } from './rules';
 
@@ -119,6 +119,7 @@ const LINES: Record<string, string[]> = {
   takeover: ['Hostile takeover! Corporate drama 🍿'],
   streak: ['On a roll 🔥 ₹500 bonus from me.'],
   placement: ['Placement Season! Ab har rent ×1.5. All the best 😈'],
+  mehngai: ['Mehngai badh gayi! Ab har rent {x}. 💸', 'Inflation alert 📈 Rent {x}. Savings sambhal ke!', 'Sab kuch mehnga! Rent {x}, chai bhi ₹20 ki 😤'],
   set: ['Poora set! Ab ghar bana, hotel bana, villa bana.'],
   spin: ['Ghumao wheel, dekhte hain kismat!'],
   double: ['Double Dhamaka armed. Koi toh aao 😈'],
@@ -134,7 +135,10 @@ const pickLine = (k: string, vars: Record<string, string> = {}) => {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const LANDING = new Set<Fx['kind']>(['pay', 'earn', 'land', 'pot', 'jail', 'setComplete', 'shield', 'double', 'streak', 'event', 'free']);
 const short = (n: number) => (n >= 1000 ? `₹${+(n / 1000).toFixed(1)}k` : `₹${n}`);
+/** Rent multiplier as people read it: ×1.5, ×2.3, ×11. */
+const times = (x: number) => (x < 10 ? `×${+x.toFixed(1)}` : `×${Math.round(x)}`);
 interface Floater { id: number; pid: string; text: string; good: boolean }
+const MODAL_POPS = new Set(['event', 'set']);
 type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'streak' | 'takeover' | 'auctionWin' | 'shield'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
 
 export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act }: GameProps<DGame, DAction>) {
@@ -312,7 +316,11 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             break;
           }
           case 'eventEnd': pop({ kind: 'eventEnd', sq: f.sq!, pid: f.pid }, 2000); break;
-          case 'placement': pop({ kind: 'placement', pid: f.pid }, 3200); say('placement', 'party'); sfx.turn(); break;
+          case 'placement':
+            pop({ kind: 'placement', pid: f.pid, amount: f.amount, other: f.text }, 3200);
+            if (f.text === 'mehngai') say('mehngai', 'shocked', { x: times(f.amount ?? 1) }); else say('placement', 'party');
+            sfx.turn();
+            break;
           case 'streak': float(f, `🔥 +${fmt(f.amount!)} streak`, true); fly(banker(), chip(f.pid), COIN, 0, 4); say('streak', 'count'); break;
           case 'shield': pop({ kind: 'shield', pid: f.pid, sq: f.sq, amount: f.amount, other: f.other }, 2400); say('shield', 'shocked'); sfx.six(); break;
           case 'double': float(f, `💥 ×2 rent!`, true); sfx.win(); break;
@@ -375,7 +383,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
 
       <div className="dk-stage">
         <div className="dk-scroll" ref={fit.ref}>
-          <div className={`dk-board geo-${geo.n}x${geo.m} ${teleport ? 'tele-mode' : ''} ${placementOn(game) ? 'placement' : ''} ${uc < 30 ? 'tight' : ''}`} style={{ width: fit.w, height: fit.h, ['--u' as string]: `${fit.w / (2 * geo.K + geo.n)}px`, ['--uc' as string]: `${uc}px`, ['--ds' as string]: Math.max(0.42, Math.min(0.8, uc / 52)), gridTemplateColumns: `${geo.K}fr repeat(${geo.n}, 1fr) ${geo.K}fr`, gridTemplateRows: `${geo.K}fr repeat(${geo.m}, 1fr) ${geo.K}fr` }}>
+          <div className={`dk-board geo-${geo.n}x${geo.m} ${teleport ? 'tele-mode' : ''} ${rentBoost(game) > 1 ? 'placement' : ''} ${uc < 30 ? 'tight' : ''}`} style={{ width: fit.w, height: fit.h, ['--u' as string]: `${fit.w / (2 * geo.K + geo.n)}px`, ['--uc' as string]: `${uc}px`, ['--ds' as string]: Math.max(0.42, Math.min(0.8, uc / 52)), gridTemplateColumns: `${geo.K}fr repeat(${geo.n}, 1fr) ${geo.K}fr`, gridTemplateRows: `${geo.K}fr repeat(${geo.m}, 1fr) ${geo.K}fr` }}>
             {BOARD.map((s, i) => {
               const { r, c, side } = cell(i, geo);
               const o = game.owner[i];
@@ -405,6 +413,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 <b>Dhandha<em>King</em></b>
                 <span className="round-chip">R{game.round}{game.maxRounds ? `/${game.maxRounds}` : ''}</span>
                 {placementOn(game) && <span className="season">🎓 PLACEMENT SEASON ×1.5</span>}
+                {mehngaiLevel(game) > 0 && <span className="season">📈 MEHNGAI · RENT {times(rentBoost(game))}</span>}
               </div>
               <div className="dk-sethbox" data-anchor="banker">
                 <SethJi mood={seth.mood} shades={seth.shades} />
@@ -510,7 +519,11 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
 
       {(game.phase === 'spin' || wheel) && <SpinWheel result={wheel?.spun ? wheel.idx : null} canSpin={mine && game.phase === 'spin'} who={name(cur)} pot={game.pot} onSpin={() => act({ t: 'spin' })} />}
 
-      {pops.map((p) => <PopUp key={p.id} p={p} name={name} color={color} game={game} onClose={() => setPops((l) => l.filter((x) => x.id !== p.id))} />)}
+      {/* Big cards (city events, full sets) are modal; small toasts stack so two at once never overlap. */}
+      {pops.filter((p) => MODAL_POPS.has(p.kind)).map((p) => <PopUp key={p.id} p={p} name={name} color={color} game={game} onClose={() => setPops((l) => l.filter((x) => x.id !== p.id))} />)}
+      <div className="toast-stack">
+        {pops.filter((p) => !MODAL_POPS.has(p.kind)).map((p) => <PopUp key={p.id} p={p} name={name} color={color} game={game} onClose={() => setPops((l) => l.filter((x) => x.id !== p.id))} />)}
+      </div>
 
       {peek !== null && !manage && (
         <div className="dk-sheet peek" onClick={() => setPeek(null)}>
@@ -653,7 +666,9 @@ function PopUp({ p, name, color, game, onClose }: { p: Pop; name(id: string): st
     );
   }
   if (p.kind === 'eventEnd') return <div className="toast-pop">The buzz in {s?.name} is over — rent back to normal</div>;
-  if (p.kind === 'placement') return <div className="toast-pop gold big">🎓 PLACEMENT SEASON — every rent ×1.5 till the end!</div>;
+  if (p.kind === 'placement') return p.other === 'mehngai'
+    ? <div className="toast-pop gold big">📈 MEHNGAI! Every rent is now {times(p.amount ?? 1)}</div>
+    : <div className="toast-pop gold big">🎓 PLACEMENT SEASON — every rent ×1.5 till the end!</div>;
   if (p.kind === 'shield') return <div className="toast-pop">🛡️ {name(p.pid)}’s Rent Shield blocked {fmt(p.amount ?? 0)} from {name(p.other ?? '')}!</div>;
   if (p.kind === 'takeover') return <div className="toast-pop gold">😈 {name(p.pid)} took over {s?.name} from {name(p.other ?? '')}!</div>;
   if (p.kind === 'auctionWin') return <div className="toast-pop gold">🔨 SOLD! {s?.name} → {name(p.pid)} for {fmt(p.amount ?? 0)}</div>;
@@ -693,6 +708,7 @@ function Deed({ i, game, name }: { i: number; game: DGame; name(pid: string): st
       </div>
       <div className="deed-title"><b>{s.name}</b><small>{g ? g.name : s.kind === 'train' ? 'Transport' : s.kind === 'utility' ? 'Utility' : 'Special tile'}</small></div>
       {s.flavour && <p className="deed-flav">“{s.flavour}”</p>}
+      {s.price && rentBoost(game) > 1 && <div className="deed-ev boom">📈 {placementOn(game) ? 'Placement Season' : 'Mehngai'}: every rent {times(rentBoost(game))} right now</div>}
       {ev && <div className={`deed-ev ${ev.mult > 1 ? 'boom' : 'slump'}`}>{ev.emoji} {ev.title}: rent ×{ev.mult} for {ev.rounds} more round{ev.rounds > 1 ? 's' : ''}</div>}
       {s.kind === 'city' && (
         <div className="ladder">
