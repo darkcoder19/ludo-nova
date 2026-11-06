@@ -136,6 +136,12 @@ export class RoomHost<G, A> {
     }
   }
 
+  /** Continue a saved game (the host left by mistake). Guests count as away until they reconnect. */
+  restore(s: RoomState<G>) {
+    this.lastKey = '';
+    this.set({ ...s, players: s.players.map((p) => ({ ...p, connected: p.bot || p.id === s.hostId })) });
+  }
+
   dispose() { clearTimeout(this.timer); }
 }
 
@@ -149,7 +155,7 @@ export interface RoomSession<A> { code: string; myId: string; local: boolean; ac
 type HostMsg<G> = { t: 'state'; s: RoomState<G> } | { t: 'emote'; e: Emote } | { t: 'full' };
 type GuestMsg<A> = { t: 'hello'; id: string; name: string; avatar: string } | { t: 'act'; a: RoomAction<A> } | { t: 'emote'; emoji: string };
 
-let emoteSeq = 1;
+let emoteSeq = Date.now();
 export interface Me { id: string; name: string; avatar: string }
 
 function core<G, A>(rules: Rules<G, A>, me: Me, h: Handlers<G>, send: (m: HostMsg<G>) => void, options?: Record<string, string>) {
@@ -158,16 +164,20 @@ function core<G, A>(rules: Rules<G, A>, me: Me, h: Handlers<G>, send: (m: HostMs
   return { host, emote };
 }
 
-export function soloRoom<G, A>(rules: Rules<G, A>, me: Me, bots: number, options: Record<string, string>, h: Handlers<G>): RoomSession<A> {
+export function soloRoom<G, A>(rules: Rules<G, A>, me: Me, bots: number, options: Record<string, string>, h: Handlers<G>, restore?: RoomState<G>): RoomSession<A> {
   const { host, emote } = core(rules, me, h, () => {}, options);
-  host.handle(me.id, { t: 'timer', ms: 60000 });
-  for (let i = 0; i < bots; i++) host.handle(me.id, { t: 'addBot' });
-  host.handle(me.id, { t: 'start' });
+  if (restore) host.restore(restore);
+  else {
+    host.handle(me.id, { t: 'timer', ms: 60000 });
+    for (let i = 0; i < bots; i++) host.handle(me.id, { t: 'addBot' });
+    host.handle(me.id, { t: 'start' });
+  }
   h.onStatus('online');
   return { code: 'SOLO', myId: me.id, local: true, act: (a) => host.handle(me.id, a), emote: (e) => emote(me.id, e), leave: () => host.dispose() };
 }
 
-export function hostRoom<G, A>(prefix: string, rules: Rules<G, A>, me: Me, h: Handlers<G>, onCode: (c: string) => void): RoomSession<A> {
+/** `resume`: reopen a room the host left by mistake, on its old code, from the saved game. */
+export function hostRoom<G, A>(prefix: string, rules: Rules<G, A>, me: Me, h: Handlers<G>, onCode: (c: string) => void, resume?: { code: string; state: RoomState<G> }): RoomSession<A> {
   const conns = new Map<GuestLink, string>();
   let link: HostLink | null = null; // the host emits its first state before the link exists
   const { host, emote } = core(rules, me, h, (m) => link?.broadcast(m, conns.keys()));
@@ -197,7 +207,8 @@ export function hostRoom<G, A>(prefix: string, rules: Rules<G, A>, me: Me, h: Ha
       conns.delete(l);
       if (id && ![...conns.values()].includes(id)) host.setConnected(id, false);
     },
-  });
+  }, resume?.code);
+  if (resume) host.restore(resume.state);
   return session;
 }
 

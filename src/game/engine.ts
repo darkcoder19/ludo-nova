@@ -56,7 +56,7 @@ export function newLobby(hostId: string): GameState {
   };
 }
 
-let eventSeq = 1;
+let eventSeq = Date.now(); // from the clock: a restarted host never reuses an id guests already saw
 const ev = (kind: EventKind, color: Color, text: string, victim?: Color): GameEvent => ({ id: eventSeq++, kind, color, text, victim });
 
 export function startGame(s: GameState): GameState {

@@ -28,7 +28,19 @@ const SILENT_AFTER = 25000; // no word for this long = that side is gone (relay 
 const GIVE_UP_AFTER = 90000;
 
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-export const makeCode = () => Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+// A room code starts with its game's letter, so a code typed into another game's Join box still finds its room.
+const GAME_LETTER: Record<string, string> = { ludonova: 'N', seedhirush: 'S', dhandhaking: 'D' };
+const pick = () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+export const makeCode = (prefix = '') => (GAME_LETTER[prefix.replace(/-v\d+-$/, '')] ?? pick()) + Array.from({ length: 4 }, pick).join('');
+
+/** If `code` belongs to a game other than `here`, open that game and join there. Returns true when leaving. */
+export function routeToGame(code: string, here: string): boolean {
+  const c = code.trim().toUpperCase();
+  const game = Object.keys(GAME_LETTER).find((g) => GAME_LETTER[g] === c[0]);
+  if (!game || game === here) return false;
+  location.href = `${env.BASE_URL}${game}?room=${c}&join=1`;
+  return true;
+}
 
 // ---------------- relay ----------------
 /** Relay envelope: `f` is the sender ('H' = host), `to` targets one guest. */
@@ -64,7 +76,8 @@ export interface HostEvents {
 }
 export interface HostLink { broadcast(m: unknown, to: Iterable<GuestLink>): void; close(): void }
 
-export function openHost(prefix: string, ev: HostEvents): HostLink {
+/** `reuse`: reopen a room on its old code (the host left by mistake and is coming back). */
+export function openHost(prefix: string, ev: HostEvents, reuse?: string): HostLink {
   let closed = false, ready = false, code = '';
   let peer: Peer | null = null, relay: RelayChan | null = null, relayUp = false;
   const relayGuests = new Map<string, { link: GuestLink; seen: number }>();
@@ -97,15 +110,17 @@ export function openHost(prefix: string, ev: HostEvents): HostLink {
     ev.onData(g.link, e.m);
   };
 
-  const start = (attempt: number) => {
-    code = makeCode();
+  const startRelay = () => { if (RELAY) relay = openRelay(prefix + code, onRelay, (up) => { relayUp = up; if (up) isReady(); }); };
+  const startPeer = (attempt: number) => {
     peer = new Peer(prefix + code, PEER_OPTS);
     peer.on('open', isReady);
     peer.on('error', (err) => {
       if (closed) return;
       if (err.type === 'unavailable-id') {
         peer?.destroy(); peer = null;
-        if (!ready && attempt < 5) { relay?.close(); relay = null; start(attempt + 1); }
+        // A reopened room's id can stay taken for a moment after the old page closed: try again.
+        if (reuse) { if (attempt < 10) setTimeout(() => !closed && startPeer(attempt + 1), 3000); }
+        else if (!ready && attempt < 5) { relay?.close(); relay = null; code = makeCode(prefix); startRelay(); startPeer(attempt + 1); }
         return;
       }
       if (err.type === 'peer-unavailable') return;
@@ -117,7 +132,6 @@ export function openHost(prefix: string, ev: HostEvents): HostLink {
       conn.on('data', (m) => ev.onData(link, m));
       conn.on('close', () => ev.onClose(link));
     });
-    if (RELAY) relay = openRelay(prefix + code, onRelay, (up) => { relayUp = up; if (up) isReady(); });
   };
 
   const tick = setInterval(() => {
@@ -128,7 +142,9 @@ export function openHost(prefix: string, ev: HostEvents): HostLink {
   }, PING_EVERY);
 
   ev.onStatus('connecting');
-  start(0);
+  code = reuse ?? makeCode(prefix);
+  startPeer(0);
+  startRelay();
   return {
     broadcast: (m, to) => {
       let relayed = false;

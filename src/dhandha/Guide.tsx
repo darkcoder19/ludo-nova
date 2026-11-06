@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import { AUCTION_STEP, BAIL, BOARD, CARDS, GROUPS, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
+import { AUCTION_STEP, BAIL, BOARD, CARDS, CASH_CHOICES, GROUPS, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
 import { ArtDefs, Buildings, SethJi, TilePic } from './Monument';
 
 const STEPS = [
   { t: 'Roll two dice', d: 'Tap Roll and move the total, anywhere from 2 to 12. Roll doubles and you go again. Three doubles in a row? Proxy caught, straight to Detention.', scene: 'dice' },
   { t: 'Buy cities from Seth-ji', d: 'Land on an unowned city, ride or utility and buy it. Your coins fly to Seth-ji, and he slides the city card back to you.', scene: 'buy' },
-  { t: 'Pass and it goes to Bolee 🔨', d: 'Don’t want it? Everyone else bids in turn, starting at half price and going up ₹200 a bid. Highest bid takes it.', scene: 'bolee' },
+  { t: 'Pass and it goes to Bolee 🔨', d: 'Don’t want it at full price? It goes to auction: bids start at half price and go up ₹200. With 2–3 players you can bid too. Highest bid takes it.', scene: 'bolee' },
   { t: 'Complete a colour set', d: 'Own every city of one colour and the rent doubles. Seth-ji puts on his shades. Now you can build.', scene: 'set' },
   { t: 'Build houses, a hotel, a villa', d: '3 houses, then a hotel, then a villa. Rent climbs up to 90× the base rent.', scene: 'build' },
   { t: 'Spin the Tapri wheel ☕', d: 'Fees and fines go into the Tapri gullak. Land on Tapri Jackpot and spin: full gullak, half, a power-up, a free house… or Seth-ji keeps it.', scene: 'wheel' },
   { t: 'Play power-ups ⚡', d: 'Rent Shield blocks a rent, Double Dhamaka doubles the next rent you collect, Teleport jumps you to any unowned tile.', scene: 'powers' },
   { t: 'Ride the trends', d: 'A film shoot or festival can make a city trend (rent ×2 or ×3). Bad news makes it slump (rent ×½).', scene: 'event' },
-  { t: 'Rents climb as you go 📈', d: `Quick: the last ${PLACEMENT_ROUND} rounds are Placement Season (rent ×1.5) and the richest wins. Classic has no round limit: from round ${MEHNGAI.START}, Mehngai pushes every rent ×${MEHNGAI.STEP} every ${MEHNGAI.EVERY} rounds until one tycoon is left.`, scene: 'win' },
+  { t: 'Rents climb as you go 📈', d: `Quick: the last ${PLACEMENT_ROUND} rounds are Placement Season (rent ×1.5) and the richest wins. Classic has no round limit: at round ${MEHNGAI.START}, and every ${MEHNGAI.EVERY} rounds after, Mehngai makes every rent ×${MEHNGAI.STEP} until one tycoon is left.`, scene: 'win' },
 ];
 
 function Scene({ kind }: { kind: string }) {
@@ -79,7 +79,7 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
         ) : (
           <div className="rules">
             <h3>🎯 Goal</h3>
-            <p>Buy Indian cities, build on them and collect rent until you are the richest on campus. Everyone starts with <b>{fmt(START_CASH)}</b>. Seth-ji is the banker — every rupee you pay or win goes through him.</p>
+            <p>Buy Indian cities, build on them and collect rent until you are the richest on campus. Everyone starts with <b>{fmt(START_CASH)}</b>, or whatever the host picks in the lobby ({CASH_CHOICES.map((c) => fmt(c)).join(' · ')}). Seth-ji is the banker — every rupee you pay or win goes through him.</p>
 
             <h3>🎲 Your turn</h3>
             <ul>
@@ -110,7 +110,7 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
             <div className="group-chips">{GROUPS.map((g) => <span key={g.name} style={{ ['--g' as string]: g.color }}>{g.name} · build {fmt(g.build)}</span>)}</div>
 
             <h3>🔨 Bolee (auction)</h3>
-            <p>If you pass on a tile, Seth-ji auctions it. The other players take turns: bid (opening at half the price, then +{fmt(AUCTION_STEP)} each time) or drop out. Last bidder standing gets it for their bid.</p>
+            <p>If you pass on a tile, Seth-ji auctions it. The other players take turns: bid (opening at half the price, then +{fmt(AUCTION_STEP)} each time) or drop out. With 2–3 players, the player who passed joins in too, bidding last. Last bidder standing gets it for their bid. Every bid has the same turn timer as a normal turn.</p>
 
             <h3>😈 Hostile takeover</h3>
             <p>Land on a city someone has <b>mortgaged</b> (GIRVI) and you can grab it by paying its full price. The old owner gets half. Unmortgage your cities to stay safe!</p>
@@ -158,7 +158,7 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
 
             <h3>👑 Winning</h3>
             <p><b>Quick:</b> after 15 rounds the richest player (cash + cities + buildings) wins. The last {PLACEMENT_ROUND} rounds are <b>Placement Season</b>: every rent ×1.5.</p>
-            <p><b>Classic:</b> no round limit. The game goes on until only one player is not bankrupt. From round {MEHNGAI.START}, <b>Mehngai</b> (inflation) kicks in: every {MEHNGAI.EVERY} rounds all rents go up ×{MEHNGAI.STEP} again (×1.5, ×2.3, ×3.4, ×5…), so the game always ends.</p>
+            <p><b>Classic:</b> no round limit. The game goes on until only one player is not bankrupt. At round {MEHNGAI.START} <b>Mehngai</b> (inflation) kicks in, and every {MEHNGAI.EVERY} rounds after that all rents go up ×{MEHNGAI.STEP} again (round {[0, 1, 2, 3].map((k) => `${MEHNGAI.START + k * MEHNGAI.EVERY}: ×${MEHNGAI.STEP ** (k + 1)}`).join(', ')}…), so the game always ends.</p>
             <p className="dim">At the end everyone gets awards: Rent Lord, Real-Estate Influencer, Builder Bro, Tapri Regular and Comeback Kid.</p>
           </div>
         )}

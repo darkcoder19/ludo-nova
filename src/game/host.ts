@@ -130,5 +130,13 @@ export class GameHost {
     return s.movable.every((i) => t[i] === -1);
   }
 
+  /** Continue a saved game (the host left by mistake). Guests count as away until they reconnect. */
+  restore(s: GameState) {
+    this.turnStarted = Date.now();
+    this.state = { ...s, players: s.players.map((p) => ({ ...p, connected: p.bot || p.id === s.hostId })) };
+    this.emit();
+    this.schedule();
+  }
+
   dispose() { clearTimeout(this.timer); }
 }

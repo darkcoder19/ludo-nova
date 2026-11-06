@@ -1,7 +1,7 @@
 import { GameShell, type ShellConfig } from '../shared/GameShell';
 import { DhandhaBoard } from './DhandhaBoard';
 import { DhandhaGuide } from './Guide';
-import { BOARD, fmt } from './data';
+import { BOARD, CASH_CHOICES, START_CASH, fmt } from './data';
 import { SethJi } from './Monument';
 import { dhandhaRules, netWorth, type DAction, type DGame } from './rules';
 import './dhandha.css';
@@ -40,7 +40,10 @@ const cfg: ShellConfig<DGame, DAction> = {
   options: [{ key: 'rounds', label: '⏳ Game length', choices: [
     { value: 'quick', label: '⚡ 15 rounds', hint: 'Richest wins · ~25 min' },
     { value: 'classic', label: '👑 Classic', hint: 'Last one standing · no round limit' },
-  ] }],
+  ] }, {
+    key: 'cash', label: '💰 Starting money', initial: String(START_CASH),
+    choices: CASH_CHOICES.map((c) => ({ value: String(c), label: `₹${c / 1000}k` })),
+  }],
 };
 
 export default function DhandhaApp() { return <GameShell cfg={cfg} />; }

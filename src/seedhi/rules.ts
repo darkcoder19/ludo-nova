@@ -24,7 +24,7 @@ export interface SGame {
 
 export type SAction = { t: 'roll' } | { t: 'skip' } | { t: 'advance' };
 
-let moveSeq = 1;
+let moveSeq = Date.now(); // from the clock: a restarted host never reuses an id guests already saw
 const names = new Map<string, string>();
 
 /** Squares walked + slide, in ms; the client animates exactly this long. */

@@ -74,6 +74,8 @@ export const BOARD: Square[] = [
 
 export const SALARY = 2000;
 export const START_CASH = 15000;
+/** Starting money the host can pick in the lobby. */
+export const CASH_CHOICES = [10000, 15000, 20000, 30000];
 export const BAIL = 500; // late fine to leave Detention early
 export const JAIL = 10;
 export const MAX_BUILD = 5; // 3 houses, then a hotel, then a villa
@@ -171,7 +173,7 @@ export const STREAK_BONUS = 500;
 /** From this round on (quick games), every rent is x1.5 so games finish on time. */
 export const PLACEMENT_ROUND = 4; // Placement Season: the last 4 rounds, every rent is x1.5
 /** Classic has no round limit, so rents climb instead: from round START, every EVERY rounds, rent x STEP (compounding). */
-export const MEHNGAI = { START: 15, EVERY: 4, STEP: 1.5 };
+export const MEHNGAI = { START: 20, EVERY: 10, STEP: 2 };
 
 // ---- Tapri spin wheel ----
 export type SpinPrize = 'pot' | 'half' | 'cash' | 'power' | 'house' | 'none';

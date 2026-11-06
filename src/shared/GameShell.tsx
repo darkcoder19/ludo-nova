@@ -12,6 +12,9 @@ import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from '../component
 import { AVATARS, loadProfile, recordGame, saveProfile, type Profile } from '../game/profile';
 import { buzz, isMuted, setMuted, sfx } from '../game/sound';
 import { Joining } from '../components/Joining';
+import { routeToGame } from './link';
+import { clearResume, loadResume, trackResume } from './resume';
+import { RejoinCard } from '../components/Rejoin';
 import { hostRoom, joinRoom, soloRoom, TIMER_CHOICES, type Emote, type RoomSession, type RoomState, type Rules, type Status } from './room';
 
 export const SEAT_COLORS = ['#ff2d55', '#2b7bff', '#00c97a', '#ffb400'];
@@ -37,7 +40,8 @@ export interface ShellConfig<G, A> {
   prefix: string;
   rules: Rules<G, A> & { ranking(g: G): string[] };
   hero: ReactNode;
-  options?: { key: string; label: string; choices: { value: string; label: string; hint?: string }[] }[];
+  /** Lobby options; `initial` is the default (else the first choice). */
+  options?: { key: string; label: string; initial?: string; choices: { value: string; label: string; hint?: string }[] }[];
   Board(props: GameProps<G, A>): ReactNode;
   /** Optional how-to-play / rule book overlay. */
   Guide?(props: { onClose(): void }): ReactNode;
@@ -74,16 +78,30 @@ export function GameShell<G, A>({ cfg }: { cfg: ShellConfig<G, A> }) {
   };
   useEffect(() => () => ref.current?.leave(), []);
 
-  const start = (kind: 'host' | 'join' | 'solo', arg?: string | number, options: Record<string, string> = {}) => {
+  const start = (kind: 'host' | 'join' | 'solo' | 'resume', arg?: string | number, options: Record<string, string> = {}) => {
     setError('');
     const me = { id: profile.id, name: profile.name.trim(), avatar: profile.avatar };
     const h = {
-      onState: (s: RoomState<G>) => setRoom(s),
+      onState: (s: RoomState<G>) => { setRoom(s); if (ref.current) trackResume(cfg.slug, s.phase, ref.current, s.hostId, s); },
       onEmote: (e: Emote) => setEmotes((l) => [...l.slice(-6), e]),
-      onStatus: (st: Status, msg?: string) => { setStatus({ st, msg }); if (st === 'closed' && msg) { setError(msg); leave(); } },
+      onStatus: (st: Status, msg?: string) => {
+        setStatus({ st, msg });
+        if (st === 'closed' && msg) { if (/No room found|full or already playing|removed you/.test(msg)) clearResume(cfg.slug); setError(msg); leave(); }
+      },
     };
     let s: RoomSession<A>;
-    if (kind === 'solo') s = soloRoom(cfg.rules, me, Number(arg), options, h);
+    if (kind === 'resume') {
+      // Back into a game left by mistake: as its guest, its host (same room code) or against the same bots.
+      const r = loadResume(cfg.slug);
+      if (!r) return;
+      if (r.kind === 'solo') s = soloRoom(cfg.rules, me, 0, {}, h, r.state as RoomState<G>);
+      else if (r.kind === 'host') s = hostRoom(cfg.prefix, cfg.rules, me, h, setCode, { code: r.code, state: r.state as RoomState<G> });
+      else {
+        s = joinRoom(cfg.prefix, r.code, me, h);
+        setCode(r.code);
+        const u = new URL(location.href); u.searchParams.set('room', r.code); history.replaceState(null, '', u);
+      }
+    } else if (kind === 'solo') s = soloRoom(cfg.rules, me, Number(arg), options, h);
     else if (kind === 'host') s = hostRoom(cfg.prefix, cfg.rules, me, h, setCode);
     else {
       s = joinRoom(cfg.prefix, String(arg), me, h);
@@ -100,7 +118,7 @@ export function GameShell<G, A>({ cfg }: { cfg: ShellConfig<G, A> }) {
     <>
       {adLayer}
       {screen === 'home' && <ShellHome cfg={cfg} profile={profile} onProfile={updateProfile} error={error}
-        onStart={(k, arg, o) => withAd(() => start(k, arg, o))} />}
+        onStart={(k, arg, o) => withAd(() => start(k, arg, o))} onResume={() => start('resume')} />}
       {screen === 'room' && session && (!room || room.phase === 'lobby') && (
         <ShellLobby cfg={cfg} session={session} room={room} code={code} status={status} onLeave={leave} />
       )}
@@ -113,22 +131,32 @@ export function GameShell<G, A>({ cfg }: { cfg: ShellConfig<G, A> }) {
 }
 
 // ---------------- home ----------------
-function ShellHome<G, A>({ cfg, profile, onProfile, onStart, error }: {
+function ShellHome<G, A>({ cfg, profile, onProfile, onStart, onResume, error }: {
   cfg: ShellConfig<G, A>; profile: Profile; onProfile(p: Profile): void; error: string;
   onStart(kind: 'host' | 'join' | 'solo', arg?: string | number, options?: Record<string, string>): void;
+  onResume(): void;
 }) {
   const [panel, setPanel] = useState<null | 'join' | 'solo'>(() => (new URLSearchParams(location.search).get('room') ? 'join' : null));
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('room') ?? '');
   const [bots, setBots] = useState(1);
-  const [opts, setOpts] = useState<Record<string, string>>(() => Object.fromEntries((cfg.options ?? []).map((o) => [o.key, o.choices[0].value])));
+  const [opts, setOpts] = useState<Record<string, string>>(() => Object.fromEntries((cfg.options ?? []).map((o) => [o.key, o.initial ?? o.choices[0].value])));
   const [nameErr, setNameErr] = useState(false);
   const install = useInstallPrompt();
   const [guide, setGuide] = useState(false);
 
   const go = (k: 'host' | 'join' | 'solo', arg?: string | number) => {
     if (!profile.name.trim()) { setNameErr(true); sfx.pop(); return; }
+    if (k === 'join' && routeToGame(String(arg), cfg.slug)) return;
     sfx.tap(); onStart(k, arg, opts);
   };
+
+  // Arrived from another game's Join box with this room's code: join straight away.
+  useEffect(() => {
+    const q = new URLSearchParams(location.search), room = q.get('room');
+    if (!room || !q.has('join')) return;
+    const u = new URL(location.href); u.searchParams.delete('join'); history.replaceState(null, '', u);
+    if (profile.name.trim()) go('join', room);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="screen home shell-home">
@@ -154,6 +182,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, error }: {
           onChange={(e) => { setNameErr(false); onProfile({ ...profile, name: e.target.value }); }} />
       </section>
       {error && <div className="banner err">{error}</div>}
+      {!panel && <RejoinCard game={cfg.slug} onRejoin={() => { sfx.tap(); onResume(); }} />}
       <section className="actions">
         <button className="btn primary big" onClick={() => go('host')}><span className="ic">✦</span> Create Room</button>
         {cfg.Guide && <button className="btn ghost how-btn" onClick={() => setGuide(true)}>▶ How to play · 📖 Rule book</button>}
@@ -186,9 +215,10 @@ function OptionPickers<G, A>({ cfg, values, onChange, disabled }: { cfg: ShellCo
       {(cfg.options ?? []).map((o) => (
         <div key={o.key} className="timer-pick">
           <span>{o.label}</span>
-          <div className="modes">
+          {/* Choices without descriptions fit one compact row, like the turn timer. */}
+          <div className={o.choices.some((c) => c.hint) ? 'modes' : 'seg'}>
             {o.choices.map((c) => (
-              <button key={c.value} disabled={disabled} className={`mode ${values[o.key] === c.value ? 'on' : ''}`} onClick={() => { sfx.tap(); onChange(o.key, c.value); }}>
+              <button key={c.value} disabled={disabled} className={`${o.choices.some((x) => x.hint) ? 'mode' : ''} ${(values[o.key] ?? o.initial ?? o.choices[0].value) === c.value ? 'on' : ''}`} onClick={() => { sfx.tap(); onChange(o.key, c.value); }}>
                 <b>{c.label}</b>{c.hint && <small>{c.hint}</small>}
               </button>
             ))}

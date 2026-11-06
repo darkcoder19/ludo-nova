@@ -1,8 +1,8 @@
 // DhandhaKing — property tycoon rules ("Campus to Crorepati"). Pure functions run by the room host.
 import { AUTO, type Rules, type Seat } from '../shared/room';
 import {
-  AUCTION_STEP, BAIL, BOARD, BUILD_LEVELS, CARDS, CITY_FESTIVALS, CITY_SLUMPS, GROUPS, JAIL, MAX_BUILD, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND,
-  RENT_MULT, SALARY, SELL_RATE, START_CASH, STREAK_BONUS, WHEEL, buildCost, fmt, type Card, type Power,
+  AUCTION_STEP, BAIL, BOARD, BUILD_LEVELS, CARDS, CITY_FESTIVALS, CITY_SLUMPS, GROUPS, JAIL, MAX_BUILD, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND, POWERS,
+  CASH_CHOICES, RENT_MULT, SALARY, SELL_RATE, START_CASH, STREAK_BONUS, WHEEL, buildCost, fmt, type Card, type Power,
 } from './data';
 
 export type FxKind =
@@ -47,7 +47,10 @@ export interface DGame {
   stats: { rent: Record<string, number>; bought: Record<string, number>; peak: Record<string, number>; built: Record<string, number>; potWins: Record<string, number>; minCash: Record<string, number> };
   fx: Fx[];
   note: string;
+  /** What happened, for the in-game log every player can open (newest last). */
+  log: LogLine[];
 }
+export interface LogLine { id: number; r: number; t: string; pid?: string }
 
 export type DAction =
   | { t: 'roll' } | { t: 'buy' } | { t: 'pass' } | { t: 'cardOk' } | { t: 'end' } | { t: 'skip' } | { t: 'advance' }
@@ -55,7 +58,7 @@ export type DAction =
   | { t: 'power'; p: 'double' } | { t: 'power'; p: 'tele'; sq: number }
   | { t: 'build'; sq: number } | { t: 'sell'; sq: number } | { t: 'sellCity'; sq: number } | { t: 'mortgage'; sq: number } | { t: 'unmortgage'; sq: number };
 
-let seq = 1;
+let seq = Date.now(); // from the clock: a restarted host never reuses an id guests already saw
 const clone = (g: DGame): DGame => ({
   ...g, events: g.events.map((e) => ({ ...e })), cash: { ...g.cash }, pos: { ...g.pos }, owner: [...g.owner], build: [...g.build], mort: [...g.mort],
   jail: { ...g.jail }, jugaad: { ...g.jugaad }, out: [...g.out], fx: [], hand: Object.fromEntries(Object.entries(g.hand).map(([k, v]) => [k, [...v]])),
@@ -266,6 +269,8 @@ function startAuction(g: DGame, sq: number) {
   const n = g.order.length;
   const queue: string[] = [];
   for (let k = 1; k < n; k++) { const id = g.order[(g.turn + k) % n]; if (!g.out.includes(id)) queue.push(id); }
+  // With 2–3 players the one who passed can bid too (bids last), else a 2-player bolee is just a half-price sale.
+  if (active(g).length <= 3) queue.push(cur(g));
   const open = Math.round((BOARD[sq].price! * 0.5) / 100) * 100;
   const able = queue.filter((id) => g.cash[id] >= open);
   if (!able.length) { g.phase = 'end'; return; }
@@ -353,15 +358,16 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
   start(players: Seat[], options) {
     const order = players.map((p) => p.id);
     const z = <T,>(v: T) => Object.fromEntries(order.map((id) => [id, v])) as Record<string, T>;
+    const money = CASH_CHOICES.includes(Number(options.cash)) ? Number(options.cash) : START_CASH; // host's pick in the lobby
     return {
-      order, names: Object.fromEntries(players.map((p) => [p.id, p.name])), cash: z(START_CASH), pos: z(0),
+      order, names: Object.fromEntries(players.map((p) => [p.id, p.name])), cash: z(money), pos: z(0),
       owner: BOARD.map(() => null), build: BOARD.map(() => 0), mort: BOARD.map(() => false), jail: z(0), jugaad: z(0),
       turn: Math.floor(Math.random() * order.length), dice: [1, 1], rollId: 0, doubles: 0, again: false, phase: 'roll',
       move: null, card: null, out: [], round: 1, maxRounds: options.rounds === 'classic' ? 0 : 15, pot: 0,
       events: [], lastEventRound: 0, hand: Object.fromEntries(order.map((id) => [id, [] as Power[]])), dblArmed: z(false), streak: z(0), lastRentRound: z(-9),
       spin: null, auction: null,
-      stats: { rent: z(0), bought: z(0), peak: z(START_CASH), built: z(0), potWins: z(0), minCash: z(START_CASH) },
-      fx: [], note: 'Campus to Crorepati. Roll!',
+      stats: { rent: z(0), bought: z(0), peak: z(money), built: z(0), potWins: z(0), minCash: z(money) },
+      fx: [], note: 'Campus to Crorepati. Roll!', log: [{ id: seq++, r: 1, t: '🎬 Game on! Everyone starts with ' + fmt(money) }],
     };
   },
   waitingOn: waiting,
@@ -417,6 +423,7 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
 
   act(g0, pid, a) {
     const g = actInner(g0, pid, a);
+    if (g) writeLog(g0, g);
     if (g && g.out.includes(cur(g)) && g.phase !== 'moving' && g.phase !== 'auction' && !isOver(g)) { g.again = false; endTurn(g); }
     if (g) for (const id of g.order) {
       if (netWorth(g, id) > (g.stats.peak[id] ?? 0)) g.stats.peak[id] = netWorth(g, id);
@@ -425,6 +432,34 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
     return g;
   },
 };
+
+const LOG_MAX = 80;
+/** Lines for effects a turn's note doesn't already say. */
+function fxLine(g: DGame, f: Fx): string | null {
+  const who = g.names[f.pid] ?? '';
+  switch (f.kind) {
+    case 'salary': return `💸 ${who} collected ${fmt(f.amount ?? 0)} on Payday`;
+    case 'streak': return `🔥 ${who} got a ${fmt(f.amount ?? 0)} rent-streak bonus`;
+    case 'shield': return `🛡️ ${who}'s Rent Shield blocked ${fmt(f.amount ?? 0)} rent`;
+    case 'setComplete': return `👑 ${who} owns the full ${GROUPS[BOARD[f.sq!].group!].name} set — can build now`;
+    case 'power': return f.text && f.text !== 'double-armed' ? `⚡ ${who} got a power-up: ${POWERS[f.text as Power]?.name ?? f.text}` : null;
+    case 'eventEnd': return `${BOARD[f.sq!].name} is back to normal rent`;
+    case 'placement': return f.text === 'mehngai' ? `📈 Mehngai! Every rent is now ×${+(f.amount ?? 1).toFixed(1)}` : '🎓 Placement Season: every rent ×1.5 till the end';
+    case 'event': {
+      const e = g.events.find((x) => x.id === f.amount);
+      return e ? `${e.emoji} ${e.title} in ${BOARD[e.sq].name}: rent ×${e.mult} for ${e.rounds} rounds` : null;
+    }
+    default: return null;
+  }
+}
+function writeLog(g0: DGame, g: DGame) {
+  const add: LogLine[] = [];
+  const who = cur(g0);
+  for (const f of g.fx) { const t = fxLine(g, f); if (t) add.push({ id: seq++, r: g.round, t, pid: f.pid }); }
+  // Plain dice rolls and "for sale" prompts would flood the log; what they led to gets its own line.
+  if (g.note && g.note !== g0.note && !/ rolled \d+ ?\+ ?\d+$| is for sale /.test(g.note)) add.push({ id: seq++, r: g.round, t: g.note, pid: who });
+  if (add.length) g.log = [...(g0.log ?? []), ...add].slice(-LOG_MAX);
+}
 
 function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
   const g = clone(g0);

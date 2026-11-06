@@ -9,11 +9,17 @@ import { InterstitialAd, randomInterstitial, type Interstitial } from './ads/AdV
 import { adsEnabled } from './ads/premium';
 import { refresh, useAccount } from './account/account';
 import { AdminDashboard } from './account/AccountViews';
+import { clearResume, loadResume, trackResume } from './shared/resume';
+
+const GAME = 'ludonova';
+/** Errors that mean the room is gone, so there is nothing left to rejoin. */
+const ROOM_GONE = /No room found|full or already playing|removed you/;
 
 export type StartOpts =
   | { kind: 'host' }
   | { kind: 'join'; code: string }
-  | { kind: 'solo'; bots: number; mode: Mode };
+  | { kind: 'solo'; bots: number; mode: Mode }
+  | { kind: 'resume' };
 
 export default function App() {
   const [profile, setProfile] = useState<Profile>(loadProfile);
@@ -49,16 +55,26 @@ export default function App() {
   const start = (o: StartOpts) => {
     setError('');
     const handlers = {
-      onState: setState,
+      onState: (s: GameState) => {
+        setState(s);
+        if (sessionRef.current) trackResume(GAME, s.phase, sessionRef.current, s.hostId, s);
+      },
       onEmote: (e: Emote) => setEmotes((list) => [...list.slice(-6), e]),
       onStatus: (st: Status, msg?: string) => {
         setStatus({ st, msg });
-        if (st === 'closed' && msg) { setError(msg); leave(); }
+        if (st === 'closed' && msg) { if (ROOM_GONE.test(msg)) clearResume(GAME); setError(msg); leave(); }
       },
     };
     const { id, name, avatar } = profile;
     let s: Session;
-    if (o.kind === 'solo') s = localGame(id, name, avatar, o.bots, o.mode, handlers);
+    if (o.kind === 'resume') {
+      // Back into a game left by mistake: as its guest, its host (same room code) or against the same bots.
+      const r = loadResume(GAME);
+      if (!r) return;
+      if (r.kind === 'solo') s = localGame(id, name, avatar, 0, 'classic', handlers, r.state as GameState);
+      else if (r.kind === 'host') s = hostRoom(id, name, avatar, handlers, setCode, { code: r.code, state: r.state as GameState });
+      else { s = joinRoom(r.code, id, name, avatar, handlers); setCode(r.code); setUrlRoom(r.code); }
+    } else if (o.kind === 'solo') s = localGame(id, name, avatar, o.bots, o.mode, handlers);
     else if (o.kind === 'host') s = hostRoom(id, name, avatar, handlers, setCode);
     else { s = joinRoom(o.code, id, name, avatar, handlers); setCode(o.code.toUpperCase()); setUrlRoom(o.code.toUpperCase()); }
     sessionRef.current = s;
@@ -75,7 +91,7 @@ export default function App() {
   useEffect(() => () => sessionRef.current?.leave(), []);
 
   if (admin && account?.admin) return <AdminDashboard onClose={() => setAdmin(false)} />;
-  if (!session) return <>{adLayer}<Home profile={profile} onProfile={updateProfile} onStart={(o) => withAd(() => start(o))} error={error} onAdmin={() => setAdmin(true)} /></>;
+  if (!session) return <>{adLayer}<Home profile={profile} onProfile={updateProfile} onStart={(o) => (o.kind === 'resume' ? start(o) : withAd(() => start(o)))} error={error} onAdmin={() => setAdmin(true)} /></>;
   if (!state || state.phase === 'lobby')
     return <>{adLayer}<Lobby session={session} state={state} code={code} status={status} onLeave={leave} /></>;
   return (

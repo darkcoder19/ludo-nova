@@ -26,7 +26,7 @@ export interface Handlers {
   onStatus(st: Status, msg?: string): void;
 }
 
-let emoteSeq = 1;
+let emoteSeq = Date.now();
 
 function createHostCore(myId: string, name: string, avatar: string, h: Handlers, broadcast: (m: HostMsg) => void) {
   const host = new GameHost(myId, name, avatar, (s) => { h.onState(s); broadcast({ t: 'state', s }); });
@@ -38,16 +38,20 @@ function createHostCore(myId: string, name: string, avatar: string, h: Handlers,
 }
 
 /** Offline game against bots — same engine, no network. */
-export function localGame(myId: string, name: string, avatar: string, bots: number, mode: 'classic' | 'quick', h: Handlers): Session {
+export function localGame(myId: string, name: string, avatar: string, bots: number, mode: 'classic' | 'quick', h: Handlers, restore?: GameState): Session {
   const { host, emote } = createHostCore(myId, name, avatar, h, () => {});
-  host.handle(myId, { t: 'mode', mode });
-  for (let i = 0; i < bots; i++) host.handle(myId, { t: 'addBot' });
-  host.handle(myId, { t: 'start' });
+  if (restore) host.restore(restore);
+  else {
+    host.handle(myId, { t: 'mode', mode });
+    for (let i = 0; i < bots; i++) host.handle(myId, { t: 'addBot' });
+    host.handle(myId, { t: 'start' });
+  }
   h.onStatus('online');
   return { code: 'SOLO', myId, local: true, act: (a) => host.handle(myId, a), emote: (e) => emote(myId, e), leave: () => host.dispose() };
 }
 
-export function hostRoom(myId: string, name: string, avatar: string, h: Handlers, onCode: (c: string) => void): Session {
+/** `resume`: reopen a room the host left by mistake, on its old code, from the saved game. */
+export function hostRoom(myId: string, name: string, avatar: string, h: Handlers, onCode: (c: string) => void, resume?: { code: string; state: GameState }): Session {
   const conns = new Map<GuestLink, string>();
   let link: HostLink | null = null; // the host emits its first state before the link exists
   const { host, emote } = createHostCore(myId, name, avatar, h, (m) => link?.broadcast(m, conns.keys()));
@@ -79,7 +83,8 @@ export function hostRoom(myId: string, name: string, avatar: string, h: Handlers
       conns.delete(l);
       if (id && ![...conns.values()].includes(id)) host.setConnected(id, false);
     },
-  });
+  }, resume?.code);
+  if (resume) host.restore(resume.state);
   return session;
 }
 

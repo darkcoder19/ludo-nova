@@ -7,6 +7,8 @@ import { Avatar, charOf } from './Avatar';
 import { BannerStrip } from '../ads/AdViews';
 import { AccountBar, UpgradeStrip } from '../account/AccountViews';
 import { adsEnabled } from '../ads/premium';
+import { routeToGame } from '../shared/link';
+import { RejoinCard } from './Rejoin';
 
 interface Props {
   profile: Profile;
@@ -32,9 +34,18 @@ export function Home({ profile, onProfile, onStart, error, onAdmin }: Props) {
 
   const go = (o: StartOpts) => {
     if (!profile.name.trim()) { setNameErr(true); sfx.pop(); return; }
+    if (o.kind === 'join' && routeToGame(o.code, 'ludonova')) return;
     sfx.tap();
     onStart(o);
   };
+
+  // Arrived from another game's Join box with this room's code: join straight away.
+  useEffect(() => {
+    const q = new URLSearchParams(location.search), room = q.get('room');
+    if (!room || !q.has('join')) return;
+    const u = new URL(location.href); u.searchParams.delete('join'); history.replaceState(null, '', u);
+    if (profile.name.trim()) go({ kind: 'join', code: room });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="screen home">
@@ -76,6 +87,7 @@ export function Home({ profile, onProfile, onStart, error, onAdmin }: Props) {
       </section>
 
       {error && <div className="banner err">{error}</div>}
+      {!panel && <RejoinCard game="ludonova" onRejoin={() => { sfx.tap(); onStart({ kind: 'resume' }); }} />}
 
       <section className="actions">
         <button className="btn primary big" onClick={() => go({ kind: 'host' })}>

@@ -141,7 +141,7 @@ interface Floater { id: number; pid: string; text: string; good: boolean }
 const MODAL_POPS = new Set(['event', 'set']);
 type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'streak' | 'takeover' | 'auctionWin' | 'shield'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
 
-export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act }: GameProps<DGame, DAction>) {
+export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act, left }: GameProps<DGame, DAction>) {
   const [shown, setShown] = useState<Record<string, number>>(() => ({ ...game.pos }));
   const fit = useBoardFit();
   const geo = fit.geo;
@@ -149,6 +149,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const uc = Math.min(fit.w / (2 * geo.K + geo.n), fit.h / (2 * geo.K + geo.m));
   const [peek, setPeek] = useState<number | null>(null);
   const [manage, setManage] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   const [teleport, setTeleport] = useState(false);
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [flash, setFlash] = useState<Record<number, string>>({});
@@ -348,6 +349,15 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const myHand = game.hand[me] ?? [];
   const canManage = mine && (game.phase === 'end' || game.phase === 'roll');
   const doubles = game.dice[0] === game.dice[1] && game.rollId > 0;
+  // Whose clock is running (the bidder during a bolee) and how much of it is left.
+  const waitingId = game.phase === 'auction' && game.auction ? game.auction.queue[0] : cur;
+  const waitingSeat = room.players.find((p) => p.id === waitingId);
+  const timed = room.turnMs > 0 && !!waitingSeat && !waitingSeat.bot && waitingSeat.connected && !game.out.includes(waitingId);
+  const secs = Math.ceil(left / 1000);
+  const tFrac = timed ? Math.max(0, Math.min(1, left / room.turnMs)) : 0;
+  // Cities I can build on right now; landing on one of them offers to build right there.
+  const buildable = canManage ? myProps.filter((i) => canBuild(game, me, i)) : [];
+  const buildHere = canManage && game.phase === 'end' && buildable.includes(here) ? here : null;
 
   const bySq = new Map<number, string[]>();
   game.order.filter((id) => !game.out.includes(id)).forEach((id) => { const s = shown[id] ?? 0; bySq.set(s, [...(bySq.get(s) ?? []), id]); });
@@ -364,7 +374,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
           const hand = game.hand[p.id] ?? [];
           return (
             <div key={p.id} data-pid={p.id} className={`dk-p ${cur === p.id ? 'turn' : ''} ${out ? 'out' : ''} ${(game.streak[p.id] ?? 0) >= 2 ? 'hot' : ''}`} style={{ ['--c' as string]: color(p.id) }}>
-              {cur === p.id && !out && <span className="your-turn">{p.id === me ? 'YOUR TURN' : 'TURN'}</span>}
+              {waitingId === p.id && !out && <span className="your-turn">{p.id === me ? (game.phase === 'auction' ? 'YOUR BID' : 'YOUR TURN') : game.phase === 'auction' ? 'BIDDING' : 'TURN'}{timed && ` · ${secs}s`}</span>}
+              {waitingId === p.id && timed && <i className={`tbar ${secs <= 5 ? 'low' : ''}`} style={{ ['--t' as string]: tFrac }} />}
               <div className="pav"><Avatar id={p.avatar} size={34} mood={out ? 'sad' : mood(p.id)} hyped={cur === p.id} />{game.jail[p.id] > 0 && <i className="bars" />}</div>
               <div className="dk-pinfo">
                 <b>{p.name}{(game.streak[p.id] ?? 0) >= 2 && ' 🔥'}</b>
@@ -372,7 +383,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 <span className="pips">{GROUPS.map((g, gi) => {
                   const any = groupSquares(gi).some((k) => game.owner[k] === p.id), full = ownsGroup(game, p.id, gi);
                   return <i key={gi} className={full ? 'full' : any ? 'any' : ''} style={{ ['--g' as string]: g.color }} />;
-                })}</span>
+                })}<em>{game.owner.filter((o) => o === p.id).length} 🏙️</em></span>
               </div>
               {(hand.length > 0 || game.dblArmed[p.id]) && <span className="hand-mini">{hand.map((h, k) => <i key={k}>{POWERS[h].icon}</i>)}{game.dblArmed[p.id] && <i className="armed">💥</i>}</span>}
               {floaters.filter((f) => f.pid === p.id).map((f) => <span key={f.id} className={`floater ${f.good ? 'good' : 'bad'}`}>{f.text}</span>)}
@@ -392,7 +403,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               const teleOk = teleport && s.price && !o;
               return (
                 <button key={i} data-sq={i}
-                  className={`dk-sq ${side} k-${s.kind} ${o ? 'owned' : ''} ${game.mort[i] ? 'mort' : ''} ${ev ? (ev.mult > 1 ? 'boom' : 'slump') : ''} ${flash[i] ?? ''} ${here === i ? 'here' : ''} ${teleOk ? 'tele-ok' : ''}`}
+                  className={`dk-sq ${side} k-${s.kind} ${o ? 'owned' : ''} ${o && o === me ? 'mine' : ''} ${game.mort[i] ? 'mort' : ''} ${ev ? (ev.mult > 1 ? 'boom' : 'slump') : ''} ${flash[i] ?? ''} ${here === i ? 'here' : ''} ${teleOk ? 'tele-ok' : ''}`}
                   style={{ gridRow: r, gridColumn: c, ['--g' as string]: g?.color ?? 'transparent', ['--o' as string]: o ? color(o) : 'transparent' }}
                   onClick={() => {
                     sfx.tap();
@@ -403,6 +414,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                   {g && <i className="bar"><Buildings n={game.build[i]} /></i>}
                   <span className="plate"><b className={`nm ${s.short.length > 7 ? 'long' : ''}`}>{s.short}</b>{s.price && !o && <span className="pr">{short(s.price)}</span>}</span>
                   {ev && <span className="evb">{ev.emoji}<b>×{ev.mult}</b></span>}
+                  {o && <span className={`own-badge ${o === me ? 'me' : ''}`} title={`Owned by ${name(o)}`}><Avatar id={avatarOf(o)} size={20} /></span>}
                   {game.mort[i] && <span className="girvi">GIRVI</span>}
                 </button>
               );
@@ -412,6 +424,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               <div className="dk-brand">
                 <b>Dhandha<em>King</em></b>
                 <span className="round-chip">R{game.round}{game.maxRounds ? `/${game.maxRounds}` : ''}</span>
+                <button className="log-btn" onClick={() => { sfx.tap(); setLogOpen(true); }}>📜 Log</button>
                 {placementOn(game) && <span className="season">🎓 PLACEMENT SEASON ×1.5</span>}
                 {mehngaiLevel(game) > 0 && <span className="season">📈 MEHNGAI · RENT {times(rentBoost(game))}</span>}
               </div>
@@ -424,6 +437,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                   <svg viewBox="0 0 24 24" className="kulhad"><path d="M4 6h16l-2 14H6Z" fill="#c4713a" stroke="#1b1035" strokeWidth="1.4" /><clipPath id="kh"><path d="M4 6h16l-2 14H6Z" /></clipPath><rect x="0" y={20 - 14 * potFill} width="24" height="24" fill="#ffd23f" clipPath="url(#kh)" /><path d="M4 6h16" stroke="#1b1035" strokeWidth="1.4" /></svg>
                   <b>{fmt(game.pot)}</b>
                 </span>
+                {timed && <span className={`turn-clock ${secs <= 5 ? 'low' : ''}`}>⏱ {waitingId === me ? 'You' : name(waitingId)} · {secs}s</span>}
                 {game.events.map((e) => (
                   <button key={e.id} className={`pill ev ${e.mult > 1 ? 'boom' : 'slump'}`} onClick={() => setPeek(e.sq)}>{e.emoji} {BOARD[e.sq].short} ×{e.mult}·{e.rounds}r</button>
                 ))}
@@ -443,7 +457,9 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 </>)}
                 {mine && game.phase === 'end' && <button className="btn roll-btn sm" onClick={() => act({ t: 'end' })}>{game.again ? '🎲 Roll again' : 'End turn ›'}</button>}
                 {mine && game.phase === 'moving' && <span className="dim">Moving…</span>}
-                {canManage && myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 Cards ({myProps.length})</button>}
+                {buildHere != null && <button className="btn build-btn sm" onClick={() => act({ t: 'build', sq: buildHere })}>🏠 Build here {fmt(nextBuildCost(game, buildHere))}</button>}
+                {buildHere == null && buildable.length > 0 && <button className="btn build-btn sm" onClick={() => setManage(true)}>🏗️ Build ({buildable.length})</button>}
+                {canManage && myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 My cities ({myProps.length})</button>}
               </div>
               {mine && (myHand.length > 0 || game.dblArmed[me]) && (
                 <div className="power-bar">
@@ -480,7 +496,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
         return (
           <div className="dk-sheet">
             {owner && <div className="takeover-tag">😈 HOSTILE TAKEOVER · {name(owner)} mortgaged this — grab it for {fmt(price)} ({name(owner)} gets {fmt(price / 2)})</div>}
-            <Deed i={here} game={game} name={name} />
+            <Deed i={here} game={game} name={name} me={me} />
             <div className="row">
               <button className="btn glass" onClick={() => act({ t: 'pass' })}>{owner ? 'Skip' : 'Pass → Bolee 🔨'}</button>
               <button className="btn premium" disabled={game.cash[me] < price} onClick={() => act({ t: 'buy' })}>{owner ? '😈 Take over' : '🏷️ Buy'} for {fmt(price)}</button>
@@ -505,6 +521,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               </div>
             </div>
             <div className="auc-queue">{a.queue.map((id) => <span key={id} className={id === head ? 'now' : ''} style={{ ['--c' as string]: color(id) }}><Avatar id={avatarOf(id)} size={22} />{name(id)}</span>)}</div>
+            {timed && <span className={`turn-clock ${secs <= 5 ? 'low' : ''}`}>⏱ {head === me ? 'Your bid' : name(head)} · {secs}s</span>}
+            {head === me && me === cur && <small className="dim">You passed at full price, but you can still win it here.</small>}
             {head === me ? (
               <div className="row">
                 <button className="btn glass" onClick={() => act({ t: 'out' })}>I’m out</button>
@@ -527,22 +545,43 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
 
       {peek !== null && !manage && (
         <div className="dk-sheet peek" onClick={() => setPeek(null)}>
-          <Deed i={peek} game={game} name={name} />
+          <Deed i={peek} game={game} name={name} me={me} />
           <small className="dim">Tap anywhere to close</small>
+        </div>
+      )}
+
+      {logOpen && (
+        <div className="dk-manage" onClick={() => setLogOpen(false)}>
+          <div className="card dk-log" onClick={(e) => e.stopPropagation()}>
+            <div className="row-between"><b>📜 Game log</b><button className="btn ghost xs" onClick={() => setLogOpen(false)}>✕</button></div>
+            <ol>
+              {[...(game.log ?? [])].reverse().map((l, k, arr) => (
+                <li key={l.id} style={{ ['--c' as string]: l.pid && room.players.some((p) => p.id === l.pid) ? color(l.pid) : 'rgba(255,255,255,0.25)' }}>
+                  {(k === 0 || arr[k - 1].r !== l.r) && <small className="round">Round {l.r}</small>}
+                  <span>{l.t}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       )}
 
       {manage && (
         <div className="dk-manage" onClick={() => setManage(false)}>
           <div className="card hand" onClick={(e) => e.stopPropagation()}>
-            <div className="row-between"><b>🃏 My city cards · {fmt(game.cash[me])}</b><button className="btn ghost xs" onClick={() => setManage(false)}>✕</button></div>
-            <small className="dim">Own every city in a colour to build: 3 houses → hotel → villa. Net worth {fmt(netWorth(game, me))}</small>
+            <div className="row-between"><b>🃏 My cities · {fmt(game.cash[me])}</b><button className="btn ghost xs" onClick={() => setManage(false)}>✕</button></div>
+            <div className="set-progress">
+              {GROUPS.map((g, gi) => ({ g, have: groupSquares(gi).filter((k) => game.owner[k] === me).length, need: groupSquares(gi).length }))
+                .filter((x) => x.have > 0)
+                .map(({ g, have, need }) => <span key={g.name} className={have === need ? 'full' : ''} style={{ ['--g' as string]: g.color }}>{have === need ? '✓ ' : ''}{g.name} {have}/{need}</span>)}
+            </div>
+            <small className="dim">{!canManage ? 'You can build, mortgage or sell on your own turn. ' : buildable.length ? `You can build on ${buildable.length} cit${buildable.length > 1 ? 'ies' : 'y'} now (glowing). ` : ''}Own every city of a colour, none mortgaged, to build: 3 houses → hotel → villa. Net worth {fmt(netWorth(game, me))}</small>
             <div className="hand-row">
-              {myProps.map((i) => {
+              {[...myProps].sort((a, b) => Number(buildable.includes(b)) - Number(buildable.includes(a))).map((i) => {
                 const s = BOARD[i], g = s.group != null ? GROUPS[s.group] : null;
                 const full = g && ownsGroup(game, me, s.group!);
                 return (
-                  <div key={i} className={`hcard ${game.mort[i] ? 'mort' : ''}`} style={{ ['--g' as string]: g?.color ?? '#9b6bff' }}>
+                  <div key={i} className={`hcard ${game.mort[i] ? 'mort' : ''} ${buildable.includes(i) ? 'can-build' : ''}`} style={{ ['--g' as string]: g?.color ?? '#9b6bff' }}>
                     <div className="hc-art"><TilePic kind={s.kind} name={s.name} /><b>{s.name}</b></div>
                     <div className="hc-mid">
                       <small className="dim">{s.kind === 'city' ? MONUMENTS[s.name]?.label : s.kind === 'train' ? 'Transport' : 'Utility'}</small>
@@ -695,7 +734,7 @@ function PopUp({ p, name, color, game, onClose }: { p: Pop; name(id: string): st
 }
 
 // ---------------- deed ----------------
-function Deed({ i, game, name }: { i: number; game: DGame; name(pid: string): string }) {
+function Deed({ i, game, name, me }: { i: number; game: DGame; name(pid: string): string; me: string }) {
   const s = BOARD[i], g = s.group != null ? GROUPS[s.group] : null, o = game.owner[i];
   const base = s.rent ?? 0;
   const ev = game.events.find((e) => e.sq === i);
@@ -724,7 +763,7 @@ function Deed({ i, game, name }: { i: number; game: DGame; name(pid: string): st
       {s.kind === 'chai' && <p>Spin the Tapri wheel: full gullak, half gullak, ₹500, a power-up, a free house — or Seth-ji keeps it.</p>}
       {s.kind === 'jail' && <p>Leave by rolling doubles, paying the ₹500 late fine, or a Doctor’s Note. After 3 tries you pay and leave.</p>}
       {(s.kind === 'kismat' || s.kind === 'parivaar') && <p>Draw a {s.name} card.</p>}
-      {s.price && <div className="deed-foot">{o ? <>Owned by <b>{name(o)}</b>{game.mort[i] && ' · GIRVI (mortgaged) — open to hostile takeover'}</> : <>For sale from Seth-ji · pass and it goes to Bolee 🔨</>}</div>}
+      {s.price && <div className="deed-foot">{o ? <>{o === me ? <b className="yours">✅ You own this</b> : <>Owned by <b>{name(o)}</b></>}{game.mort[i] && ' · GIRVI (mortgaged) — open to hostile takeover'}</> : <>For sale from Seth-ji · pass and it goes to Bolee 🔨</>}</div>}
       {g && <div className="deed-set">{groupSquares(s.group!).map((k) => <span key={k} className={game.owner[k] ? 'own' : ''}>{BOARD[k].short}</span>)}</div>}
     </div>
   );
