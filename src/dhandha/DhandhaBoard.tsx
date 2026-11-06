@@ -6,7 +6,7 @@ import type { GameProps } from '../shared/GameShell';
 import { BAIL, BOARD, BUILD_LEVELS, GROUPS, MAX_BUILD, POWERS, RENT_MULT, WHEEL, fmt, type Card, type Power } from './data';
 import { ArtDefs, Buildings, MONUMENTS, SethJi, TilePic, type SethMood } from './Monument';
 import {
-  canBuild, groupSquares, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, sellValue, takeoverPrice,
+  buyBackPrice, canBuild, groupSquares, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, sellValue, takeoverPrice,
   type CityEvent, type DAction, type DGame, type Fx,
 } from './rules';
 
@@ -117,6 +117,8 @@ const LINES: Record<string, string[]> = {
   auction: ['Bolee shuru! Kaun lega {city}?'],
   shield: ['Rent Shield! Smart move, beta.'],
   takeover: ['Hostile takeover! Corporate drama 🍿'],
+  gift: ['Dosti ho toh aisi! 💝', 'Sharing is caring. Seth-ji approves 🙏', 'Paisa idhar se udhar. Pyaar dono taraf 💸'],
+  buyback: ['Girvi se wapas! Ab ye phir se tumhara 💰'],
   streak: ['On a roll 🔥 ₹500 bonus from me.'],
   placement: ['Placement Season! Ab har rent ×1.5. All the best 😈'],
   mehngai: ['Mehngai badh gayi! Ab har rent {x}. 💸', 'Inflation alert 📈 Rent {x}. Savings sambhal ke!', 'Sab kuch mehnga! Rent {x}, chai bhi ₹20 ki 😤'],
@@ -139,7 +141,7 @@ const short = (n: number) => (n >= 1000 ? `₹${+(n / 1000).toFixed(1)}k` : `₹
 const times = (x: number) => (x < 10 ? `×${+x.toFixed(1)}` : `×${Math.round(x)}`);
 interface Floater { id: number; pid: string; text: string; good: boolean }
 const MODAL_POPS = new Set(['event', 'set']);
-type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'streak' | 'takeover' | 'auctionWin' | 'shield'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
+type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'gift' | 'streak' | 'takeover' | 'auctionWin' | 'shield'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
 
 export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act, left }: GameProps<DGame, DAction>) {
   const [shown, setShown] = useState<Record<string, number>>(() => ({ ...game.pos }));
@@ -150,6 +152,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const [peek, setPeek] = useState<number | null>(null);
   const [manage, setManage] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [gift, setGift] = useState<{ to: string; amount: number } | null>(null);
   const [teleport, setTeleport] = useState(false);
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [flash, setFlash] = useState<Record<number, string>>({});
@@ -289,7 +292,14 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             float(f, `🏦 +${fmt(f.amount!)}`, true); say('cardSold', 'count'); sfx.pop();
             break;
           case 'mortgage': flashTile(f.sq!, 'girvi', 800); if (f.amount) fly(banker(), chip(f.pid), COIN, 0, 3); break;
-          case 'unmort': flashTile(f.sq!, 'ungirvi', 600); break;
+          case 'unmort': flashTile(f.sq!, 'ungirvi', 600); fly(chip(f.pid), banker(), COIN, 0, 4); if (f.pid === me) say('buyback', 'happy'); break;
+          case 'gift':
+            fly(chip(f.pid), chip(f.other!), COIN, 0, coinsFor(f.amount ?? 100));
+            float(f, `💝 −${fmt(f.amount!)}`, false);
+            float({ ...f, id: f.id + 0.5, pid: f.other! }, `💝 +${fmt(f.amount!)}`, true);
+            pop({ kind: 'gift', pid: f.pid, other: f.other, amount: f.amount }, 2600);
+            say('gift', 'happy'); sfx.home();
+            break;
           case 'pot': {
             const src = f.text === 'pot' ? q('[data-anchor="pot"]') : banker();
             fly(src, chip(f.pid), COIN, 0, f.text === 'pot' ? 12 : 5);
@@ -358,6 +368,11 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   // Cities I can build on right now; landing on one of them offers to build right there.
   const buildable = canManage ? myProps.filter((i) => canBuild(game, me, i)) : [];
   const buildHere = canManage && game.phase === 'end' && buildable.includes(here) ? here : null;
+  // GIRVI (mortgaged) cities I can afford to buy back; standing on one offers it right there.
+  const girvi = canManage ? myProps.filter((i) => game.mort[i] && game.cash[me] >= buyBackPrice(i)) : [];
+  const buyBackHere = canManage && game.phase === 'end' && girvi.includes(here) ? here : null;
+  const meIn = !game.out.includes(me) && game.order.includes(me);
+  const giftTargets = room.players.filter((p) => p.id !== me && game.order.includes(p.id) && !game.out.includes(p.id));
 
   const bySq = new Map<number, string[]>();
   game.order.filter((id) => !game.out.includes(id)).forEach((id) => { const s = shown[id] ?? 0; bySq.set(s, [...(bySq.get(s) ?? []), id]); });
@@ -425,6 +440,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 <b>Dhandha<em>King</em></b>
                 <span className="round-chip">R{game.round}{game.maxRounds ? `/${game.maxRounds}` : ''}</span>
                 <button className="log-btn" onClick={() => { sfx.tap(); setLogOpen(true); }}>📜 Log</button>
+                {meIn && giftTargets.length > 0 && <button className="log-btn" onClick={() => { sfx.tap(); setGift({ to: giftTargets[0].id, amount: Math.min(500, game.cash[me]) }); }}>💝 Send</button>}
                 {placementOn(game) && <span className="season">🎓 PLACEMENT SEASON ×1.5</span>}
                 {mehngaiLevel(game) > 0 && <span className="season">📈 MEHNGAI · RENT {times(rentBoost(game))}</span>}
               </div>
@@ -459,6 +475,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 {mine && game.phase === 'moving' && <span className="dim">Moving…</span>}
                 {buildHere != null && <button className="btn build-btn sm" onClick={() => act({ t: 'build', sq: buildHere })}>🏠 Build here {fmt(nextBuildCost(game, buildHere))}</button>}
                 {buildHere == null && buildable.length > 0 && <button className="btn build-btn sm" onClick={() => setManage(true)}>🏗️ Build ({buildable.length})</button>}
+                {buyBackHere != null && <button className="btn buyback-btn sm" onClick={() => act({ t: 'unmortgage', sq: buyBackHere })}>💰 Buy back here {fmt(buyBackPrice(buyBackHere))}</button>}
+                {buyBackHere == null && girvi.length > 0 && <button className="btn buyback-btn sm" onClick={() => setManage(true)}>💰 Buy back ({girvi.length})</button>}
                 {canManage && myProps.length > 0 && <button className="btn glass sm" onClick={() => setManage(true)}>🃏 My cities ({myProps.length})</button>}
               </div>
               {mine && (myHand.length > 0 || game.dblArmed[me]) && (
@@ -550,6 +568,36 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
         </div>
       )}
 
+      {gift && (() => {
+        const cash = game.cash[me] ?? 0;
+        const amount = Math.max(0, Math.min(gift.amount, cash));
+        const target = giftTargets.find((p) => p.id === gift.to) ?? giftTargets[0];
+        return (
+          <div className="dk-manage" onClick={() => setGift(null)}>
+            <div className="card dk-gift" onClick={(e) => e.stopPropagation()}>
+              <div className="row-between"><b>💝 Send money</b><button className="btn ghost xs" onClick={() => setGift(null)}>✕</button></div>
+              <small className="dim">You have {fmt(cash)}. Seth-ji takes no commission 😇</small>
+              <div className="gift-to">
+                {giftTargets.map((p) => (
+                  <button key={p.id} className={target?.id === p.id ? 'on' : ''} style={{ ['--c' as string]: color(p.id) }} onClick={() => setGift({ ...gift, to: p.id })}>
+                    <Avatar id={p.avatar} size={34} /><b>{p.name}</b><small>{fmt(game.cash[p.id] ?? 0)}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="seg gift-amt">
+                {[100, 500, 1000, 2000, 5000].map((v) => <button key={v} className={amount === v ? 'on' : ''} disabled={v > cash} onClick={() => setGift({ ...gift, amount: v })}>{v >= 1000 ? `₹${v / 1000}k` : `₹${v}`}</button>)}
+              </div>
+              <input className="gift-input" type="number" min={1} max={cash} step={100} value={amount || ''} placeholder="Other amount"
+                onChange={(e) => setGift({ ...gift, amount: Math.floor(Number(e.target.value) || 0) })} />
+              <button className="btn premium" disabled={!target || amount < 1 || amount > cash}
+                onClick={() => { if (target) { act({ t: 'gift', to: target.id, amount }); setGift(null); } }}>
+                Send {fmt(amount)} to {target?.name ?? '…'}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {logOpen && (
         <div className="dk-manage" onClick={() => setLogOpen(false)}>
           <div className="card dk-log" onClick={(e) => e.stopPropagation()}>
@@ -577,7 +625,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             </div>
             <small className="dim">{!canManage ? 'You can build, mortgage or sell on your own turn. ' : buildable.length ? `You can build on ${buildable.length} cit${buildable.length > 1 ? 'ies' : 'y'} now (glowing). ` : ''}Own every city of a colour, none mortgaged, to build: 3 houses → hotel → villa. Net worth {fmt(netWorth(game, me))}</small>
             <div className="hand-row">
-              {[...myProps].sort((a, b) => Number(buildable.includes(b)) - Number(buildable.includes(a))).map((i) => {
+              {[...myProps].sort((a, b) => (Number(buildable.includes(b)) * 2 + Number(game.mort[b])) - (Number(buildable.includes(a)) * 2 + Number(game.mort[a]))).map((i) => {
                 const s = BOARD[i], g = s.group != null ? GROUPS[s.group] : null;
                 const full = g && ownsGroup(game, me, s.group!);
                 return (
@@ -594,7 +642,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                       {g && game.build[i] < MAX_BUILD && <button className="btn primary xs" disabled={!canManage || !canBuild(game, me, i)} onClick={() => act({ t: 'build', sq: i })}>+ {BUILD_LEVELS[game.build[i] + 1].replace(/^\d /, '')} {fmt(nextBuildCost(game, i))}</button>}
                       {game.build[i] > 0 && <button className="btn glass xs" disabled={!canManage} onClick={() => act({ t: 'sell', sq: i })}>Sell building</button>}
                       {!game.build[i] && (game.mort[i]
-                        ? <button className="btn glass xs" disabled={!canManage} onClick={() => act({ t: 'unmortgage', sq: i })}>Unmortgage</button>
+                        ? <button className="btn buyback-btn xs" disabled={!canManage || game.cash[me] < buyBackPrice(i)} onClick={() => act({ t: 'unmortgage', sq: i })}>💰 Buy back {fmt(buyBackPrice(i))}</button>
                         : <button className="btn ghost xs" disabled={!canManage} onClick={() => act({ t: 'mortgage', sq: i })}>Mortgage +{fmt(s.price! / 2)}</button>)}
                       <button className="btn sell xs" disabled={!canManage} onClick={() => { if (confirm(`Sell the ${s.name} card to Seth-ji for ${fmt(sellValue(game, i))}?`)) act({ t: 'sellCity', sq: i }); }}>🏦 Sell card {fmt(sellValue(game, i))}</button>
                     </div>
@@ -708,6 +756,7 @@ function PopUp({ p, name, color, game, onClose }: { p: Pop; name(id: string): st
   if (p.kind === 'placement') return p.other === 'mehngai'
     ? <div className="toast-pop gold big">📈 MEHNGAI! Every rent is now {times(p.amount ?? 1)}</div>
     : <div className="toast-pop gold big">🎓 PLACEMENT SEASON — every rent ×1.5 till the end!</div>;
+  if (p.kind === 'gift') return <div className="toast-pop gold">💝 {name(p.pid)} sent {fmt(p.amount ?? 0)} to {name(p.other ?? '')}</div>;
   if (p.kind === 'shield') return <div className="toast-pop">🛡️ {name(p.pid)}’s Rent Shield blocked {fmt(p.amount ?? 0)} from {name(p.other ?? '')}!</div>;
   if (p.kind === 'takeover') return <div className="toast-pop gold">😈 {name(p.pid)} took over {s?.name} from {name(p.other ?? '')}!</div>;
   if (p.kind === 'auctionWin') return <div className="toast-pop gold">🔨 SOLD! {s?.name} → {name(p.pid)} for {fmt(p.amount ?? 0)}</div>;
@@ -763,7 +812,7 @@ function Deed({ i, game, name, me }: { i: number; game: DGame; name(pid: string)
       {s.kind === 'chai' && <p>Spin the Tapri wheel: full gullak, half gullak, ₹500, a power-up, a free house — or Seth-ji keeps it.</p>}
       {s.kind === 'jail' && <p>Leave by rolling doubles, paying the ₹500 late fine, or a Doctor’s Note. After 3 tries you pay and leave.</p>}
       {(s.kind === 'kismat' || s.kind === 'parivaar') && <p>Draw a {s.name} card.</p>}
-      {s.price && <div className="deed-foot">{o ? <>{o === me ? <b className="yours">✅ You own this</b> : <>Owned by <b>{name(o)}</b></>}{game.mort[i] && ' · GIRVI (mortgaged) — open to hostile takeover'}</> : <>For sale from Seth-ji · pass and it goes to Bolee 🔨</>}</div>}
+      {s.price && <div className="deed-foot">{o ? <>{o === me ? <b className="yours">✅ You own this</b> : <>Owned by <b>{name(o)}</b></>}{game.mort[i] && (o === me ? ` · GIRVI — buy it back for ${fmt(buyBackPrice(i))} from My cities before someone takes it over` : ' · GIRVI (mortgaged) — open to hostile takeover')}</> : <>For sale from Seth-ji · pass and it goes to Bolee 🔨</>}</div>}
       {g && <div className="deed-set">{groupSquares(s.group!).map((k) => <span key={k} className={game.owner[k] ? 'own' : ''}>{BOARD[k].short}</span>)}</div>}
     </div>
   );

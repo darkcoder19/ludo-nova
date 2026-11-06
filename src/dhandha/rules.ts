@@ -7,7 +7,7 @@ import {
 
 export type FxKind =
   | 'event' | 'eventEnd' | 'land' | 'setComplete' | 'villa' | 'cardSold' | 'pay' | 'earn' | 'buy' | 'build' | 'sell' | 'jail'
-  | 'bankrupt' | 'pot' | 'salary' | 'mortgage' | 'unmort' | 'free' | 'shield' | 'double' | 'takeover' | 'streak'
+  | 'bankrupt' | 'pot' | 'salary' | 'mortgage' | 'unmort' | 'gift' | 'free' | 'shield' | 'double' | 'takeover' | 'streak'
   | 'spin' | 'auctionWin' | 'placement' | 'power' | 'tele';
 export interface Fx { id: number; kind: FxKind; pid: string; other?: string; amount?: number; sq?: number; text?: string }
 export interface DMove { id: number; pid: string; from: number; to: number; jump: boolean }
@@ -56,7 +56,8 @@ export type DAction =
   | { t: 'roll' } | { t: 'buy' } | { t: 'pass' } | { t: 'cardOk' } | { t: 'end' } | { t: 'skip' } | { t: 'advance' }
   | { t: 'bail' } | { t: 'jugaad' } | { t: 'spin' } | { t: 'bid' } | { t: 'out' }
   | { t: 'power'; p: 'double' } | { t: 'power'; p: 'tele'; sq: number }
-  | { t: 'build'; sq: number } | { t: 'sell'; sq: number } | { t: 'sellCity'; sq: number } | { t: 'mortgage'; sq: number } | { t: 'unmortgage'; sq: number };
+  | { t: 'build'; sq: number } | { t: 'sell'; sq: number } | { t: 'sellCity'; sq: number } | { t: 'mortgage'; sq: number } | { t: 'unmortgage'; sq: number }
+  | { t: 'gift'; to: string; amount: number };
 
 let seq = Date.now(); // from the clock: a restarted host never reuses an id guests already saw
 const clone = (g: DGame): DGame => ({
@@ -342,6 +343,8 @@ export function sellValue(g: DGame, sq: number) {
 
 /** Cost of a hostile takeover of an opponent's mortgaged city (full price; the owner gets half). */
 export const takeoverPrice = (sq: number) => BOARD[sq].price!;
+/** What it costs the owner to buy a mortgaged (GIRVI) city back. */
+export const buyBackPrice = (sq: number) => Math.round(BOARD[sq].price! * 0.55);
 
 export const isOver = (g: DGame) => active(g).length <= 1 || (g.maxRounds > 0 && g.round > g.maxRounds);
 
@@ -403,6 +406,8 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
         return a.next <= cap && g.cash[pid] - a.next >= 1200 ? { t: 'bid' } : { t: 'out' };
       }
       case 'end': {
+        const redeem = BOARD.map((_, i) => i).find((i) => g.owner[i] === pid && g.mort[i] && g.cash[pid] - buyBackPrice(i) > 5000);
+        if (redeem != null) return { t: 'unmortgage', sq: redeem };
         const target = BOARD.map((_, i) => i).filter((i) => canBuild(g, pid, i) && g.cash[pid] - nextBuildCost(g, i) > 3000)
           .sort((a, b) => g.build[a] - g.build[b])[0];
         return target != null ? { t: 'build', sq: target } : { t: 'end' };
@@ -439,6 +444,9 @@ function fxLine(g: DGame, f: Fx): string | null {
   const who = g.names[f.pid] ?? '';
   switch (f.kind) {
     case 'salary': return `💸 ${who} collected ${fmt(f.amount ?? 0)} on Payday`;
+    case 'gift': return `💝 ${who} sent ${fmt(f.amount ?? 0)} to ${g.names[f.other!] ?? ''}`;
+    case 'mortgage': return `🏦 ${who} put ${BOARD[f.sq!].name} on GIRVI${f.amount ? ` for ${fmt(f.amount)}` : ''}`;
+    case 'unmort': return `💰 ${who} bought ${BOARD[f.sq!].name} back from GIRVI for ${fmt(f.amount ?? 0)}`;
     case 'streak': return `🔥 ${who} got a ${fmt(f.amount ?? 0)} rent-streak bonus`;
     case 'shield': return `🛡️ ${who}'s Rent Shield blocked ${fmt(f.amount ?? 0)} rent`;
     case 'setComplete': return `👑 ${who} owns the full ${GROUPS[BOARD[f.sq!].group!].name} set — can build now`;
@@ -467,6 +475,15 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
   if (a.t === 'advance') {
     if (pid !== AUTO || g.phase !== 'moving') return null;
     g.move = null; land(g);
+    return g;
+  }
+  // A gift can be sent by any player still in the game, at any time, up to the cash they hold.
+  if (a.t === 'gift') {
+    const amt = Math.floor(Number(a.amount));
+    const ok = (id: string) => g.order.includes(id) && !g.out.includes(id);
+    if (!ok(pid) || !ok(a.to) || a.to === pid || !(amt > 0) || amt > g.cash[pid] || isOver(g)) return null;
+    g.cash[pid] -= amt; g.cash[a.to] += amt;
+    fx(g, { kind: 'gift', pid, other: a.to, amount: amt });
     return g;
   }
   // Auction bids come from whoever is at the head of the bidding queue.
@@ -599,7 +616,7 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
       g.mort[a.sq] = true; g.cash[me] += BOARD[a.sq].price! / 2; fx(g, { kind: 'mortgage', pid: me, sq: a.sq, amount: BOARD[a.sq].price! / 2 }); return g;
     }
     case 'unmortgage': {
-      const cost = Math.round(BOARD[a.sq].price! * 0.55);
+      const cost = buyBackPrice(a.sq);
       if (!canManage || g.owner[a.sq] !== me || !g.mort[a.sq] || g.cash[me] < cost) return null;
       g.mort[a.sq] = false; g.cash[me] -= cost; fx(g, { kind: 'unmort', pid: me, sq: a.sq, amount: cost }); return g;
     }

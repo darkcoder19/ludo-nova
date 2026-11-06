@@ -113,7 +113,7 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
             <p>If you pass on a tile, Seth-ji auctions it. The other players take turns: bid (opening at half the price, then +{fmt(AUCTION_STEP)} each time) or drop out. With 2–3 players, the player who passed joins in too, bidding last. Last bidder standing gets it for their bid. Every bid has the same turn timer as a normal turn.</p>
 
             <h3>😈 Hostile takeover</h3>
-            <p>Land on a city someone has <b>mortgaged</b> (GIRVI) and you can grab it by paying its full price. The old owner gets half. Unmortgage your cities to stay safe!</p>
+            <p>Land on a city someone has <b>mortgaged</b> (GIRVI) and you can grab it by paying its full price. The old owner gets half. Buy your GIRVI cities back to stay safe!</p>
 
             <h3>⚡ Power-ups (hold up to {MAX_POWERS})</h3>
             <table className="dice-table special">
@@ -148,10 +148,13 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
               {[...twist, ...chat].map((c, k) => <div key={k} className={c.deck}><b>{c.deck === 'kismat' ? '🌀' : '💬'} {c.title}{c.power ? ' ⚡' : ''}</b><span>{c.text}</span></div>)}
             </div>
 
+            <h3>💝 Send money</h3>
+            <p>Tap <b>💝 Send</b> (next to Log) to give any amount of your cash to another player, any time. Helping a friend out of a tight spot is allowed. So is bribery.</p>
+
             <h3>💸 Short of money?</h3>
             <ul>
               <li><b>Sell a building</b> back for half its cost.</li>
-              <li><b>Mortgage (GIRVI)</b> an empty city for half its price. It earns no rent and anyone landing there can take it over, until you unmortgage it (price × 0.55).</li>
+              <li><b>Mortgage (GIRVI)</b> an empty city for half its price. It earns no rent and anyone landing there can take it over, until you <b>buy it back</b> for price × 0.55 (💰 Buy back, on your turn).</li>
               <li><b>Sell the card to Seth-ji</b> for 70% of its price plus half of what you built.</li>
               <li>If you still can’t pay, you are <b>bankrupt</b> and your cities go to the player you owe.</li>
             </ul>
