@@ -15,6 +15,8 @@ import { Joining } from '../components/Joining';
 import { routeToGame } from './link';
 import { clearResume, loadResume, trackResume } from './resume';
 import { RejoinCard } from '../components/Rejoin';
+import { ChatBubbles, ChatPicker, DailyChip, ProgressPanel, ResultExtras, TitleTag } from '../components/Progress';
+import { recordProgress, type Progress, type Stats } from '../game/progress';
 import { hostRoom, joinRoom, soloRoom, TIMER_CHOICES, type Emote, type RoomSession, type RoomState, type Rules, type Status } from './room';
 
 export const SEAT_COLORS = ['#ff2d55', '#2b7bff', '#00c97a', '#ffb400'];
@@ -49,6 +51,8 @@ export interface ShellConfig<G, A> {
   summary?(g: G, name: (pid: string) => string): ReactNode;
   /** Optional per-player line shown inside that player's podium row. */
   podiumExtra?(g: G, pid: string): ReactNode;
+  /** This player's numbers for daily quests, and badge ids the game awards them, when a game ends. */
+  progress?(g: G, pid: string): { stats?: Stats; badges?: string[] };
 }
 
 type Screen = 'home' | 'room';
@@ -80,7 +84,7 @@ export function GameShell<G, A>({ cfg }: { cfg: ShellConfig<G, A> }) {
 
   const start = (kind: 'host' | 'join' | 'solo' | 'resume', arg?: string | number, options: Record<string, string> = {}) => {
     setError('');
-    const me = { id: profile.id, name: profile.name.trim(), avatar: profile.avatar };
+    const me = { id: profile.id, name: profile.name.trim(), avatar: profile.avatar, title: profile.title, skin: profile.skin };
     const h = {
       onState: (s: RoomState<G>) => { setRoom(s); if (ref.current) trackResume(cfg.slug, s.phase, ref.current, s.hostId, s); },
       onEmote: (e: Emote) => setEmotes((l) => [...l.slice(-6), e]),
@@ -143,6 +147,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, onResume, error }: 
   const [nameErr, setNameErr] = useState(false);
   const install = useInstallPrompt();
   const [guide, setGuide] = useState(false);
+  const [prog, setProg] = useState(false);
 
   const go = (k: 'host' | 'join' | 'solo', arg?: string | number) => {
     if (!profile.name.trim()) { setNameErr(true); sfx.pop(); return; }
@@ -161,7 +166,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, onResume, error }: 
   return (
     <div className="screen home shell-home">
       <Backdrop />
-      <div className="topbar"><a className="btn ghost sm" href={import.meta.env.BASE_URL}>← All games</a>{install && <button className="btn glass sm" onClick={install}>⬇ Install</button>}</div>
+      <div className="topbar"><a className="btn ghost sm" href={import.meta.env.BASE_URL}>← All games</a><DailyChip profile={profile} onOpen={() => setProg(true)} />{install && <button className="btn glass sm" onClick={install}>⬇ Install</button>}</div>
       <header className="shell-hero">
         <div className="shell-art">{cfg.hero}</div>
         <small>{cfg.kind}</small>
@@ -205,6 +210,7 @@ function ShellHome<G, A>({ cfg, profile, onProfile, onStart, onResume, error }: 
       {adsEnabled() && <BannerStrip />}
       <footer className="foot">© Sarvimo · Free to play</footer>
       {guide && cfg.Guide && <cfg.Guide onClose={() => setGuide(false)} />}
+      {prog && <ProgressPanel profile={profile} onProfile={onProfile} onClose={() => setProg(false)} />}
     </div>
   );
 }
@@ -268,7 +274,7 @@ function ShellLobby<G, A>({ cfg, session, room, code, status, onLeave }: {
             <div key={i} className={`seat ${p ? 'filled' : ''}`} style={{ ['--c' as string]: SEAT_COLORS[i] }}>
               {p ? (<>
                 <div className="seat-av"><Avatar id={p.avatar} size={52} /></div>
-                <div className="seat-name">{p.name}{p.id === session.myId && <em> (you)</em>}</div>
+                <div className="seat-name">{p.name}{p.id === session.myId && <em> (you)</em>}<TitleTag id={p.title} /></div>
                 <div className="seat-tag">{p.id === room?.hostId ? '👑 Host' : p.bot ? 'Bot' : 'Ready'}</div>
                 {isHost && p.id !== room?.hostId && <button className="kick" onClick={() => session.act({ t: 'kick', id: p.id })}>✕</button>}
               </>) : (<>
@@ -308,6 +314,9 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
   const [picker, setPicker] = useState(false);
   const [guide, setGuide] = useState(false);
   const [troll, setTroll] = useState<Emote | null>(null);
+  const [chat, setChat] = useState(false);
+  const [prog, setProg] = useState<Progress | null>(null);
+  const lastChat = useRef(0);
   const [moods, setMoods] = useState<Record<string, { m: Mood; id: number }>>({});
   const lastTroll = useRef(0);
   const left = useCountdown(room, cfg.rules.turnKey(game));
@@ -344,7 +353,12 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
       const rank = cfg.rules.ranking(game);
       setResult(rank);
       const place = rank.indexOf(me) + 1;
-      if (place) onProfile(recordGame(profile, place, rank.length, 0).profile);
+      if (place) {
+        const p1 = recordGame(profile, place, rank.length, 0).profile;
+        const extra = cfg.progress?.(game, me) ?? {};
+        const pr = recordProgress(p1, cfg.slug, place, rank.length, extra.stats, extra.badges);
+        setProg(pr); onProfile(pr.profile);
+      }
       if (place === 1) { sfx.win(); [0, 400, 800].forEach((d) => setTimeout(() => confettiRef.current?.burst(innerWidth / 2, innerHeight * 0.35, SEAT_COLORS, 150), d)); } else sfx.lose();
     }, 1600);
     return () => clearTimeout(t);
@@ -365,6 +379,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
         <div className="room-chip">{session.local ? `${cfg.name} · Practice` : `${cfg.name} · ${session.code}`}</div>
         <NoAdsChip />
         {cfg.Guide && <button className="help-top" onClick={() => setGuide(true)}>?</button>}
+        {!session.local && <button className="troll-top chat-top" onClick={() => { sfx.tap(); setChat(true); }} aria-label="Quick chat">💬</button>}
         <button className="troll-top" onClick={() => { sfx.tap(); setPicker(true); }}>😈</button>
         <button className="btn ghost sm" onClick={() => { setMuted(!muted); setMute(!muted); }}>{muted ? '🔇' : '🔊'}</button>
       </div>
@@ -376,6 +391,8 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
       </div>
       {picker && <TrollPicker targets={room.players.filter((p) => p.id !== me).map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, color: color(p.id) }))}
         onClose={() => setPicker(false)} onPick={(m) => { setPicker(false); session.emote(m); }} />}
+      <ChatBubbles emotes={emotes} players={room.players} me={me} color={color} />
+      {chat && <ChatPicker onClose={() => setChat(false)} onPick={(m) => { setChat(false); if (Date.now() - lastChat.current > 1500) { lastChat.current = Date.now(); session.emote(m); } }} />}
       {troll && (() => {
         const from = room.players.find((x) => x.id === troll.from);
         const victim = room.players.find((x) => x.id === trollTarget(troll.emoji)) ?? from;
@@ -391,11 +408,12 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
               {result.map((id, i) => {
                 const p = room.players.find((x) => x.id === id);
                 return p ? <li key={id} className={id === me ? 'me' : ''} style={{ ['--c' as string]: color(id), animationDelay: `${i * 120}ms` }}>
-                  <span>{['🥇', '🥈', '🥉', '4️⃣'][i]}</span><span className="av"><Avatar id={p.avatar} size={34} mood={i === 0 ? 'cool' : null} /></span><b>{p.name}{cfg.podiumExtra && <span className="pod-extra">{cfg.podiumExtra(game, id)}</span>}</b>
+                  <span>{['🥇', '🥈', '🥉', '4️⃣'][i]}</span><span className="av"><Avatar id={p.avatar} size={34} mood={i === 0 ? 'cool' : null} /></span><b>{p.name}<TitleTag id={p.title} />{cfg.podiumExtra && <span className="pod-extra">{cfg.podiumExtra(game, id)}</span>}</b>
                 </li> : null;
               })}
             </ol>
             {cfg.summary?.(game, (id) => room.players.find((p) => p.id === id)?.name ?? '?')}
+            <ResultExtras p={prog} />
             <div className="row">
               {room.hostId === me ? <button className="btn primary" onClick={() => withAd(() => session.act({ t: 'rematch' }))}>↻ Rematch</button> : <div className="dim small">Waiting for host…</div>}
               <button className="btn glass" onClick={onLeave}>Home</button>

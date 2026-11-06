@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { BannerStrip } from '../ads/AdViews';
 import { adsEnabled } from '../ads/premium';
 import { useAccount } from '../account/account';
@@ -7,12 +7,19 @@ import { Avatar } from '../components/Avatar';
 import { Backdrop } from '../components/Home';
 import { sfx } from '../game/sound';
 import { GAMES, gameUrl, type GameInfo } from './games';
+import { BuildingArt, PlotArt } from '../haat/Art';
 import { GAME_LETTER, gameOfCode, routeToGame } from '../shared/link';
+import { DailyChip, ProgressPanel } from '../components/Progress';
+import { loadProfile, saveProfile, type Profile } from '../game/profile';
 
 /** sarvimo.com/games — the game picker. */
 export function Hub() {
   const me = useAccount();
   const [admin, setAdmin] = useState(() => new URLSearchParams(location.search).has('admin'));
+  const [profile, setProfile] = useState<Profile>(loadProfile);
+  const [prog, setProg] = useState(false);
+  // Coming back from a game (Back button) picks up the quests it finished.
+  useEffect(() => { const back = () => setProfile(loadProfile()); addEventListener('pageshow', back); return () => removeEventListener('pageshow', back); }, []);
   if (admin && me?.admin) return <AdminDashboard onClose={() => { setAdmin(false); history.replaceState(null, '', location.pathname); }} />;
   return (
     <div className="screen hub">
@@ -30,7 +37,7 @@ export function Hub() {
 
       <div className="hub-row">
         <b>🎮 Games</b>
-        <span className="dim small">{GAMES.length} games · all free</span>
+        <DailyChip profile={profile} onOpen={() => setProg(true)} />
       </div>
 
       <section className="gcards">
@@ -39,6 +46,7 @@ export function Hub() {
 
       {adsEnabled() && <BannerStrip />}
       <footer className="foot">© Sarvimo · Free to play · Install any game on your phone</footer>
+      {prog && <ProgressPanel profile={profile} onProfile={(p) => { setProfile(p); saveProfile(p); }} onClose={() => setProg(false)} />}
     </div>
   );
 }
@@ -51,7 +59,7 @@ function JoinBox() {
   const join = () => {
     if (code.length < 5) return;
     sfx.tap();
-    if (!routeToGame(code, '')) setErr('Codes start with N, S or D. Older code? Join from inside its game.');
+    if (!routeToGame(code, '')) setErr('Codes start with N, S, D or H. Older code? Join from inside its game.');
   };
   return (
     <form className="hub-join" onSubmit={(e) => { e.preventDefault(); join(); }}>
@@ -60,7 +68,7 @@ function JoinBox() {
       <div className="hj-letters">
         {GAMES.map((g) => (
           <span key={g.slug} className={game === g.slug ? 'on' : ''} style={{ ['--a' as string]: g.colors[0] }} title={g.name}>
-            <b>{GAME_LETTER[g.slug]}</b><small>{g.name.replace(/(Nova|Rush|King)$/, '')}</small>
+            <b>{GAME_LETTER[g.slug]}</b><small>{g.name.replace(/(Nova|Rush|King| Hustle)$/, '')}</small>
           </span>
         ))}
       </div>
@@ -70,11 +78,18 @@ function JoinBox() {
   );
 }
 
-const PEEKERS: Record<string, string[]> = { ludonova: ['c3', 'c8'], seedhirush: ['c1', 'c12'], dhandhaking: ['c13', 'c5'] };
+const PEEKERS: Record<string, string[]> = { ludonova: ['c3', 'c8'], seedhirush: ['c1', 'c12'], dhandhaking: ['c13', 'c5'], haathustle: ['c9', 'c2'] };
 
 function GameCard({ g, i }: { g: GameInfo; i: number }) {
   const el = useRef<HTMLAnchorElement>(null);
   const [going, setGoing] = useState(false);
+  // Coming back to the hub (Back button / restored tab) shows the card again; so does a navigation that never happened.
+  useEffect(() => {
+    const back = () => setGoing(false);
+    addEventListener('pageshow', back);
+    return () => removeEventListener('pageshow', back);
+  }, []);
+  useEffect(() => { if (!going) return; const t = setTimeout(() => setGoing(false), 6000); return () => clearTimeout(t); }, [going]);
   const tilt = (e: PointerEvent) => {
     const r = el.current!.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
@@ -88,9 +103,10 @@ function GameCard({ g, i }: { g: GameInfo; i: number }) {
     <a ref={el} className={`gcard g-${g.slug} ${going ? 'going' : ''}`} href={gameUrl(g.slug)}
       style={{ ['--a' as string]: g.colors[0], ['--b' as string]: g.colors[1], animationDelay: `${i * 110}ms` }}
       onPointerMove={tilt} onPointerLeave={reset}
-      onClick={(e) => { e.preventDefault(); sfx.six(); setGoing(true); setTimeout(() => (location.href = gameUrl(g.slug)), 420); }}>
+      onClick={(e) => { e.preventDefault(); if (going) return; sfx.six(); setGoing(true); setTimeout(() => (location.href = gameUrl(g.slug)), 380); }}>
       <div className="gc-scene">{SCENES[g.slug]}</div>
       <div className="gc-glare" />
+      {going && <div className="gc-opening"><i />Opening {g.name}…</div>}
       <div className="gc-peek">{PEEKERS[g.slug]?.map((a, k) => <Avatar key={a} id={a} size={k ? 44 : 56} hyped />)}</div>
       <div className="gc-body">
         <div className="gc-tags"><span>{g.kind}</span><span className="live">● Live</span></div>
@@ -106,6 +122,16 @@ function GameCard({ g, i }: { g: GameInfo; i: number }) {
 }
 
 const SCENES: Record<string, ReactNode> = {
+  haathustle: (
+    <div className="scene hh-scene">
+      {(['cotton', 'tea', 'spice', 'rice', 'mandi', 'brick'] as const).map((t, k) => (
+        <div key={k} className="cell" style={{ animationDelay: `${k * 0.4}s` }}>
+          <PlotArt t={t} />
+          {k % 2 === 0 && k !== 4 && <BuildingArt level={k === 2 ? 3 : 1} color={['#ff2e88', '#7a5cff', '#12d6b4'][k / 2]} />}
+        </div>
+      ))}
+    </div>
+  ),
   ludonova: (
     <svg viewBox="0 0 200 120" className="scene">
       <g className="ln-board">

@@ -87,6 +87,20 @@ export const buildIcon = (n: number) => (n >= 5 ? '🏰' : n === 4 ? '🏨' : '�
 export const buildCost = (base: number, next: number) => (next === 5 ? base * 2 : next === 4 ? Math.round(base * 1.5) : base);
 /** The bank buys a city card back at 70% (20% if mortgaged), plus half of what was built. */
 export const SELL_RATE = 0.7;
+/** Resale market: every city's value drifts a little each round (multiplier on its list price). */
+export const MARKET = { MIN: 0.6, MAX: 2.2, SWING: 0.12, GROW: 0.012, GROW_CAP: 1.6, STEP: 100 };
+/** Campus Calendar: every few rounds a season bends one rule for a while. */
+export const CALENDAR = { EVERY: 6, LENGTH: 3 };
+export type SeasonKind = 'fest' | 'exam' | 'placement' | 'strike' | 'sale';
+export const SEASONS: Record<SeasonKind, { name: string; emoji: string; text: string }> = {
+  fest: { name: 'Fest Week', emoji: '🎉', text: 'Rides pay double rent' },
+  exam: { name: 'Exam Week', emoji: '📚', text: 'No building, everyone is studying' },
+  placement: { name: 'Placement Drive', emoji: '💼', text: 'Payday pays double' },
+  strike: { name: 'Hostel Strike', emoji: '✊', text: 'WiFi & Recharge pay no rent' },
+  sale: { name: 'Sale Season', emoji: '🛍️', text: "20% off at Seth-ji's shop, bolee opens at 30%" },
+};
+/** Catch-up at Payday: the player far behind gets a bonus, the runaway leader pays a little tax. */
+export const CATCHUP = { BONUS: 1000, BONUS_BELOW: 0.6, TAX: 500, TAX_ABOVE: 1.6 };
 
 /** Rent multipliers for 0..5 buildings. */
 export const RENT_MULT = [1, 5, 15, 45, 65, 90];
@@ -167,13 +181,23 @@ export const POWERS: Record<Power, { name: string; icon: string; text: string }>
   double: { name: 'Double Dhamaka', icon: '💥', text: 'Play it: the next rent you collect is doubled.' },
   tele: { name: 'Teleport', icon: '🌀', text: 'Play it, then tap any unowned tile to jump there.' },
 };
+/** Money can be sent to another player in steps of this much. */
+export const GIFT_STEP = 500;
+/** Seth-ji's loans: borrow in steps of ₹1,000, up to ₹5,000 at a time, 20% interest; Paydays repay ₹1,000. */
+export const LOAN = { STEP: 1000, LIMIT: 5000, RATE: 0.2, PAYDAY: 1000 };
+/** Teen Set mode: the first player to own this many complete colour sets wins. */
+export const SETS_TO_WIN = 3;
+/** A city deal can include at most this many cities from each side. */
+export const DEAL_MAX = 3;
 export const MAX_POWERS = 2;
 export const AUCTION_STEP = 200;
 export const STREAK_BONUS = 500;
 /** From this round on (quick games), every rent is x1.5 so games finish on time. */
-export const PLACEMENT_ROUND = 4; // Placement Season: the last 4 rounds, every rent is x1.5
+/** Placement Season (a rent boost at the end of Quick games) is switched off: 0 rounds. */
+export const PLACEMENT_ROUND = 0;
 /** Classic has no round limit, so rents climb instead: from round START, every EVERY rounds, rent x STEP (compounding). */
-export const MEHNGAI = { START: 20, EVERY: 10, STEP: 2 };
+// No rent increase for the first 55 rounds, then a gentle ×1.25 every 5 rounds (×1.25, ×1.56, ×1.95…).
+export const MEHNGAI = { START: 55, EVERY: 5, STEP: 1.25 };
 
 // ---- Tapri spin wheel ----
 export type SpinPrize = 'pot' | 'half' | 'cash' | 'power' | 'house' | 'none';

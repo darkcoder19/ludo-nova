@@ -57,6 +57,10 @@
       "destination": "/manifest-dhandhaking.webmanifest"
     },
     {
+      "source": "/games/manifest-haathustle.webmanifest",
+      "destination": "/manifest-haathustle.webmanifest"
+    },
+    {
       "source": "/games",
       "destination": "/index.html"
     },

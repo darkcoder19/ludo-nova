@@ -10,6 +10,14 @@ export interface Profile {
   streak: number;
   lastDay: string;
   bestStreak: number;
+  /** Daily quests, quest streak, badges, worn title and dice skin (see progress.ts). */
+  daily?: { day: string; progress: Record<string, number>; done: string[]; chest?: boolean };
+  qStreak?: number;
+  qLast?: string;
+  qBest?: number;
+  badges?: Record<string, number>;
+  title?: string;
+  skin?: string;
 }
 
 export const AVATARS = Array.from({ length: 15 }, (_, i) => `c${i}`);
@@ -20,6 +28,7 @@ export function loadProfile(): Profile {
   let p: Partial<Profile> = {};
   try { p = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* fresh */ }
   return {
+    ...p,
     id: p.id || (crypto.randomUUID?.() ?? String(Math.random()).slice(2)),
     name: p.name || '',
     avatar: p.avatar && AVATARS.includes(p.avatar) ? p.avatar : AVATARS[Math.floor(Math.random() * AVATARS.length)],

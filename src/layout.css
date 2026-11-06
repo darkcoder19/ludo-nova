@@ -145,7 +145,9 @@
 /* short phones: trim secondary text so every home still fits one screen */
 @media (max-height: 740px) {
   .screen.home, .screen.hub { gap: 7px; }
-  .hub-head p, .shell-home .shell-hero p, .hub .hub-row, .up-txt small, .acct-pitch small, .home .av small { display: none; }
+  .hub-head p, .shell-home .shell-hero p, .up-txt small, .acct-pitch small, .home .av small { display: none; }
+  .hub .hub-row { font-size: 0.95rem; }
+  .hub .hub-row .daily-chip { padding: 4px 10px; font-size: 0.74rem; }
   .hub-head img { width: 42px; height: 42px; }
   .hub .gc-scene { min-height: 82px; }
   .hub .gcard p { -webkit-line-clamp: 1; }
@@ -189,3 +191,27 @@
 .card.rejoin b, .card.rejoin small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* short screens: a game to rejoin takes the place of the upgrade strip */
 @media (max-height: 760px) { .screen:has(.card.rejoin) .up-strip { display: none; } }
+
+/* phones and tablets: four (or more) games as a 2-column grid of compact tiles, so the hub still fits one screen */
+@media (max-width: 899px) {
+  .hub .gcards { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hub .gcard { display: flex; flex-direction: column; border-radius: 18px; }
+  .hub .gc-scene { height: clamp(62px, 13dvh, 110px); min-height: 0; }
+  .hub .gc-scene .scene { height: 100%; width: auto; max-width: 100%; }
+  .hub .gc-body { padding: 6px 9px 8px; flex: 1; }
+  .hub .gcard h2 { font-size: 1.05rem; margin: 2px 0 0; }
+  .hub .gcard p { font-size: 0.66rem; -webkit-line-clamp: 2; }
+  .hub .gc-tags span { font-size: 0.52rem; }
+  .hub .gc-foot { font-size: 0.6rem; padding-top: 4px; gap: 4px; }
+  .hub .gc-foot > span:first-child { display: none; }
+  .hub .gc-play { padding: 4px 10px; font-size: 0.75rem; margin-left: auto; }
+  .hub .gc-peek { top: 4px; bottom: auto; left: auto; right: 4px; transform: scale(0.5); transform-origin: top right; }
+}
+@media (max-width: 420px) {
+  .hj-letters span { min-width: 26px; padding: 3px 4px; }
+  .hj-letters small { display: none; }
+  .hub-join .hj-code { flex: 1 1 5em; }
+}
+
+/* PC: every game in one row */
+@media (min-width: 900px) { .hub .gcards { grid-template-columns: repeat(4, 1fr); } }

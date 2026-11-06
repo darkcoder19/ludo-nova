@@ -12,6 +12,8 @@ import { BannerStrip } from '../ads/AdViews';
 import { NoAdsChip } from '../account/AccountViews';
 import { adsEnabled } from '../ads/premium';
 import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from './Trolls';
+import { ChatBubbles, ChatPicker, ResultExtras } from './Progress';
+import { recordProgress, type Progress } from '../game/progress';
 
 const HEX: Record<Color, string> = { red: '#ff2e88', green: '#12d6b4', yellow: '#ffab1a', blue: '#7a5cff' };
 const CORNERS = ['tl', 'tr', 'br', 'bl'] as const;
@@ -43,6 +45,9 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
   const [splash, setSplash] = useState<{ id: number; p: Player; place: number } | null>(null);
   const left = useCountdown(state);
   const [picker, setPicker] = useState(false);
+  const [chat, setChat] = useState(false);
+  const [prog, setProg] = useState<Progress | null>(null);
+  const lastChat = useRef(0);
   const [moods, setMoods] = useState<Partial<Record<Color, { mood: Mood; id: number }>>>({});
   const setMood = (c: Color, mood: Mood) => {
     const id = Date.now() + Math.random();
@@ -148,10 +153,13 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
     if (recorded.current || !me) return;
     recorded.current = true;
     const place = state.winners.indexOf(me.id) + 1;
-    const { profile: p, xp } = recordGame(profile, place, state.players.length, state.stats[me.id]?.captures ?? 0);
+    const { profile: p0, xp } = recordGame(profile, place, state.players.length, state.stats[me.id]?.captures ?? 0);
+    const pr = recordProgress(p0, 'ludonova', place, state.players.length, { captures: state.stats[me.id]?.captures ?? 0 });
+    setProg(pr);
+    const p = pr.profile;
     onProfile(p);
     setTimeout(() => {
-      setResult({ place, xp });
+      setResult({ place, xp: xp + pr.xp });
       if (place === 1) { sfx.win(); confetti.current?.burst(innerWidth / 2, innerHeight * 0.3, Object.values(HEX), 200); }
       else sfx.lose();
     }, 5200);
@@ -194,17 +202,18 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
             <> <span className={`clock ${left < 5000 ? 'low' : ''}`}>{Math.ceil(left / 1000)}s</span></>
           )}
         </div>
-        <Dice value={state.dice} rollId={state.rollId} color={curColor} ready={canRoll}
+        <Dice value={state.dice} rollId={state.rollId} color={curColor} ready={canRoll} skin={myTurn ? profile.skin : undefined}
           onRoll={() => session.act({ t: 'roll' })} onSettled={() => setDiceSettled(true)} />
         <div className="emotes">
           <button className="troll-open" onClick={() => { sfx.tap(); setPicker(true); }}>😈<small>Troll</small></button>
+          {state.players.some((p) => !p.bot && p.id !== session.myId) && <button className="troll-open" onClick={() => { sfx.tap(); setChat(true); }}>💬<small>Chat</small></button>}
         </div>
       </div>
 
       {toast && <div key={toast.id} className="toast" style={{ ['--tc' as string]: HEX[toast.color] }}>{toast.text}</div>}
 
       {state.phase === 'over' && result && (
-        <Results state={state} myId={session.myId} result={result}
+        <Results state={state} myId={session.myId} result={result} prog={prog}
           onRematch={state.hostId === session.myId ? () => withAd(() => session.act({ t: 'rematch' })) : undefined} onLeave={() => withAd(onLeave)} />
       )}
       {burst && (
@@ -230,6 +239,8 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
           </div>
         </div>
       )}
+      <ChatBubbles emotes={emotes} players={state.players} me={session.myId} color={(id) => HEX[state.players.find((p) => p.id === id)?.color ?? 'red']} />
+      {chat && <ChatPicker onClose={() => setChat(false)} onPick={(m) => { setChat(false); if (Date.now() - lastChat.current > 1500) { lastChat.current = Date.now(); session.emote(m); } }} />}
       {picker && (
         <TrollPicker
           targets={state.players.filter((p) => p.id !== session.myId).map((p) => ({ id: p.id, name: p.name, avatar: p.avatar, color: HEX[p.color] }))}
@@ -276,8 +287,8 @@ function PlayerCard({ p, state, corner, isMe, hyped, left, mood }: { p: Player; 
   );
 }
 
-function Results({ state, myId, result, onRematch, onLeave }: {
-  state: GameState; myId: string; result: { place: number; xp: number }; onRematch?(): void; onLeave(): void;
+function Results({ state, myId, result, prog, onRematch, onLeave }: {
+  state: GameState; myId: string; result: { place: number; xp: number }; prog: Progress | null; onRematch?(): void; onLeave(): void;
 }) {
   const medal = ['🥇', '🥈', '🥉', '4️⃣'];
   const title = result.place === 1 ? 'Victory!' : result.place === 2 ? 'So close!' : 'Good game!';
@@ -287,6 +298,7 @@ function Results({ state, myId, result, onRematch, onLeave }: {
         <div className="crown">{result.place === 1 ? '👑' : '🎲'}</div>
         <h2>{title}</h2>
         <div className="xp-gain">+{result.xp} XP</div>
+        <ResultExtras p={prog} />
         <ol className="podium">
           {state.winners.map((id, i) => {
             const p = state.players.find((x) => x.id === id)!;

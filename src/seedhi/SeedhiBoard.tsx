@@ -173,7 +173,7 @@ export function SeedhiBoard({ room, game, me, color, mood, setMood, confetti, ac
 
       <div className="dock">
         <div className="turn-label">{game.winner ? 'Game over' : myTurn ? (settled ? 'Your turn!' : '…') : `${room.players.find((p) => p.id === cur)?.name}'s turn`}</div>
-        <Dice value={game.dice} rollId={game.rollId} color={color(cur)} ready={myTurn && settled}
+        <Dice value={game.dice} rollId={game.rollId} color={color(cur)} skin={room.players.find((p) => p.id === cur)?.skin} ready={myTurn && settled}
           onRoll={() => { setSettled(false); act({ t: 'roll' }); }} onSettled={() => setSettled(true)} />
         <div className="note">{game.note}</div>
       </div>

@@ -4,6 +4,7 @@ import App from './App';
 import { UpgradeSheet } from './account/AccountViews';
 import SeedhiApp from './seedhi';
 import DhandhaApp from './dhandha';
+import HaatApp from './haat';
 import { ComingSoon, Hub } from './hub/Hub';
 import { currentSlug, GAMES } from './hub/games';
 import './hub/hub.css';
@@ -23,6 +24,7 @@ function Root() {
   if (game.slug === 'ludonova') return <App />;
   if (game.slug === 'seedhirush') return <SeedhiApp />;
   if (game.slug === 'dhandhaking') return <DhandhaApp />;
+  if (game.slug === 'haathustle') return <HaatApp />;
   return <ComingSoon g={game} />;
 }
 

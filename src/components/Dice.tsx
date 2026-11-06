@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { skinClass } from '../game/progress';
 
 // Cube orientation that shows each face to the viewer.
 const FACE: Record<number, [number, number]> = { 1: [0, 0], 2: [-90, 0], 3: [0, -90], 4: [0, 90], 5: [90, 0], 6: [0, 180] };
@@ -12,9 +13,11 @@ interface Props {
   ready: boolean;
   onRoll(): void;
   onSettled?(): void;
+  /** The roller's dice skin. */
+  skin?: string;
 }
 
-export function Dice({ value, rollId, color, ready, onRoll, onSettled }: Props) {
+export function Dice({ value, rollId, color, ready, onRoll, onSettled, skin }: Props) {
   const spins = useRef(0);
   const [rot, setRot] = useState<[number, number]>(FACE[value]);
   const [rolling, setRolling] = useState(false);
@@ -33,7 +36,7 @@ export function Dice({ value, rollId, color, ready, onRoll, onSettled }: Props) 
   }, [rollId]);
 
   return (
-    <button className={`dice-btn ${ready ? 'ready' : ''} ${rolling ? 'rolling' : ''}`} style={{ ['--dc' as string]: color }}
+    <button className={`dice-btn ${skinClass(skin)} ${ready ? 'ready' : ''} ${rolling ? 'rolling' : ''}`} style={{ ['--dc' as string]: color }}
       onClick={ready ? onRoll : undefined} aria-label={ready ? 'Roll dice' : `Dice shows ${value}`}>
       <div className="dice-stage">
         <div className="cube" style={{ transform: `rotateX(${rot[0]}deg) rotateY(${rot[1]}deg)` }}>

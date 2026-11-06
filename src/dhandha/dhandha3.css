@@ -378,7 +378,9 @@
 /* ---------- turn timer ---------- */
 .dk.v5 .dk-p .tbar { position: absolute; left: 6px; right: 6px; bottom: 2px; height: 3px; border-radius: 3px; background: var(--c); transform-origin: left center;
   transform: scaleX(var(--t, 1)); transition: transform 0.25s linear; box-shadow: 0 0 6px var(--c); }
-.dk.v5 .dk-p .tbar.low { background: #ff2d55; box-shadow: 0 0 8px #ff2d55; animation: breathe-s 0.5s ease-in-out infinite; }
+.dk.v5 .dk-p .tbar.low { background: #ff2d55; box-shadow: 0 0 8px #ff2d55; animation: tbar-pulse 0.5s ease-in-out infinite; }
+/* pulse only the glow: a transform here would override the bar's scaleX and tilt it */
+@keyframes tbar-pulse { 50% { opacity: 0.45; box-shadow: 0 0 14px #ff2d55; } }
 .turn-clock { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); font-weight: 800;
   font-size: max(11px, calc(var(--uc, 40px) * 0.22)); font-variant-numeric: tabular-nums; color: #e9e5ff; }
 .turn-clock.low { background: rgba(255, 45, 85, 0.25); color: #fff; animation: breathe-s 0.5s ease-in-out infinite; }
@@ -429,3 +431,148 @@
 .gift-to button.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 45%, transparent); }
 .gift-amt button:disabled { opacity: 0.35; }
 .gift-input { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.25); font-weight: 800; font-size: 1rem; }
+
+/* ---------- live log on the board ---------- */
+.dk.v5 .dk-feed { list-style: none; margin: 0; padding: 0; width: min(100%, calc(var(--uc) * 9)); display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.dk.v5 .dk-feed li { padding: 2px 8px; border-radius: 8px; border-left: 3px solid var(--c); background: rgba(255, 255, 255, 0.06); font-size: max(10px, calc(var(--uc) * 0.19)); font-weight: 700;
+  color: #d9d4f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.dk.v5 .dk-feed li.new { color: #fff; background: rgba(255, 255, 255, 0.11); animation: pop-in 0.35s; }
+.dk.v5 .dk-feed li:nth-child(n + 4) { display: none; }
+.dk.v5 .geo-12x6 .dk-feed li:nth-child(4) { display: block; opacity: 0.7; }
+.dk.v5 .dk-board.tight .dk-feed li:nth-child(n + 3) { display: none; }
+.dk.v5 .geo-12x6 .dk-centre { grid-template-areas: 'seth brand' 'seth meters' 'seth dice' 'note note' 'feed feed' 'actions actions' 'power power'; }
+.dk.v5 .geo-12x6 .dk-feed { grid-area: feed; justify-self: center; }
+
+/* ---------- send money: slider + ±₹500 ---------- */
+.gift-slider { display: flex; flex-direction: column; gap: 2px; }
+.gift-slider input[type='range'] { width: 100%; accent-color: #ffab1a; height: 28px; }
+.gift-slider .ends { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 800; color: var(--dim); }
+.gift-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.gift-row .gift-input { text-align: center; }
+
+/* ---------- city deals & Seth-ji loans ---------- */
+.dk.v5 .dk-p .cash em { font-style: normal; font-size: 0.62rem; font-weight: 900; margin-left: 4px; padding: 0 4px; border-radius: 6px; }
+.dk.v5 .dk-p .cash em.debt { background: rgba(255, 79, 106, 0.18); color: #ff8fa3; }
+.dk.v5 .dk-p .cash em.sets { background: rgba(255, 210, 63, 0.18); color: #ffd23f; }
+.dk.v5 .season.sets { background: linear-gradient(90deg, #12d6b4, #ffd23f, #12d6b4); background-size: 300% 100%; }
+.dk-manage .card.dk-deal, .dk-manage .card.dk-loan { display: flex; flex-direction: column; gap: 10px; max-height: 88dvh; overflow-y: auto; }
+.dk-manage .card.dk-deal.in { border: 2px solid #12d6b4; box-shadow: 0 0 30px rgba(18, 214, 180, 0.35), 0 20px 50px rgba(0, 0, 0, 0.5); animation: pop-in 0.35s; }
+.dk-deal .row, .dk-loan .row { display: flex; gap: 8px; } .dk-deal .row .btn, .dk-loan .row .btn { flex: 1; }
+.dk-deal .row-between, .dk-loan .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.deal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.deal-cols > div, .deal-view > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.deal-cols small, .deal-view small { font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.64rem; color: var(--dim); }
+.deal-cols .chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 34dvh; overflow-y: auto; }
+.city-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px 4px 4px; border-radius: 10px; font: inherit; color: inherit; cursor: pointer;
+  background: rgba(255, 255, 255, 0.06); border: 2px solid transparent; }
+.city-chip:disabled { cursor: default; opacity: 1; }
+.city-chip i { width: 10px; height: 18px; border-radius: 4px; background: var(--g); flex: none; }
+.city-chip b { font-size: 0.78rem; } .city-chip small { font-size: 0.66rem; color: var(--dim); font-weight: 800; }
+.city-chip.on { border-color: var(--g); background: color-mix(in srgb, var(--g) 25%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--g) 50%, transparent); }
+.deal-view { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
+.deal-view > div { padding: 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); align-self: stretch; }
+.deal-view .swap { font-size: 1.4rem; font-weight: 900; color: #12d6b4; }
+.cash-chip { font-weight: 900; font-size: 0.85rem; padding: 3px 8px; border-radius: 8px; background: rgba(0, 201, 122, 0.18); color: #5dffb4; align-self: flex-start; }
+.cash-chip.out { background: rgba(255, 79, 106, 0.16); color: #ff8fa3; }
+.dk-deal .gift-slider .ends b { color: #fff; font-size: 0.78rem; }
+.dk-deal .turn-clock { align-self: center; }
+.loan-stat { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); font-size: 0.85rem; }
+.loan-stat b { text-align: right; }
+@media (max-width: 420px) { .deal-cols { grid-template-columns: 1fr; } .deal-cols .chips { max-height: 18dvh; } }
+.gs-deal .gs-mon { background: #fffaf0; border-radius: 12px; padding: 6px; }
+.gs-deal .d0 { animation: deal-l 2.4s ease-in-out infinite; } .gs-deal .d1 { animation: deal-r 2.4s ease-in-out infinite; }
+.gs-deal .shake { font-size: 2.4rem; animation: float 1.2s ease-in-out infinite; z-index: 2; }
+.gs-deal .coin { position: absolute; top: 30px; left: 50%; animation: float 1.2s 0.3s ease-in-out infinite; }
+@keyframes deal-l { 0%, 25% { transform: translateX(0); } 50%, 75% { transform: translateX(150px); } 100% { transform: translateX(0); } }
+@keyframes deal-r { 0%, 25% { transform: translateX(0); } 50%, 75% { transform: translateX(-150px); } 100% { transform: translateX(0); } }
+
+/* ---------- effect overlays: stamps, drops, tags, ribbons ---------- */
+.fx-over { position: fixed; z-index: 72; pointer-events: none; transform: translate(-50%, -50%); }
+.fx-over.stamp { display: flex; flex-direction: column; align-items: center; font-weight: 900; letter-spacing: 0.06em; line-height: 1; color: var(--sc, #ff2d55); border: 4px solid currentColor;
+  border-radius: 12px; padding: 8px 18px; white-space: nowrap; font-size: clamp(22px, calc(var(--w) * 0.11), 48px); background: rgba(20, 10, 40, 0.55);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3); animation: stamp-slam 1.5s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
+.fx-over.stamp small { font-size: 0.5em; margin-top: 4px; letter-spacing: 0.02em; }
+.fx-over.stamp.sm { font-size: clamp(9px, calc(var(--w) * 0.24), 16px); border-width: 2px; padding: 2px 5px; border-radius: 6px; background: #fffaf0; }
+@keyframes stamp-slam {
+  0% { transform: translate(-50%, -50%) rotate(-16deg) scale(2.6); opacity: 0; }
+  18% { transform: translate(-50%, -50%) rotate(-10deg) scale(0.9); opacity: 1; }
+  28% { transform: translate(-50%, -50%) rotate(-10deg) scale(1.05); }
+  36%, 78% { transform: translate(-50%, -50%) rotate(-10deg) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(-10deg) scale(1.12); opacity: 0; } }
+.fx-over.ouch { --sc: #ff4f6a; }
+.fx-over.jhatka { --sc: #ff2d55; background: rgba(255, 45, 85, 0.22); font-size: clamp(26px, calc(var(--w) * 0.13), 58px); }
+.fx-over.sold { --sc: var(--oc, #00c97a); }
+.fx-over.rejected { --sc: #ff4f6a; font-size: clamp(14px, calc(var(--w) * 0.2), 26px); }
+.fx-over.approved { --sc: #2ee59d; font-size: clamp(14px, calc(var(--w) * 0.2), 26px); }
+.fx-over.bankrupt { --sc: #ff2d55; font-size: clamp(14px, calc(var(--w) * 0.18), 24px); }
+.fx-over.handshake { border: none; background: none; font-size: clamp(44px, calc(var(--w) * 0.2), 96px); }
+.fx-over.drop, .fx-over.pack { font-size: clamp(18px, calc(var(--w) * 0.5), 34px); animation: drop-in 1.05s cubic-bezier(0.3, 0, 0.5, 1) forwards; }
+.fx-over.pack { font-size: 30px; }
+@keyframes drop-in {
+  0% { transform: translate(-50%, -260%) scale(0.8); opacity: 0; }
+  42% { transform: translate(-50%, -50%) scale(1.2, 0.78); opacity: 1; }
+  58% { transform: translate(-50%, -75%) scale(0.95, 1.08); }
+  72%, 86% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; } }
+.fx-over.drop::after { content: ''; position: absolute; left: 50%; top: 78%; width: 170%; height: 34%; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.85); opacity: 0;
+  transform: translate(-50%, 0) scale(0.2); animation: dust-ring 0.6s 0.42s ease-out; }
+@keyframes dust-ring { 0% { opacity: 0.9; transform: translate(-50%, 0) scale(0.2); } 100% { opacity: 0; transform: translate(-50%, 0) scale(1.5); } }
+.fx-over.tag { font-weight: 900; font-size: 12px; padding: 1px 6px; border-radius: 6px; color: #fff; white-space: nowrap; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35); animation: tag-up 1.9s ease-out forwards; }
+.fx-over.tag.up { background: #00b86b; } .fx-over.tag.down { background: #e5304f; }
+@keyframes tag-up { 0% { transform: translate(-50%, -20%) scale(0.6); opacity: 0; } 18% { transform: translate(-50%, -60%) scale(1.15); opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(-50%, -190%); opacity: 0; } }
+.fx-over.ring { width: 22px; height: 22px; border-radius: 50%; border: 3px solid #ffd23f; box-shadow: 0 0 14px #ffd23f; animation: ring-out 0.85s ease-out forwards; }
+@keyframes ring-out { from { transform: translate(-50%, -50%) scale(0.3); opacity: 1; } to { transform: translate(-50%, -50%) scale(4.5); opacity: 0; } }
+.fx-over.ribbon { width: 100vw; left: 50% !important; text-align: center; padding: 10px 0 8px; font-weight: 900; font-size: clamp(18px, 4.5vw, 34px); letter-spacing: 0.08em; color: #fff;
+  background: linear-gradient(90deg, transparent, var(--rb, #7a5cff) 14%, var(--rb2, #ff4fd8) 86%, transparent); text-shadow: 0 3px 0 rgba(0, 0, 0, 0.3); animation: ribbon 1.7s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
+.fx-over.ribbon small { display: block; font-size: 0.48em; letter-spacing: 0.03em; opacity: 0.95; margin-top: 2px; }
+@keyframes ribbon { 0% { transform: translate(-150%, -50%) skewX(-12deg); } 22%, 80% { transform: translate(-50%, -50%) skewX(-6deg); } 100% { transform: translate(50%, -50%) skewX(-12deg); opacity: 0; } }
+.fx-over.ribbon.turn { --rb: #ff8c42; --rb2: #ff2d55; }
+.fx-over.ribbon.season { animation-duration: 2.7s; --rb: #12d6b4; --rb2: #7a5cff; }
+.fx-over.ribbon.s-exam { --rb: #5b6b8c; --rb2: #2b3550; } .fx-over.ribbon.s-sale { --rb: #ff4fd8; --rb2: #ffab1a; } .fx-over.ribbon.s-strike { --rb: #ff2d55; --rb2: #6c2bd9; }
+.fx-over.ribbon.s-placement { --rb: #2b7bff; --rb2: #12d6b4; }
+.dk-p.crack { animation: crack 1.2s ease-out; }
+@keyframes crack { 10%, 30%, 50% { transform: translateX(-6px) rotate(-1deg); } 20%, 40% { transform: translateX(6px) rotate(1deg); } 60% { transform: none; filter: grayscale(1) brightness(0.7); } 100% { filter: grayscale(1); } }
+.dk.v5 .dk-sethbox.nope .sethji { animation: nope 0.6s ease-in-out; }
+@keyframes nope { 20%, 60% { transform: rotate(-9deg); } 40%, 80% { transform: rotate(9deg); } }
+.dk.v5 .dk-sethbox.yes .sethji { animation: nod 0.6s ease-in-out; }
+@keyframes nod { 30%, 70% { transform: translateY(7%) scale(1.04); } }
+/* ambient: trending tiles sparkle, slumping tiles drizzle, complete sets shimmer */
+.dk.v5 .dk-sq .amb { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.dk.v5 .dk-sq .amb.spark { background: radial-gradient(circle, #fff 0 1.3px, transparent 2px) 0 0 / 33% 40%, radial-gradient(circle, #ffe08a 0 1.1px, transparent 1.8px) 15% 20% / 28% 36%;
+  animation: sparkle 2.4s linear infinite; opacity: 0.9; }
+@keyframes sparkle { from { background-position: 0 100%, 15% 120%; opacity: 0.25; } 50% { opacity: 1; } to { background-position: 0 -40%, 15% -60%; opacity: 0.25; } }
+.dk.v5 .dk-sq .amb.rain { background: linear-gradient(165deg, transparent 0 46%, rgba(150, 180, 255, 0.75) 47% 51%, transparent 52%) 0 0 / 20% 30%; animation: drizzle 0.7s linear infinite; opacity: 0.75; }
+@keyframes drizzle { from { background-position: 0 0; } to { background-position: -12% 100%; } }
+.dk.v5 .dk-sq.fullset::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.6) 50%, transparent 65%) -150% 0 / 250% 100% no-repeat; animation: shimmer 4.5s ease-in-out infinite; }
+@keyframes shimmer { 0%, 60% { background-position: -150% 0; } 100% { background-position: 150% 0; } }
+@media (prefers-reduced-motion: reduce) { .dk.v5 .dk-sq .amb, .dk.v5 .dk-sq.fullset::before { animation: none; } }
+.dk.v5 .season.cal { background: linear-gradient(90deg, #12d6b4, #7a5cff, #12d6b4); background-size: 300% 100%; color: #fff; }
+.dk.v5 .season.cal.s-exam { background: linear-gradient(90deg, #5b6b8c, #2b3550, #5b6b8c); background-size: 300% 100%; }
+.dk.v5 .season.cal.s-sale { background: linear-gradient(90deg, #ff4fd8, #ffab1a, #ff4fd8); background-size: 300% 100%; color: #2a1300; }
+.btn s.was { opacity: 0.6; font-weight: 700; margin-right: 2px; }
+
+/* ---------- selling a city ---------- */
+.dk-manage .card.dk-sell { display: flex; flex-direction: column; gap: 10px; max-height: 90dvh; overflow-y: auto; }
+.sell-head { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--g) 18%, rgba(255, 255, 255, 0.04)); border: 1px solid color-mix(in srgb, var(--g) 55%, transparent); }
+.sell-head .sell-art { width: 72px; height: 72px; flex: none; border-radius: 12px; background: #fffaf0; overflow: hidden; display: grid; place-items: center; }
+.sell-head .sell-art svg { width: 100%; height: 100%; }
+.sell-vals { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sell-vals small { font-weight: 800; letter-spacing: 0.04em; color: var(--dim); font-size: 0.7rem; text-transform: uppercase; }
+.sell-vals .mv { font-size: 1.7rem; font-weight: 900; line-height: 1.05; }
+.sell-vals .up { color: #5dffb4; font-weight: 800; font-size: 0.8rem; } .sell-vals .down { color: #ff8fa3; font-weight: 800; font-size: 0.8rem; }
+.sell-price { display: flex; flex-direction: column; gap: 6px; }
+.sell-price > small { font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.66rem; color: var(--dim); }
+.quick-px { display: flex; gap: 6px; }
+.quick-px button { flex: 1; padding: 6px 4px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: inherit; font: inherit; font-weight: 800; font-size: 0.78rem; cursor: pointer; }
+.quick-px button.on { background: rgba(255, 171, 26, 0.25); border-color: #ffab1a; }
+.sell-opts { display: grid; gap: 10px; }
+@media (min-width: 640px) { .sell-opts { grid-template-columns: 1fr 1fr; } }
+.sell-opt { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); }
+.sell-opt.seth { background: linear-gradient(160deg, rgba(255, 210, 63, 0.14), rgba(255, 255, 255, 0.04)); }
+.sell-opt small { font-size: 0.74rem; line-height: 1.3; }
+.sell-opt .gift-to button { flex-basis: 70px; padding: 5px 4px; }
+.hc-mkt { font-size: 0.74rem; font-weight: 700; } .hc-mkt b { font-weight: 900; }
+.hc-mkt i, .deed-mkt i { font-style: normal; font-weight: 900; font-size: 0.72rem; }
+.hc-mkt i.up, .deed-mkt i.up { color: #0a8a55; } .hc-mkt i.down, .deed-mkt i.down { color: #c0263f; }
+.deed-mkt { margin: 4px 14px 0; padding: 4px 10px; border-radius: 10px; background: rgba(27, 16, 53, 0.06); font-size: 0.8rem; font-weight: 700; display: flex; gap: 6px; align-items: baseline; }

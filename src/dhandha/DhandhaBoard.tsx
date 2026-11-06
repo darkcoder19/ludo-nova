@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Avatar } from '../components/Avatar';
 import { Dice } from '../components/Dice';
 import { buzz, sfx } from '../game/sound';
 import type { GameProps } from '../shared/GameShell';
-import { BAIL, BOARD, BUILD_LEVELS, GROUPS, MAX_BUILD, POWERS, RENT_MULT, WHEEL, fmt, type Card, type Power } from './data';
+import { BAIL, BOARD, BUILD_LEVELS, DEAL_MAX, GIFT_STEP, GROUPS, LOAN, MARKET, SEASONS, SETS_TO_WIN, type SeasonKind, MAX_BUILD, POWERS, RENT_MULT, WHEEL, fmt, type Card, type Power } from './data';
 import { ArtDefs, Buildings, MONUMENTS, SethJi, TilePic, type SethMood } from './Monument';
 import { DhandhaGuide } from './Guide';
 import {
-  buyBackPrice, canBuild, groupSquares, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, sellValue, takeoverPrice,
-  type CityEvent, type DAction, type DGame, type Fx,
+  buyBackPrice, buyPrice, canBuild, fullSets, groupSquares, loanRoom, marketMult, marketValue, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, takeoverPrice,
+  type CityEvent, type DAction, type DGame, type Deal, type Fx,
 } from './rules';
 
 // ---------------- geometry ----------------
@@ -99,6 +99,27 @@ function fly(from: Element | null, to: Element | null, html: string, delay = 0, 
   }
 }
 const COIN = '<span class="fly-coin">₹</span>';
+/** Puts an effect (a stamp, a falling building, a price tag, a ribbon…) over an element; its CSS class animates it. */
+function overlay(anchor: Element | null, html: string, cls: string, ms = 1500, vars: Record<string, string> = {}) {
+  if (!anchor || document.hidden) return;
+  const r = anchor.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = `fx-over ${cls}`;
+  el.innerHTML = html;
+  el.style.left = `${r.left + r.width / 2}px`; el.style.top = `${r.top + r.height / 2}px`;
+  el.style.setProperty('--w', `${r.width}px`);
+  for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), RM ? 700 : ms);
+}
+/** Shakes an element (a big rent rattles the whole board). */
+function shake(el: Element | null, px = 6) {
+  if (!el || RM) return;
+  el.animate([0, -1, 1, -0.7, 0.7, -0.3, 0].map((k, i) => ({ transform: `translate(${k * px}px, ${(i % 2 ? 1 : -1) * k * px * 0.4}px)` })), { duration: 480, easing: 'ease-out' });
+}
+const BUILD_EMOJI = ['', '🏠', '🏠', '🏠', '🏨', '🏰'];
+/** Short form of each Campus Calendar season for the centre chip. */
+const SEASON_SHORT: Record<SeasonKind, string> = { fest: 'rides ×2', exam: 'no building', placement: 'Payday ×2', strike: 'WiFi/Recharge free', sale: '20% off' };
 const CARD = (name: string, color: string) => `<span class="fly-card" style="--g:${color}">${name}</span>`;
 
 // ---------------- Seth-ji lines ----------------
@@ -118,6 +139,21 @@ const LINES: Record<string, string[]> = {
   auction: ['Bolee shuru! Kaun lega {city}?'],
   shield: ['Rent Shield! Smart move, beta.'],
   takeover: ['Hostile takeover! Corporate drama 🍿'],
+  deal: ['Sauda pakka! 🤝 Haath milao.', 'Deal done. Seth-ji witnessed it 📝'],
+  counter: ['Mol-bhav shuru! 😏', 'Counter-offer? Asli business ab hua.', 'Thoda upar, thoda neeche… 🤝'],
+  sethYes: ['Theek hai, le liya. Hisaab barabar 📝', 'Sauda pakka. Paisa gin lo, beta.', 'Achha maal hai. Done!'],
+  sethClose: ['Thoda kam karo, beta 🤏', 'Itna nahi… thoda sa aur kam.', 'Almost! Mood thoda aur achha hota toh…'],
+  sethFar: ['Sapne mein! 😂', 'Main seth hoon, sant nahi.', 'Is daam mein toh main khud bech doon!'],
+  backbencher: ['Backbencher Bonus! Pichhe wale bhi aage aayenge 🎒', 'Le beta, ₹1,000. Comeback karo!'],
+  topper: ['Topper Tax! Thoda gullak mein bhi daalo 🎓', 'Itna aage? ₹500 tapri ke naam.'],
+  fest: ['Fest Week! Rides pe bheed, rent double 🎉'],
+  exam: ['Exam Week! Koi construction nahi, sab padhai karo 📚'],
+  drive: ['Placement Drive! Payday double 💼'],
+  strike: ['Hostel Strike! WiFi band, Recharge free ✊'],
+  sale: ['Sale Season! Meri dukaan pe 20% off 🛍️'],
+  market: ['Market update! Daam upar-neeche 📊'],
+  loan: ['Le lo beta, par Payday pe wapas 😏', 'Byaaj 20%. Seth-ji ka dil bada hai, hisaab nahi.'],
+  sets: ['Teen set! Asli DhandhaKing yahi hai 👑'],
   gift: ['Dosti ho toh aisi! 💝', 'Sharing is caring. Seth-ji approves 🙏', 'Paisa idhar se udhar. Pyaar dono taraf 💸'],
   buyback: ['Girvi se wapas! Ab ye phir se tumhara 💰'],
   streak: ['On a roll 🔥 ₹500 bonus from me.'],
@@ -142,7 +178,7 @@ const short = (n: number) => (n >= 1000 ? `₹${+(n / 1000).toFixed(1)}k` : `₹
 const times = (x: number) => (x < 10 ? `×${+x.toFixed(1)}` : `×${Math.round(x)}`);
 interface Floater { id: number; pid: string; text: string; good: boolean }
 const MODAL_POPS = new Set(['event', 'set']);
-type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'gift' | 'streak' | 'takeover' | 'auctionWin' | 'shield'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
+type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'gift' | 'streak' | 'takeover' | 'auctionWin' | 'shield' | 'counter' | 'season' | 'catchup'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
 
 export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act, left }: GameProps<DGame, DAction>) {
   const [shown, setShown] = useState<Record<string, number>>(() => ({ ...game.pos }));
@@ -155,6 +191,11 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const [logOpen, setLogOpen] = useState(false);
   const [gift, setGift] = useState<{ to: string; amount: number } | null>(null);
   const [rules, setRules] = useState(false);
+  const [dealOpen, setDealOpen] = useState(false);
+  const [loanOpen, setLoanOpen] = useState(false);
+  const [sellSq, setSellSq] = useState<number | null>(null);
+  const [counterOpen, setCounterOpen] = useState(false);
+  const [sethAnim, setSethAnim] = useState('');
   const [teleport, setTeleport] = useState(false);
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [flash, setFlash] = useState<Record<number, string>>({});
@@ -168,6 +209,19 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const seenFx = useRef(new Set<number>(game.fx.map((f) => f.id)));
   const fxMove = useRef(game.move?.id ?? 0);
   const root = useRef<HTMLDivElement>(null);
+  // The live feed gives up its oldest lines when the centre panel runs out of room.
+  const centre = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const c = centre.current; if (!c) return;
+    const items = [...c.querySelectorAll<HTMLElement>('.dk-feed li')];
+    items.forEach((li) => { li.style.display = ''; });
+    const over = () => {
+      const r = c.getBoundingClientRect(); let top = Infinity, bottom = -Infinity;
+      for (const k of c.children) { const b = k.getBoundingClientRect(); if (b.height) { top = Math.min(top, b.top); bottom = Math.max(bottom, b.bottom); } }
+      return top < r.top - 1 || bottom > r.bottom + 1;
+    };
+    for (let k = items.length - 1; k >= 0 && over(); k--) items[k].style.display = 'none';
+  });
 
   const cur = game.order[game.turn];
   const mine = cur === me;
@@ -175,6 +229,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const avatarOf = (pid: string) => room.players.find((p) => p.id === pid)?.avatar ?? 'c0';
   const q = (sel: string) => root.current?.querySelector(sel) ?? null;
   const chip = (pid: string) => q(`[data-pid="${pid}"]`);
+  const tile = (sq: number) => q(`[data-sq="${sq}"]`);
+  const nod = (kind: 'yes' | 'nope') => { setSethAnim(kind); setTimeout(() => setSethAnim(''), 700); };
 
   const say = (key: string, m: SethMood, vars?: Record<string, string>, shades = false) => {
     const text = pickLine(key, vars);
@@ -228,6 +284,21 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
     return () => { alive = false; };
   }, [game.move, game.pos]);
 
+  // A ribbon sweeps across the board when it becomes your turn.
+  const firstTurn = useRef(true);
+  useEffect(() => {
+    if (firstTurn.current) { firstTurn.current = false; return; }
+    if (game.order[game.turn] !== me || game.out.includes(me)) return;
+    // wait for a season ribbon that is still sweeping across, so the two never overlap
+    let t: ReturnType<typeof setTimeout>;
+    const show = () => {
+      if (document.querySelector('.fx-over.ribbon.season')) { t = setTimeout(show, 600); return; }
+      overlay(root.current?.querySelector('.dk-board') ?? null, 'YOUR TURN 🎲', 'ribbon turn', 1700); sfx.turn();
+    };
+    t = setTimeout(show, 500);
+    return () => clearTimeout(t);
+  }, [game.turn, game.round]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Seth-ji nudges an idle player.
   useEffect(() => {
     if (!mine || game.phase !== 'roll') return;
@@ -271,6 +342,12 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             else fly(chip(f.pid), banker(), COIN, 0, n);
             chip(f.pid)?.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-2 - Math.min(6, f.amount / 500)}px)` }, { transform: `translateX(${2 + Math.min(6, f.amount / 500)}px)` }, { transform: 'none' }], { duration: 300 });
             if (f.other && f.amount >= 1000) { setMood(f.pid, 'sad'); say('bigRent', f.amount >= 3000 ? 'shocked' : 'sad'); }
+            if (f.other && f.amount >= 2000) {
+              const big = f.amount >= 5000;
+              shake(q('.dk-board'), big ? 10 : 5);
+              overlay(q('.dk-centre'), `${big ? 'BADA JHATKA!' : 'OUCH!'}<small>−${fmt(f.amount)}</small>`, `stamp ${big ? 'jhatka' : 'ouch'}`, 1500);
+              if (f.pid === me) buzz(big ? [80, 40, 160] : 120);
+            }
             else if (!f.other) setSeth((x) => ({ ...x, mood: 'happy' }));
             if (f.pid === me) buzz(60);
             sfx.capture();
@@ -278,23 +355,65 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             break;
           }
           case 'earn': if (f.amount) { float(f, `+${fmt(f.amount)}`, true); if (f.amount >= 500) setMood(f.pid, 'cool'); if (f.text === 'bank') fly(banker(), chip(f.pid), COIN, 0, coinsFor(f.amount)); } break;
-          case 'salary': float(f, `+${fmt(f.amount!)} salary`, true); fly(banker(), chip(f.pid), COIN, 0, 5); flashTile(0, 'claim', 700); say('salary', 'count'); sfx.six(); break;
+          case 'salary': float(f, `+${fmt(f.amount!)} salary`, true); fly(tile(0) ?? banker(), chip(f.pid), COIN, 0, f.amount! > 2000 ? 9 : 5); overlay(tile(0), '', 'ring gold', 900); flashTile(0, 'claim', 700); say(game.season?.kind === 'placement' ? 'drive' : 'salary', 'count'); sfx.six(); break;
           case 'buy':
             fly(chip(f.pid), banker(), COIN, 0, coinsFor(f.amount ?? 1000));
             fly(banker(), chip(f.pid), CARD(s!.short, gcol), 600);
-            setTimeout(() => { flashTile(f.sq!, 'claim'); setMood(f.pid, 'cool'); sfx.home(); }, 900);
+            setTimeout(() => { flashTile(f.sq!, 'claim'); overlay(tile(f.sq!), 'SOLD', 'stamp sold sm', 1300, { '--oc': color(f.pid) }); setMood(f.pid, 'cool'); sfx.home(); }, 900);
             say('buy', 'happy');
             break;
-          case 'build': fly(chip(f.pid), banker(), COIN, 0, 3); flashTile(f.sq!, 'build', 900); setSeth((x) => ({ ...x, mood: 'happy' })); sfx.home(); break;
+          case 'build': fly(chip(f.pid), banker(), COIN, 0, 3); flashTile(f.sq!, 'build', 900); overlay(tile(f.sq!), BUILD_EMOJI[game.build[f.sq!]] || '🏠', 'drop', 1100); setSeth((x) => ({ ...x, mood: 'happy' })); sfx.home(); break;
           case 'sell': flashTile(f.sq!, 'unbuild', 500); break;
           case 'cardSold':
             fly(chip(f.pid), banker(), CARD(s!.short, gcol));
             fly(banker(), chip(f.pid), COIN, 600, coinsFor(f.amount ?? 500));
             flashTile(f.sq!, 'unclaim', 600);
-            float(f, `🏦 +${fmt(f.amount!)}`, true); say('cardSold', 'count'); sfx.pop();
+            float(f, `🏦 +${fmt(f.amount!)}`, true); say('sethYes', 'count'); sfx.pop();
+            overlay(q('[data-anchor="banker"]'), 'SOLD ✓', 'stamp approved', 1400); nod('yes');
             break;
           case 'mortgage': flashTile(f.sq!, 'girvi', 800); if (f.amount) fly(banker(), chip(f.pid), COIN, 0, 3); break;
           case 'unmort': flashTile(f.sq!, 'ungirvi', 600); fly(chip(f.pid), banker(), COIN, 0, 4); if (f.pid === me) say('buyback', 'happy'); break;
+          case 'deal':
+            if (f.amount) fly(chip(f.amount > 0 ? f.pid : f.other!), chip(f.amount > 0 ? f.other! : f.pid), COIN, 0, coinsFor(Math.abs(f.amount)));
+            {
+              const [gv, gt] = (f.text ?? '|').split('|').map((x) => x.split(',').filter(Boolean).map(Number));
+              const card = (sq: number) => CARD(BOARD[sq].short, BOARD[sq].group != null ? GROUPS[BOARD[sq].group!].color : '#9b6bff');
+              gv.forEach((sq, k) => fly(chip(f.pid), chip(f.other!), card(sq), 150 + k * 160));
+              gt.forEach((sq, k) => fly(chip(f.other!), chip(f.pid), card(sq), 230 + k * 160));
+              if (!gv.length && !gt.length) fly(chip(f.pid), chip(f.other!), CARD('DEAL', '#12d6b4'), 200);
+              overlay(q('.dk-centre'), '🤝', 'stamp handshake', 1300);
+            }
+            pop({ kind: 'gift', pid: f.pid, other: f.other, amount: -1 }, 2600);
+            say('deal', 'happy'); sfx.home();
+            break;
+          case 'loan': fly(banker(), chip(f.pid), COIN, 0, coinsFor(f.amount ?? 1000)); overlay(chip(f.pid), '💰', 'pack', 1100); say('loan', 'count'); sfx.pop(); break;
+          case 'sethNo':
+            overlay(q('[data-anchor="banker"]'), 'REJECTED', 'stamp rejected', 1400); nod('nope');
+            say(f.text === 'close' ? 'sethClose' : 'sethFar', 'shocked'); sfx.captured();
+            break;
+          case 'counter': say('counter', 'count'); pop({ kind: 'counter', pid: f.pid, other: f.other }, 2400); sfx.pop(); break;
+          case 'season': {
+            const sk = f.text as SeasonKind, se = SEASONS[sk];
+            if (!se) break;
+            if (f.amount) {
+              overlay(q('.dk-board'), `${se.emoji} ${se.name.toUpperCase()}<small>${se.text} · ${f.amount} rounds</small>`, `ribbon season s-${sk}`, 2700);
+              confetti(innerWidth / 2, innerHeight * 0.45, sk === 'exam' ? ['#cfd8e8', '#fff'] : sk === 'sale' ? ['#ff4fd8', '#ffd23f'] : ['#12d6b4', '#ffd23f', '#ff8c42'], LOW ? 30 : 70);
+              say(sk === 'placement' ? 'drive' : sk, sk === 'exam' ? 'sad' : 'party'); sfx.turn();
+            } else pop({ kind: 'season', pid: f.pid, other: sk }, 2200);
+            break;
+          }
+          case 'catchup':
+            if (f.text === 'bonus') { fly(banker(), chip(f.pid), COIN, 0, 6); overlay(chip(f.pid), '🎒', 'pack', 1200); float(f, `🎒 +${fmt(f.amount!)}`, true); say('backbencher', 'happy'); }
+            else { fly(chip(f.pid), q('[data-anchor="pot"]'), COIN, 0, 4); overlay(chip(f.pid), '🎓', 'pack', 1200); float(f, `🎓 −${fmt(f.amount!)}`, false); say('topper', 'count'); }
+            pop({ kind: 'catchup', pid: f.pid, amount: f.amount, other: f.text }, 2600);
+            break;
+          case 'market': {
+            if (f.sq != null) { overlay(tile(f.sq), `▲${f.amount}%`, 'tag up', 1900); flashTile(f.sq, 'spot', 1200); }
+            if (f.text) { const [dsq, dd] = f.text.split(':').map(Number); overlay(tile(dsq), `▼${Math.abs(dd)}%`, 'tag down', 1900); flashTile(dsq, 'droop', 1200); }
+            break;
+          }
+          case 'repay': fly(chip(f.pid), banker(), COIN, 0, coinsFor(f.amount ?? 500)); break;
+          case 'sets': confetti(innerWidth / 2, innerHeight * 0.4, [color(f.pid), '#ffd23f', '#fff'], 160); say('sets', 'party', {}, true); sfx.win(); break;
           case 'gift':
             fly(chip(f.pid), chip(f.other!), COIN, 0, coinsFor(f.amount ?? 100));
             float(f, `💝 −${fmt(f.amount!)}`, false);
@@ -313,6 +432,9 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
           case 'free': say('free', 'idle'); sfx.pop(); break;
           case 'bankrupt':
             setMood(f.pid, 'sad', 8000); say('bankrupt', 'shocked'); sfx.lose(); buzz([100, 60, 200]);
+            overlay(chip(f.pid), 'DIVALIYA!', 'stamp bankrupt', 1700);
+            chip(f.pid)?.classList.add('crack'); setTimeout(() => chip(f.pid)?.classList.remove('crack'), 1300);
+            if (f.other) fly(chip(f.pid), chip(f.other), CARD('🏙️', '#9b6bff'), 500, 4);
             setTimeout(() => setSeth((x) => ({ ...x, mood: 'sad' })), 1400);
             break;
           case 'land': pop({ kind: 'land', sq: f.sq!, pid: f.pid, amount: f.amount }, 2400); break;
@@ -362,7 +484,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const canManage = mine && (game.phase === 'end' || game.phase === 'roll');
   const doubles = game.dice[0] === game.dice[1] && game.rollId > 0;
   // Whose clock is running (the bidder during a bolee) and how much of it is left.
-  const waitingId = game.phase === 'auction' && game.auction ? game.auction.queue[0] : cur;
+  const waitingId = game.phase === 'auction' && game.auction ? game.auction.queue[0] : game.phase === 'deal' && game.deal ? game.deal.to : cur;
   const waitingSeat = room.players.find((p) => p.id === waitingId);
   const timed = room.turnMs > 0 && !!waitingSeat && !waitingSeat.bot && waitingSeat.connected && !game.out.includes(waitingId);
   const secs = Math.ceil(left / 1000);
@@ -391,12 +513,12 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
           const hand = game.hand[p.id] ?? [];
           return (
             <div key={p.id} data-pid={p.id} className={`dk-p ${cur === p.id ? 'turn' : ''} ${out ? 'out' : ''} ${(game.streak[p.id] ?? 0) >= 2 ? 'hot' : ''}`} style={{ ['--c' as string]: color(p.id) }}>
-              {waitingId === p.id && !out && <span className="your-turn">{p.id === me ? (game.phase === 'auction' ? 'YOUR BID' : 'YOUR TURN') : game.phase === 'auction' ? 'BIDDING' : 'TURN'}{timed && ` · ${secs}s`}</span>}
+              {waitingId === p.id && !out && <span className="your-turn">{p.id === me ? (game.phase === 'auction' ? 'YOUR BID' : game.phase === 'deal' ? 'YOUR CALL' : 'YOUR TURN') : game.phase === 'auction' ? 'BIDDING' : game.phase === 'deal' ? 'DECIDING' : 'TURN'}{timed && ` · ${secs}s`}</span>}
               {waitingId === p.id && timed && <i className={`tbar ${secs <= 5 ? 'low' : ''}`} style={{ ['--t' as string]: tFrac }} />}
               <div className="pav"><Avatar id={p.avatar} size={34} mood={out ? 'sad' : mood(p.id)} hyped={cur === p.id} />{game.jail[p.id] > 0 && <i className="bars" />}</div>
               <div className="dk-pinfo">
                 <b>{p.name}{(game.streak[p.id] ?? 0) >= 2 && ' 🔥'}</b>
-                <span className="cash">{out ? <s>Bankrupt</s> : fmt(cashShown[p.id] ?? game.cash[p.id])}</span>
+                <span className="cash">{out ? <s>Bankrupt</s> : fmt(cashShown[p.id] ?? game.cash[p.id])}{(game.debt?.[p.id] ?? 0) > 0 && !out && <em className="debt" title="Owes Seth-ji">🏦−{short(game.debt![p.id])}</em>}{game.mode === 'sets' && !out && <em className="sets">🏆{fullSets(game, p.id)}/{SETS_TO_WIN}</em>}</span>
                 <span className="pips">{GROUPS.map((g, gi) => {
                   const any = groupSquares(gi).some((k) => game.owner[k] === p.id), full = ownsGroup(game, p.id, gi);
                   return <i key={gi} className={full ? 'full' : any ? 'any' : ''} style={{ ['--g' as string]: g.color }} />;
@@ -420,7 +542,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               const teleOk = teleport && s.price && !o;
               return (
                 <button key={i} data-sq={i}
-                  className={`dk-sq ${side} k-${s.kind} ${o ? 'owned' : ''} ${o && o === me ? 'mine' : ''} ${game.mort[i] ? 'mort' : ''} ${ev ? (ev.mult > 1 ? 'boom' : 'slump') : ''} ${flash[i] ?? ''} ${here === i ? 'here' : ''} ${teleOk ? 'tele-ok' : ''}`}
+                  className={`dk-sq ${side} k-${s.kind} ${o && s.kind === 'city' && ownsGroup(game, o, s.group!) ? 'fullset' : ''} ${o ? 'owned' : ''} ${o && o === me ? 'mine' : ''} ${game.mort[i] ? 'mort' : ''} ${ev ? (ev.mult > 1 ? 'boom' : 'slump') : ''} ${flash[i] ?? ''} ${here === i ? 'here' : ''} ${teleOk ? 'tele-ok' : ''}`}
                   style={{ gridRow: r, gridColumn: c, ['--g' as string]: g?.color ?? 'transparent', ['--o' as string]: o ? color(o) : 'transparent' }}
                   onClick={() => {
                     sfx.tap();
@@ -430,6 +552,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                   <TilePic kind={s.kind} name={s.name} />
                   {g && <i className="bar"><Buildings n={game.build[i]} /></i>}
                   <span className="plate"><b className={`nm ${s.short.length > 7 ? 'long' : ''}`}>{s.short}</b>{s.price && !o && <span className="pr">{short(s.price)}</span>}</span>
+                  {ev && <i className={`amb ${ev.mult > 1 ? 'spark' : 'rain'}`} />}
                   {ev && <span className="evb">{ev.emoji}<b>×{ev.mult}</b></span>}
                   {o && <span className={`own-badge ${o === me ? 'me' : ''}`} title={`Owned by ${name(o)}`}><Avatar id={avatarOf(o)} size={20} /></span>}
                   {game.mort[i] && <span className="girvi">GIRVI</span>}
@@ -437,17 +560,19 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               );
             })}
 
-            <div className="dk-centre" style={{ gridRow: `2 / ${geo.m + 2}`, gridColumn: `2 / ${geo.n + 2}` }}>
+            <div className="dk-centre" ref={centre} style={{ gridRow: `2 / ${geo.m + 2}`, gridColumn: `2 / ${geo.n + 2}` }}>
               <div className="dk-brand">
                 <b>Dhandha<em>King</em></b>
                 <span className="round-chip">R{game.round}{game.maxRounds ? `/${game.maxRounds}` : ''}</span>
                 <button className="log-btn" onClick={() => { sfx.tap(); setLogOpen(true); }}>📜 Log</button>
-                {meIn && giftTargets.length > 0 && <button className="log-btn" onClick={() => { sfx.tap(); setGift({ to: giftTargets[0].id, amount: Math.min(500, game.cash[me]) }); }}>💝 Send</button>}
+                {meIn && giftTargets.length > 0 && <button className="log-btn" onClick={() => { sfx.tap(); setGift({ to: giftTargets[0].id, amount: GIFT_STEP }); }}>💝 Send</button>}
                 <button className="log-btn" onClick={() => { sfx.tap(); setRules(true); }}>📖 Rules</button>
                 {placementOn(game) && <span className="season">🎓 PLACEMENT SEASON ×1.5</span>}
+                {game.season && <span className={`season cal s-${game.season.kind}`}>{SEASONS[game.season.kind].emoji} {SEASONS[game.season.kind].name.toUpperCase()} · {SEASON_SHORT[game.season.kind]} · {game.season.rounds}r</span>}
+                {game.mode === 'sets' && <span className="season sets">🏆 TEEN SET · first to {SETS_TO_WIN} full sets</span>}
                 {mehngaiLevel(game) > 0 && <span className="season">📈 MEHNGAI · RENT {times(rentBoost(game))}</span>}
               </div>
-              <div className="dk-sethbox" data-anchor="banker">
+              <div className={`dk-sethbox ${sethAnim}`} data-anchor="banker">
                 <SethJi mood={seth.mood} shades={seth.shades} />
                 {seth.say && <div className="bubble" key={seth.id}>{seth.say}</div>}
               </div>
@@ -457,18 +582,27 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                   <b>{fmt(game.pot)}</b>
                 </span>
                 {timed && <span className={`turn-clock ${secs <= 5 ? 'low' : ''}`}>⏱ {waitingId === me ? 'You' : name(waitingId)} · {secs}s</span>}
+                {canManage && giftTargets.length > 0 && <button className="log-btn" onClick={() => { sfx.tap(); setDealOpen(true); }}>🤝 Deal</button>}
+                {canManage && <button className="log-btn" onClick={() => { sfx.tap(); setLoanOpen(true); }}>🏦 Loan</button>}
                 {game.events.map((e) => (
                   <button key={e.id} className={`pill ev ${e.mult > 1 ? 'boom' : 'slump'}`} onClick={() => setPeek(e.sq)}>{e.emoji} {BOARD[e.sq].short} ×{e.mult}·{e.rounds}r</button>
                 ))}
               </div>
               <div className={`dk-dice tray ${doubles && settled ? 'doubles' : ''}`}>
-                <Dice value={game.dice[0]} rollId={game.rollId} color={color(cur)} ready={ready && game.phase === 'roll'} onRoll={roll} />
-                <Dice value={game.dice[1]} rollId={game.rollId} color={color(cur)} ready={ready && game.phase === 'roll'} onRoll={roll} onSettled={() => setSettled(true)} />
+                <Dice value={game.dice[0]} rollId={game.rollId} color={color(cur)} skin={room.players.find((p) => p.id === cur)?.skin} ready={ready && game.phase === 'roll'} onRoll={roll} />
+                <Dice value={game.dice[1]} rollId={game.rollId} color={color(cur)} skin={room.players.find((p) => p.id === cur)?.skin} ready={ready && game.phase === 'roll'} onRoll={roll} onSettled={() => setSettled(true)} />
                 {doubles && settled && <span className="dbl-chip">DOUBLES!</span>}
               </div>
               <div className="dk-note" key={game.note}>{game.note}</div>
+              {/* Live log: the latest events stay on the board; tap for the full history. */}
+              <ol className="dk-feed" onClick={() => { sfx.tap(); setLogOpen(true); }} title="Open the full game log">
+                {(game.log ?? []).filter((l) => l.t !== game.note).slice(-4).reverse().map((l, k) => (
+                  <li key={l.id} className={k === 0 ? 'new' : ''} style={{ ['--c' as string]: l.pid && room.players.some((p) => p.id === l.pid) ? color(l.pid) : 'rgba(255,255,255,.3)' }}>{l.t}</li>
+                ))}
+              </ol>
               <div className="dk-actions">
-                {!mine && game.phase !== 'auction' && <span className="dim">{name(cur)} is thinking…</span>}
+                {game.phase === 'deal' && game.deal ? <span className="dim">🤝 {game.deal.from === me ? `Waiting for ${name(game.deal.to)} to answer…` : game.deal.to === me ? 'You have a deal offer' : `${name(game.deal.to)} is weighing a deal…`}</span>
+                  : !mine && game.phase !== 'auction' && <span className="dim">{name(cur)} is thinking…</span>}
                 {mine && game.phase === 'roll' && (<>
                   {jailed && game.jugaad[me] > 0 && <button className="btn glass sm" onClick={() => act({ t: 'jugaad' })}>🩺 Doctor's Note</button>}
                   {jailed && <button className="btn glass sm" disabled={game.cash[me] < BAIL} onClick={() => act({ t: 'bail' })}>Late fine {fmt(BAIL)}</button>}
@@ -513,14 +647,15 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
 
       {mine && game.phase === 'buy' && sq.price && (() => {
         const owner = game.owner[here];
-        const price = owner ? takeoverPrice(here) : sq.price;
+        const price = owner ? takeoverPrice(here) : buyPrice(game, here);
+        const onSale = !owner && price < sq.price;
         return (
           <div className="dk-sheet">
             {owner && <div className="takeover-tag">😈 HOSTILE TAKEOVER · {name(owner)} mortgaged this — grab it for {fmt(price)} ({name(owner)} gets {fmt(price / 2)})</div>}
             <Deed i={here} game={game} name={name} me={me} />
             <div className="row">
               <button className="btn glass" onClick={() => act({ t: 'pass' })}>{owner ? 'Skip' : 'Pass → Bolee 🔨'}</button>
-              <button className="btn premium" disabled={game.cash[me] < price} onClick={() => act({ t: 'buy' })}>{owner ? '😈 Take over' : '🏷️ Buy'} for {fmt(price)}</button>
+              <button className="btn premium" disabled={game.cash[me] < price} onClick={() => act({ t: 'buy' })}>{owner ? '😈 Take over' : '🏷️ Buy'} for {onSale && <s className="was">{fmt(sq.price)}</s>} {fmt(price)}</button>
             </div>
             {game.cash[me] < price && <small className="dim">Not enough cash — you have {fmt(game.cash[me])}</small>}
           </div>
@@ -572,10 +707,35 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
       )}
 
       {rules && <DhandhaGuide start="rules" onClose={() => setRules(false)} />}
+      {dealOpen && canManage && <DealSheet game={game} me={me} targets={giftTargets} color={color} name={name} onClose={() => setDealOpen(false)} onSend={(a) => { act(a); setDealOpen(false); }} />}
+      {loanOpen && canManage && <LoanSheet game={game} me={me} onClose={() => setLoanOpen(false)} act={act} />}
+      {counterOpen && game.phase === 'deal' && game.deal?.to === me && !game.deal.counter && (
+        <DealSheet game={game} me={me} targets={giftTargets.filter((p) => p.id === game.deal!.from)} color={color} name={name} counter={game.deal}
+          onClose={() => setCounterOpen(false)} onSend={(a) => { act(a); setCounterOpen(false); }} />
+      )}
+      {game.phase === 'deal' && game.deal?.to === me && (
+        <div className="dk-manage">
+          <div className="card dk-deal in">
+            <b>{game.deal.counter ? `🔁 ${name(game.deal.from)} sends a counter-offer` : game.deal.sale ? `🏷️ ${name(game.deal.from)} wants to sell you a city` : `🤝 ${name(game.deal.from)} offers you a deal`}</b>
+            <DealView d={game.deal} me={me} name={name} />
+            {[...game.deal.give, ...game.deal.get].length > 0 && <small className="dim">Market value: {[...game.deal.give, ...game.deal.get].map((k) => `${BOARD[k].short} ${fmt(marketValue(game, k))}`).join(' · ')}</small>}
+            {timed && <span className={`turn-clock ${secs <= 5 ? 'low' : ''}`}>⏱ {secs}s to decide</span>}
+            <div className="row">
+              <button className="btn glass" onClick={() => act({ t: 'dealNo' })}>No thanks</button>
+              {!game.deal.counter && <button className="btn glass" onClick={() => setCounterOpen(true)}>🔁 Counter</button>}
+              <button className="btn premium" disabled={game.deal.cash < 0 && game.cash[me] < -game.deal.cash} onClick={() => act({ t: 'dealYes' })}>Deal ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {gift && (() => {
         const cash = game.cash[me] ?? 0;
-        const amount = Math.max(0, Math.min(gift.amount, cash));
+        // Gifts go in steps of ₹500, from ₹500 up to as much of your cash as fits.
+        const maxGift = Math.floor(cash / GIFT_STEP) * GIFT_STEP;
+        const amount = Math.max(0, Math.min(gift.amount, maxGift));
+        const snap = (v: number) => Math.max(GIFT_STEP, Math.min(maxGift, Math.round(v / GIFT_STEP) * GIFT_STEP));
+        const sendAmt = maxGift >= GIFT_STEP ? snap(gift.amount) : 0; // a typed odd amount is sent rounded to ₹500
         const target = giftTargets.find((p) => p.id === gift.to) ?? giftTargets[0];
         return (
           <div className="dk-manage" onClick={() => setGift(null)}>
@@ -589,14 +749,24 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                   </button>
                 ))}
               </div>
-              <div className="seg gift-amt">
-                {[100, 500, 1000, 2000, 5000].map((v) => <button key={v} className={amount === v ? 'on' : ''} disabled={v > cash} onClick={() => setGift({ ...gift, amount: v })}>{v >= 1000 ? `₹${v / 1000}k` : `₹${v}`}</button>)}
-              </div>
-              <input className="gift-input" type="number" min={1} max={cash} step={100} value={amount || ''} placeholder="Other amount"
-                onChange={(e) => setGift({ ...gift, amount: Math.floor(Number(e.target.value) || 0) })} />
-              <button className="btn premium" disabled={!target || amount < 1 || amount > cash}
-                onClick={() => { if (target) { act({ t: 'gift', to: target.id, amount }); setGift(null); } }}>
-                Send {fmt(amount)} to {target?.name ?? '…'}
+              {maxGift < GIFT_STEP ? <small className="dim">You need at least {fmt(GIFT_STEP)} to send money.</small> : (<>
+                <div className="gift-slider">
+                  <input type="range" min={GIFT_STEP} max={maxGift} step={GIFT_STEP} value={amount || GIFT_STEP} aria-label="Amount"
+                    onChange={(e) => setGift({ ...gift, amount: Number(e.target.value) })} />
+                  <div className="ends"><span>{fmt(GIFT_STEP)}</span><span>{fmt(maxGift)}</span></div>
+                </div>
+                <div className="gift-row">
+                  <button className="btn glass sm" disabled={amount <= GIFT_STEP} onClick={() => setGift({ ...gift, amount: snap(amount - GIFT_STEP) })}>−₹500</button>
+                  <input className="gift-input" type="number" min={GIFT_STEP} max={maxGift} step={GIFT_STEP} value={gift.amount || ''} aria-label="Amount in rupees"
+                    onChange={(e) => setGift({ ...gift, amount: Math.floor(Number(e.target.value) || 0) })}
+                    onBlur={() => setGift({ ...gift, amount: snap(gift.amount) })} />
+                  <button className="btn glass sm" disabled={amount >= maxGift} onClick={() => setGift({ ...gift, amount: snap(amount + GIFT_STEP) })}>+₹500</button>
+                </div>
+                {gift.amount % GIFT_STEP !== 0 && <small className="dim">Amounts go in steps of {fmt(GIFT_STEP)}; it will round to {fmt(snap(gift.amount))}.</small>}
+              </>)}
+              <button className="btn premium" disabled={!target || sendAmt < GIFT_STEP || sendAmt > cash}
+                onClick={() => { if (target) { act({ t: 'gift', to: target.id, amount: sendAmt }); setGift(null); } }}>
+                Send {fmt(sendAmt)} to {target?.name ?? '…'}
               </button>
             </div>
           </div>
@@ -640,6 +810,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                       <small className="dim">{s.kind === 'city' ? MONUMENTS[s.name]?.label : s.kind === 'train' ? 'Transport' : 'Utility'}</small>
                       {g && <div className="hc-build"><Buildings n={game.build[i]} /><small>{BUILD_LEVELS[game.build[i]]}</small></div>}
                       <div className="hc-rent">Rent now <b>{fmt(rentFor(game, i, 7))}</b></div>
+                      <MarketLine game={game} sq={i} />
                       {g && !full && <small className="dim">Collect all {groupSquares(s.group!).length} {g.name} cities to build</small>}
                       {game.mort[i] && <small className="girvi-t">GIRVI · mortgaged</small>}
                     </div>
@@ -649,7 +820,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                       {!game.build[i] && (game.mort[i]
                         ? <button className="btn buyback-btn xs" disabled={!canManage || game.cash[me] < buyBackPrice(i)} onClick={() => act({ t: 'unmortgage', sq: i })}>💰 Buy back {fmt(buyBackPrice(i))}</button>
                         : <button className="btn ghost xs" disabled={!canManage} onClick={() => act({ t: 'mortgage', sq: i })}>Mortgage +{fmt(s.price! / 2)}</button>)}
-                      <button className="btn sell xs" disabled={!canManage} onClick={() => { if (confirm(`Sell the ${s.name} card to Seth-ji for ${fmt(sellValue(game, i))}?`)) act({ t: 'sellCity', sq: i }); }}>🏦 Sell card {fmt(sellValue(game, i))}</button>
+                      <button className="btn sell xs" disabled={!canManage} onClick={() => setSellSq(i)}>🏷️ Sell · {short(marketValue(game, i))}</button>
                     </div>
                   </div>
                 );
@@ -657,6 +828,10 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             </div>
           </div>
         </div>
+      )}
+      {/* after My cities, so it opens on top of it */}
+      {sellSq != null && canManage && game.owner[sellSq] === me && (
+        <SellSheet game={game} me={me} sq={sellSq} targets={giftTargets} color={color} onClose={() => setSellSq(null)} act={(a) => { act(a); setSellSq(null); setManage(false); }} />
       )}
     </div>
   );
@@ -761,7 +936,12 @@ function PopUp({ p, name, color, game, onClose }: { p: Pop; name(id: string): st
   if (p.kind === 'placement') return p.other === 'mehngai'
     ? <div className="toast-pop gold big">📈 MEHNGAI! Every rent is now {times(p.amount ?? 1)}</div>
     : <div className="toast-pop gold big">🎓 PLACEMENT SEASON — every rent ×1.5 till the end!</div>;
-  if (p.kind === 'gift') return <div className="toast-pop gold">💝 {name(p.pid)} sent {fmt(p.amount ?? 0)} to {name(p.other ?? '')}</div>;
+  if (p.kind === 'gift') return p.amount === -1 ? <div className="toast-pop gold">🤝 Deal done: {name(p.pid)} ⇄ {name(p.other ?? '')}</div> : <div className="toast-pop gold">💝 {name(p.pid)} sent {fmt(p.amount ?? 0)} to {name(p.other ?? '')}</div>;
+  if (p.kind === 'counter') return <div className="toast-pop">🔁 {name(p.pid)} sends {name(p.other ?? '')} a counter-offer</div>;
+  if (p.kind === 'season') { const se = SEASONS[p.other as SeasonKind]; return se ? <div className="toast-pop">{se.emoji} {se.name} is over</div> : null; }
+  if (p.kind === 'catchup') return p.other === 'bonus'
+    ? <div className="toast-pop gold">🎒 Backbencher Bonus! {name(p.pid)} gets {fmt(p.amount ?? 0)} to catch up</div>
+    : <div className="toast-pop">🎓 Topper Tax: {name(p.pid)} pays {fmt(p.amount ?? 0)} into the gullak</div>;
   if (p.kind === 'shield') return <div className="toast-pop">🛡️ {name(p.pid)}’s Rent Shield blocked {fmt(p.amount ?? 0)} from {name(p.other ?? '')}!</div>;
   if (p.kind === 'takeover') return <div className="toast-pop gold">😈 {name(p.pid)} took over {s?.name} from {name(p.other ?? '')}!</div>;
   if (p.kind === 'auctionWin') return <div className="toast-pop gold">🔨 SOLD! {s?.name} → {name(p.pid)} for {fmt(p.amount ?? 0)}</div>;
@@ -801,6 +981,7 @@ function Deed({ i, game, name, me }: { i: number; game: DGame; name(pid: string)
       </div>
       <div className="deed-title"><b>{s.name}</b><small>{g ? g.name : s.kind === 'train' ? 'Transport' : s.kind === 'utility' ? 'Utility' : 'Special tile'}</small></div>
       {s.flavour && <p className="deed-flav">“{s.flavour}”</p>}
+      {s.price && <div className="deed-mkt">📊 Market value <MarketLine game={game} sq={i} bare /></div>}
       {s.price && rentBoost(game) > 1 && <div className="deed-ev boom">📈 {placementOn(game) ? 'Placement Season' : 'Mehngai'}: every rent {times(rentBoost(game))} right now</div>}
       {ev && <div className={`deed-ev ${ev.mult > 1 ? 'boom' : 'slump'}`}>{ev.emoji} {ev.title}: rent ×{ev.mult} for {ev.rounds} more round{ev.rounds > 1 ? 's' : ''}</div>}
       {s.kind === 'city' && (
@@ -819,6 +1000,178 @@ function Deed({ i, game, name, me }: { i: number; game: DGame; name(pid: string)
       {(s.kind === 'kismat' || s.kind === 'parivaar') && <p>Draw a {s.name} card.</p>}
       {s.price && <div className="deed-foot">{o ? <>{o === me ? <b className="yours">✅ You own this</b> : <>Owned by <b>{name(o)}</b></>}{game.mort[i] && (o === me ? ` · GIRVI — buy it back for ${fmt(buyBackPrice(i))} from My cities before someone takes it over` : ' · GIRVI (mortgaged) — open to hostile takeover')}</> : <>For sale from Seth-ji · pass and it goes to Bolee 🔨</>}</div>}
       {g && <div className="deed-set">{groupSquares(s.group!).map((k) => <span key={k} className={game.owner[k] ? 'own' : ''}>{BOARD[k].short}</span>)}</div>}
+    </div>
+  );
+}
+
+// ---------------- city deals ----------------
+const CityChip = ({ sq, on, onClick }: { sq: number; on?: boolean; onClick?(): void }) => {
+  const s = BOARD[sq], g = s.group != null ? GROUPS[s.group] : null;
+  return (
+    <button className={`city-chip ${on ? 'on' : ''}`} style={{ ['--g' as string]: g?.color ?? '#9b6bff' }} onClick={onClick} disabled={!onClick}>
+      <i /><b>{s.short}</b><small>{short(s.price!)}</small>
+    </button>
+  );
+};
+
+function DealView({ d, me, name }: { d: Deal; me: string; name(id: string): string }) {
+  const iFrom = d.from === me;
+  const getCities = iFrom ? d.get : d.give, giveCities = iFrom ? d.give : d.get;
+  const cashIn = iFrom ? -d.cash : d.cash;
+  return (
+    <div className="deal-view">
+      <div><small>You get</small>{getCities.map((sq) => <CityChip key={sq} sq={sq} />)}{cashIn > 0 && <span className="cash-chip">+{fmt(cashIn)}</span>}{!getCities.length && cashIn <= 0 && <span className="dim">nothing</span>}</div>
+      <span className="swap">⇄</span>
+      <div><small>You give {iFrom ? name(d.to) : name(d.from)}</small>{giveCities.map((sq) => <CityChip key={sq} sq={sq} />)}{cashIn < 0 && <span className="cash-chip out">{fmt(-cashIn)}</span>}{!giveCities.length && cashIn >= 0 && <span className="dim">nothing</span>}</div>
+    </div>
+  );
+}
+
+function DealSheet({ game, me, targets, color, name, onClose, onSend, counter }: {
+  game: DGame; me: string; targets: { id: string; name: string; avatar: string }[]; color(id: string): string; name(id: string): string; onClose(): void; onSend(a: DAction): void;
+  /** Answering this deal with new terms instead of starting a fresh one. */
+  counter?: Deal;
+}) {
+  const [to, setTo] = useState(counter?.from ?? targets[0]?.id ?? '');
+  const [give, setGive] = useState<number[]>(counter ? [...counter.get] : []);
+  const [get, setGet] = useState<number[]>(counter ? [...counter.give] : []);
+  const [cash, setCash] = useState(counter ? -counter.cash : 0);
+  const STEP = counter?.sale ? MARKET.STEP : GIFT_STEP;
+  const tradable = (who: string) => BOARD.map((_, i) => i).filter((i) => game.owner[i] === who && !game.build[i]);
+  const toggle = (list: number[], set: (l: number[]) => void, sq: number) => set(list.includes(sq) ? list.filter((x) => x !== sq) : list.length < DEAL_MAX ? [...list, sq] : list);
+  const maxPay = Math.floor((game.cash[me] ?? 0) / STEP) * STEP, maxAsk = Math.floor((game.cash[to] ?? 0) / STEP) * STEP;
+  const ok = !!to && (give.length > 0 || cash > 0) && (get.length > 0 || cash < 0);
+  return (
+    <div className="dk-manage" onClick={onClose}>
+      <div className="card dk-deal" onClick={(e) => e.stopPropagation()}>
+        <div className="row-between"><b>{counter ? `🔁 Counter-offer to ${name(to)}` : '🤝 Make a deal'}</b><button className="btn ghost xs" onClick={onClose}>✕</button></div>
+        <small className="dim">{counter ? 'Change the cities or the cash and send it back. After a counter it is a straight yes or no.' : `Swap cities and cash with another player. Cities with buildings can't be traded. Up to ${DEAL_MAX} cities each side.`}</small>
+        {!counter && <div className="gift-to">
+          {targets.map((p) => (
+            <button key={p.id} className={to === p.id ? 'on' : ''} style={{ ['--c' as string]: color(p.id) }} onClick={() => { setTo(p.id); setGet([]); setCash(0); }}>
+              <Avatar id={p.avatar} size={30} /><b>{p.name}</b><small>{fmt(game.cash[p.id] ?? 0)}</small>
+            </button>
+          ))}
+        </div>}
+        <div className="deal-cols">
+          <div><small>You give</small><div className="chips">{tradable(me).map((sq) => <CityChip key={sq} sq={sq} on={give.includes(sq)} onClick={() => toggle(give, setGive, sq)} />)}{!tradable(me).length && <span className="dim">No cities to trade</span>}</div></div>
+          <div><small>You want from {name(to)}</small><div className="chips">{tradable(to).map((sq) => <CityChip key={sq} sq={sq} on={get.includes(sq)} onClick={() => toggle(get, setGet, sq)} />)}{!tradable(to).length && <span className="dim">No cities to trade</span>}</div></div>
+        </div>
+        <div className="gift-slider">
+          <input type="range" min={-maxAsk} max={maxPay} step={STEP} value={Math.max(-maxAsk, Math.min(maxPay, cash))} aria-label="Cash in the deal" onChange={(e) => setCash(Number(e.target.value))} />
+          <div className="ends"><span>{name(to)} pays you {fmt(maxAsk)}</span><b>{cash > 0 ? `You pay ${fmt(cash)}` : cash < 0 ? `${name(to)} pays you ${fmt(-cash)}` : 'No cash'}</b><span>You pay {fmt(maxPay)}</span></div>
+        </div>
+        <button className="btn premium" disabled={!ok} onClick={() => onSend(counter ? { t: 'dealCounter', give, get, cash } : { t: 'deal', to, give, get, cash })}>{counter ? 'Send the counter-offer' : 'Offer the deal'}</button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Seth-ji loans ----------------
+function LoanSheet({ game, me, onClose, act }: { game: DGame; me: string; onClose(): void; act(a: DAction): void }) {
+  const owe = game.debt?.[me] ?? 0, room = loanRoom(game, me), cash = game.cash[me] ?? 0;
+  const [borrow, setBorrow] = useState(Math.min(LOAN.STEP, room));
+  const maxRepay = Math.min(owe, cash);
+  const [repay, setRepay] = useState(Math.min(maxRepay, 1000));
+  return (
+    <div className="dk-manage" onClick={onClose}>
+      <div className="card dk-loan" onClick={(e) => e.stopPropagation()}>
+        <div className="row-between"><b>🏦 Seth-ji's loans</b><button className="btn ghost xs" onClick={onClose}>✕</button></div>
+        <small className="dim">Borrow up to {fmt(LOAN.LIMIT)} at {LOAN.RATE * 100}% interest. Every Payday repays {fmt(LOAN.PAYDAY)} automatically. If you can't pay a bill, Seth-ji lends before your buildings get sold.</small>
+        <div className="loan-stat"><span>You owe</span><b>{fmt(owe)}</b><span>Can still borrow</span><b>{fmt(room)}</b></div>
+        {room >= LOAN.STEP && (<>
+          <div className="gift-slider">
+            <input type="range" min={LOAN.STEP} max={room} step={LOAN.STEP} value={Math.min(borrow, room)} aria-label="Borrow" onChange={(e) => setBorrow(Number(e.target.value))} />
+            <div className="ends"><span>{fmt(LOAN.STEP)}</span><span>{fmt(room)}</span></div>
+          </div>
+          <button className="btn premium" onClick={() => { act({ t: 'loan', amount: Math.min(borrow, room) }); onClose(); }}>Borrow {fmt(Math.min(borrow, room))} · repay {fmt(Math.round(Math.min(borrow, room) * (1 + LOAN.RATE)))}</button>
+        </>)}
+        {owe > 0 && maxRepay > 0 && (<>
+          <div className="gift-slider">
+            <input type="range" min={Math.min(500, maxRepay)} max={maxRepay} step={maxRepay < 500 ? 1 : 500} value={Math.min(Math.max(repay, Math.min(500, maxRepay)), maxRepay)} aria-label="Repay" onChange={(e) => setRepay(Number(e.target.value))} />
+            <div className="ends"><span>{fmt(Math.min(500, maxRepay))}</span><span>{fmt(maxRepay)}</span></div>
+          </div>
+          <div className="row">
+            <button className="btn glass" onClick={() => { act({ t: 'repay', amount: Math.min(Math.max(repay, Math.min(500, maxRepay)), maxRepay) }); onClose(); }}>Repay {fmt(Math.min(Math.max(repay, Math.min(500, maxRepay)), maxRepay))}</button>
+            {maxRepay === owe && <button className="btn primary" onClick={() => { act({ t: 'repay', amount: owe }); onClose(); }}>Clear it all</button>}
+          </div>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- resale market ----------------
+/** "₹2,340 ▲17%": a city's market value against its list price. */
+function MarketLine({ game, sq, bare }: { game: DGame; sq: number; bare?: boolean }) {
+  const pct = Math.round((marketMult(game, sq) - 1) * 100);
+  const body = <><b>{fmt(marketValue(game, sq))}</b> <i className={pct >= 0 ? 'up' : 'down'}>{pct >= 0 ? '▲' : '▼'}{Math.abs(pct)}%</i></>;
+  return bare ? body : <div className="hc-mkt">Market {body}</div>;
+}
+
+/** Sell one city: set your price, then ask Seth-ji (his private maths decides) or offer it to a player. */
+function SellSheet({ game, me, sq, targets, color, onClose, act }: {
+  game: DGame; me: string; sq: number; targets: { id: string; name: string; avatar: string }[]; color(id: string): string; onClose(): void; act(a: DAction): void;
+}) {
+  const s = BOARD[sq], g = s.group != null ? GROUPS[s.group] : null;
+  const mv = marketValue(game, sq), pct = Math.round((marketMult(game, sq) - 1) * 100);
+  const snap = (v: number) => Math.max(MARKET.STEP, Math.round(v / MARKET.STEP) * MARKET.STEP);
+  const [price, setPrice] = useState(snap(mv || MARKET.STEP));
+  const [to, setTo] = useState(targets[0]?.id ?? '');
+  const max = Math.max(snap(mv * 2), 2000);
+  const tried = !!game.sethTried?.includes(sq);
+  const built = game.build[sq] > 0;
+  const buyer = targets.find((p) => p.id === to);
+  const p = snap(price);
+  return (
+    <div className="dk-manage" onClick={onClose}>
+      <div className="card dk-sell" onClick={(e) => e.stopPropagation()}>
+        <div className="row-between"><b>🏷️ Sell {s.name}</b><button className="btn ghost xs" onClick={onClose}>✕</button></div>
+        <div className="sell-head" style={{ ['--g' as string]: g?.color ?? '#9b6bff' }}>
+          <div className="sell-art"><TilePic kind={s.kind} name={s.name} /></div>
+          <div className="sell-vals">
+            <small>Market value today</small>
+            <b className="mv">{fmt(mv)}</b>
+            <span className={pct >= 0 ? 'up' : 'down'}>{pct >= 0 ? '▲' : '▼'} {Math.abs(pct)}% vs list price {fmt(s.price!)}</span>
+            {(built || game.mort[sq]) && <small className="dim">{built ? 'Buildings count at half their cost. ' : ''}{game.mort[sq] ? 'GIRVI: the buy-back is taken off.' : ''}</small>}
+          </div>
+        </div>
+        <div className="sell-price">
+          <small>Your price</small>
+          <div className="gift-row">
+            <button className="btn glass sm" disabled={p <= MARKET.STEP} onClick={() => setPrice(snap(p - MARKET.STEP))}>−₹100</button>
+            <input className="gift-input" type="number" min={MARKET.STEP} step={MARKET.STEP} value={price || ''} aria-label="Your price in rupees"
+              onChange={(e) => setPrice(Math.floor(Number(e.target.value) || 0))} onBlur={() => setPrice(p)} />
+            <button className="btn glass sm" onClick={() => setPrice(snap(p + MARKET.STEP))}>+₹100</button>
+          </div>
+          <div className="gift-slider"><input type="range" min={MARKET.STEP} max={max} step={MARKET.STEP} value={Math.min(p, max)} aria-label="Your price" onChange={(e) => setPrice(Number(e.target.value))} /></div>
+          <div className="quick-px">{[0.85, 1, 1.15, 1.3].map((k) => <button key={k} className={p === snap(mv * k) ? 'on' : ''} onClick={() => setPrice(snap(mv * k))}>{k === 1 ? 'Market' : `${k < 1 ? '−' : '+'}${Math.round(Math.abs(k - 1) * 100)}%`}</button>)}</div>
+        </div>
+        <div className="sell-opts">
+          <div className="sell-opt seth">
+            <b>🧔 Offer to Seth-ji</b>
+            <small>Seth-ji decides by his own secret maths: his mood, what's trending, how full his godown is… He hears one offer per city each turn.</small>
+            <button className="btn premium" disabled={tried} onClick={() => act({ t: 'sellSeth', sq, price: p })}>{tried ? 'Seth-ji already said no this turn' : `Ask Seth-ji for ${fmt(p)}`}</button>
+          </div>
+          {targets.length > 0 && (
+            <div className="sell-opt">
+              <b>🤝 Offer to a player</b>
+              {built ? <small className="dim">Sell the buildings first to sell this city to a player.</small> : (<>
+                <div className="gift-to">
+                  {targets.map((t) => (
+                    <button key={t.id} className={to === t.id ? 'on' : ''} style={{ ['--c' as string]: color(t.id) }} onClick={() => setTo(t.id)}>
+                      <Avatar id={t.avatar} size={26} /><b>{t.name}</b><small>{fmt(game.cash[t.id] ?? 0)}</small>
+                    </button>
+                  ))}
+                </div>
+                <button className="btn glass" disabled={!buyer || (game.cash[to] ?? 0) < p} onClick={() => act({ t: 'offerCity', sq, to, price: p })}>
+                  {buyer && (game.cash[to] ?? 0) < p ? `${buyer.name} has only ${fmt(game.cash[to] ?? 0)}` : `Offer to ${buyer?.name ?? '…'} for ${fmt(p)}`}
+                </button>
+              </>)}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

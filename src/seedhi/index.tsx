@@ -18,6 +18,7 @@ const cfg: ShellConfig<SGame, SAction> = {
   slug: 'seedhirush', name: 'SeedhiRush', kind: 'Snakes & Ladders', prefix: 'seedhirush-v1-',
   tagline: 'Climb the seedhi, dodge the saanp, first to 100 wins.',
   rules: seedhiRules, hero: <SeedhiHero />, Board: SeedhiBoard,
+  progress: (g, pid) => ({ stats: { sr_climbs: g.climbs[pid] ?? 0 } }),
 };
 
 export default function SeedhiApp() { return <GameShell cfg={cfg} />; }

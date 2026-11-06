@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AUCTION_STEP, BAIL, BOARD, CARDS, CASH_CHOICES, GROUPS, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
+import { AUCTION_STEP, BAIL, BOARD, CALENDAR, CARDS, CASH_CHOICES, CATCHUP, DEAL_MAX, SEASONS, GIFT_STEP, GROUPS, LOAN, MAX_POWERS, MEHNGAI, SETS_TO_WIN, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
 import { ArtDefs, Buildings, SethJi, TilePic } from './Monument';
 
 const STEPS = [
@@ -11,7 +11,10 @@ const STEPS = [
   { t: 'Spin the Tapri wheel ☕', d: 'Fees and fines go into the Tapri gullak. Land on Tapri Jackpot and spin: full gullak, half, a power-up, a free house… or Seth-ji keeps it.', scene: 'wheel' },
   { t: 'Play power-ups ⚡', d: 'Rent Shield blocks a rent, Double Dhamaka doubles the next rent you collect, Teleport jumps you to any unowned tile.', scene: 'powers' },
   { t: 'Ride the trends', d: 'A film shoot or festival can make a city trend (rent ×2 or ×3). Bad news makes it slump (rent ×½).', scene: 'event' },
-  { t: 'Rents climb as you go 📈', d: `Quick: the last ${PLACEMENT_ROUND} rounds are Placement Season (rent ×1.5) and the richest wins. Classic has no round limit: at round ${MEHNGAI.START}, and every ${MEHNGAI.EVERY} rounds after, Mehngai makes every rent ×${MEHNGAI.STEP} until one tycoon is left.`, scene: 'win' },
+  { t: 'Trade cities & borrow 🤝', d: `On your turn, tap 🤝 Deal to swap cities and cash with a friend. They can accept, refuse or send one counter-offer. Short on cash? 🏦 Loan from Seth-ji, up to ${fmt(LOAN.LIMIT)} at ${LOAN.RATE * 100}% interest.`, scene: 'deal' },
+  { t: 'Play the market 📊', d: 'Every city has a market value that moves each round. Sell at your own price, to a friend or to Seth-ji. Seth-ji decides by secret maths, and he hears one offer per city each turn.', scene: 'event' },
+  { t: 'Campus Calendar 🗓️', d: `Every ${CALENDAR.EVERY} rounds a season changes a rule for ${CALENDAR.LENGTH} rounds: Fest Week, Exam Week, Placement Drive, Hostel Strike or Sale Season.`, scene: 'wheel' },
+  { t: 'Win the game 👑', d: `Quick: after 15 rounds the richest player wins. Classic has no round limit: rents stay the same for ${MEHNGAI.START - 1} rounds, then Mehngai gently raises them ×${MEHNGAI.STEP} every ${MEHNGAI.EVERY} rounds until one tycoon is left. Teen Set: first to own ${SETS_TO_WIN} full colour sets wins.`, scene: 'win' },
 ];
 
 function Scene({ kind }: { kind: string }) {
@@ -20,6 +23,7 @@ function Scene({ kind }: { kind: string }) {
     case 'buy': return <div className="gs gs-buy"><div className="gs-tile"><div className="gs-tile-art"><TilePic kind="city" name="Mumbai" /></div><small>Mumbai</small></div><i className="coin c1">₹</i><i className="coin c2">₹</i><i className="coin c3">₹</i><div className="gs-seth"><SethJi mood="count" /></div><i className="gs-card">Mumbai</i></div>;
     case 'bolee': return <div className="gs gs-bolee"><span className="gavel">🔨</span><div className="gs-tile-art"><TilePic kind="city" name="Goa" /></div><b>₹1,200</b></div>;
     case 'set': return <div className="gs gs-set">{['Jodhpur', 'Udaipur', 'Jaipur'].map((c, k) => <div key={c} className={`gs-tile-art gs-mon m${k}`}><TilePic kind="city" name={c} /></div>)}<b className="crown">😎</b></div>;
+    case 'deal': return <div className="gs gs-deal"><div className="gs-tile-art gs-mon d0"><TilePic kind="city" name="Pune" /></div><b className="shake">🤝</b><div className="gs-tile-art gs-mon d1"><TilePic kind="city" name="Jaipur" /></div><i className="coin c1">₹</i></div>;
     case 'build': return <div className="gs gs-build"><div className="gs-tile-art"><TilePic kind="city" name="Hyderabad" /></div>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={`b${n}`}><Buildings n={n === 4 ? 4 : n === 5 ? 5 : 1} /></span>)}</div>;
     case 'wheel': return <div className="gs gs-wheel"><MiniWheel /><div className="gs-seth"><SethJi mood="happy" /></div></div>;
     case 'powers': return <div className="gs gs-powers">{(Object.keys(POWERS) as Power[]).map((p) => <span key={p} className={`power ${p}`}><span>{POWERS[p].icon}</span>{POWERS[p].name}</span>)}</div>;
@@ -149,19 +153,60 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
             </div>
 
             <h3>💝 Send money</h3>
-            <p>Tap <b>💝 Send</b> (next to Log) to give any amount of your cash to another player, any time. Helping a friend out of a tight spot is allowed. So is bribery.</p>
+            <p>Tap <b>💝 Send</b> (next to Log) to give cash to another player, any time, in steps of {fmt(GIFT_STEP)}. Use the slider, the ±₹500 buttons or type the amount. Helping a friend out of a tight spot is allowed. So is bribery.</p>
+
+            <h3>🤝 City deals</h3>
+            <ul>
+              <li>On your turn (before or after you roll), tap <b>🤝 Deal</b>. Pick a player, the cities you give and the cities you want: up to {DEAL_MAX} each side.</li>
+              <li>Add cash either way with the slider, in steps of {fmt(GIFT_STEP)}. A deal must give something and get something back.</li>
+              <li>Cities with houses can't be traded. Sell the buildings first. GIRVI cities move with their loan still on.</li>
+              <li>The other player gets a pop-up with a timer: <b>Deal ✓</b> swaps everything at once, <b>No thanks</b> cancels it, and <b>🔁 Counter</b> sends the deal back with new terms. After one counter it is a straight yes or no.</li>
+              <li>Bots trade too: a bot one city short of a set will offer the owner a fair swap. They say yes only to a fair deal, and they value a city that finishes a colour set a lot more.</li>
+            </ul>
+
+            <h3>📊 The resale market</h3>
+            <ul>
+              <li>Every city, ride and utility has a <b>market value</b> that moves every round. It creeps up over a long game, jumps when a city is trending and drops when it slumps. Big moves show up on the board as ▲/▼ tags.</li>
+              <li>You see it on every city card and in <b>My cities</b>. Buildings count at half their cost; a GIRVI city has its buy-back taken off.</li>
+              <li>Tap <b>🏷️ Sell</b> on a city, set your own price (₹100 steps), then choose who to offer it to.</li>
+              <li><b>A player</b> gets a pop-up to accept, refuse or counter. The city must have no buildings.</li>
+              <li><b>Seth-ji</b> decides by his own secret maths. His mood, what's trending and how full his godown is all count, and nobody knows the exact numbers. He hears one offer per city each turn, so name your price carefully. A city he buys goes back on sale.</li>
+            </ul>
+
+            <h3>🗓️ Campus Calendar</h3>
+            <p>Every {CALENDAR.EVERY} rounds a season starts and bends one rule for {CALENDAR.LENGTH} rounds:</p>
+            <ul>
+              {Object.values(SEASONS).map((s) => <li key={s.name}><b>{s.emoji} {s.name}:</b> {s.text}.</li>)}
+            </ul>
+
+            <h3>🎒 Nobody gets left behind</h3>
+            <ul>
+              <li><b>Backbencher Bonus:</b> at Payday, the player in last place gets {fmt(CATCHUP.BONUS)} if they are far behind the leader.</li>
+              <li><b>Topper Tax:</b> at Payday, a leader way ahead of everyone else pays {fmt(CATCHUP.TAX)} into the Tapri gullak.</li>
+            </ul>
+
+            <h3>🏦 Seth-ji's loans</h3>
+            <ul>
+              <li>Tap <b>🏦 Loan</b> on your turn to borrow from Seth-ji in steps of {fmt(LOAN.STEP)}, up to {fmt(LOAN.LIMIT)} borrowed at a time ({fmt(LOAN.LIMIT * (1 + LOAN.RATE))} to pay back).</li>
+              <li>Interest is {LOAN.RATE * 100}%: borrow {fmt(LOAN.STEP)}, owe {fmt(LOAN.STEP * (1 + LOAN.RATE))}. Your debt shows as 🏦 on your player card.</li>
+              <li>Every time you collect Payday, {fmt(LOAN.PAYDAY)} of it goes back to Seth-ji until you are clear. You can also repay any time from the Loan sheet.</li>
+              <li>If a bill is bigger than your cash, Seth-ji lends first, before any of your buildings get sold.</li>
+              <li>Debt counts against your total worth at the end of a Quick game.</li>
+            </ul>
 
             <h3>💸 Short of money?</h3>
             <ul>
+              <li><b>Seth-ji lends you</b> what he can (up to {fmt(LOAN.LIMIT)} borrowed, {LOAN.RATE * 100}% interest).</li>
               <li><b>Sell a building</b> back for half its cost.</li>
               <li><b>Mortgage (GIRVI)</b> an empty city for half its price. It earns no rent and anyone landing there can take it over, until you <b>buy it back</b> for price × 0.55 (💰 Buy back, on your turn).</li>
-              <li><b>Sell the card to Seth-ji</b> for 70% of its price plus half of what you built.</li>
+              <li><b>Sell a city</b> to a player or to Seth-ji at your own price (see the resale market above).</li>
               <li>If you still can’t pay, you are <b>bankrupt</b> and your cities go to the player you owe.</li>
             </ul>
 
             <h3>👑 Winning</h3>
-            <p><b>Quick:</b> after 15 rounds the richest player (cash + cities + buildings) wins. The last {PLACEMENT_ROUND} rounds are <b>Placement Season</b>: every rent ×1.5.</p>
-            <p><b>Classic:</b> no round limit. The game goes on until only one player is not bankrupt. At round {MEHNGAI.START} <b>Mehngai</b> (inflation) kicks in, and every {MEHNGAI.EVERY} rounds after that all rents go up ×{MEHNGAI.STEP} again (round {[0, 1, 2, 3].map((k) => `${MEHNGAI.START + k * MEHNGAI.EVERY}: ×${MEHNGAI.STEP ** (k + 1)}`).join(', ')}…), so the game always ends.</p>
+            <p><b>Quick:</b> after 15 rounds the richest player (cash + cities + buildings) wins. Rents never go up.</p>
+            <p><b>Classic:</b> no round limit. The game goes on until only one player is not bankrupt. Rents stay the same for the first {MEHNGAI.START - 1} rounds. From round {MEHNGAI.START} <b>Mehngai</b> (inflation) raises them gently, ×{MEHNGAI.STEP} every {MEHNGAI.EVERY} rounds (round {[0, 1, 2, 3].map((k) => `${MEHNGAI.START + k * MEHNGAI.EVERY}: ×${+(MEHNGAI.STEP ** (k + 1)).toFixed(2)}`).join(', ')}…), so even the longest game ends.</p>
+            <p><b>Teen Set:</b> no round limit. The first player to own {SETS_TO_WIN} complete colour sets wins on the spot. Trading is the fastest way there, so everyone will want your last city.</p>
             <p className="dim">At the end everyone gets awards: Rent Lord, Real-Estate Influencer, Builder Bro, Tapri Regular and Comeback Kid.</p>
           </div>
         )}

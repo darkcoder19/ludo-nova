@@ -2,7 +2,10 @@
 // lobby, bots, turn timer and networking (see link.ts). The host's browser is the authority.
 import { openGuest, openHost, type GuestLink, type HostLink, type Status } from './link';
 
-export interface Seat { id: string; name: string; avatar: string; bot: boolean; connected: boolean }
+/** `title` is a badge id the player wears, `skin` their dice skin (cosmetic, shown to everyone). */
+export interface Seat { id: string; name: string; avatar: string; bot: boolean; connected: boolean; title?: string; skin?: string }
+export interface Look { title?: string; skin?: string }
+const cleanLook = (l: Look = {}): Look => ({ title: l.title ? String(l.title).slice(0, 20) : undefined, skin: l.skin ? String(l.skin).slice(0, 12) : undefined });
 
 export interface RoomState<G> {
   phase: 'lobby' | 'playing' | 'over';
@@ -50,9 +53,9 @@ export class RoomHost<G, A> {
   private turnStarted = Date.now();
   private lastKey = '';
 
-  constructor(private rules: Rules<G, A>, hostId: string, name: string, avatar: string, private listener: (s: RoomState<G>) => void, options: Record<string, string> = {}) {
+  constructor(private rules: Rules<G, A>, hostId: string, name: string, avatar: string, private listener: (s: RoomState<G>) => void, options: Record<string, string> = {}, look: Look = {}) {
     this.state = { phase: 'lobby', hostId, players: [], turnMs: 30000, options, game: null, turnLeftMs: 30000 };
-    this.join(hostId, name, avatar);
+    this.join(hostId, name, avatar, false, look);
   }
 
   private set(s: RoomState<G>) {
@@ -66,14 +69,15 @@ export class RoomHost<G, A> {
 
   emit() { this.listener({ ...this.state, turnLeftMs: Math.max(0, this.state.turnMs - (Date.now() - this.turnStarted)) }); }
 
-  join(id: string, name: string, avatar: string, bot = false): boolean {
+  join(id: string, name: string, avatar: string, bot = false, look: Look = {}): boolean {
     const s = this.state;
+    const lk = cleanLook(look);
     if (s.players.some((p) => p.id === id)) {
-      this.set({ ...s, players: s.players.map((p) => (p.id === id ? { ...p, connected: true, name } : p)) });
+      this.set({ ...s, players: s.players.map((p) => (p.id === id ? { ...p, connected: true, name, ...lk } : p)) });
       return true;
     }
     if (s.phase !== 'lobby' || s.players.length >= this.rules.maxPlayers) return false;
-    this.set({ ...s, players: [...s.players, { id, name: name.slice(0, 14) || 'Player', avatar, bot, connected: true }] });
+    this.set({ ...s, players: [...s.players, { id, name: name.slice(0, 14) || 'Player', avatar, bot, connected: true, ...lk }] });
     return true;
   }
 
@@ -153,13 +157,13 @@ export interface Handlers<G> { onState(s: RoomState<G>): void; onEmote(e: Emote)
 export interface RoomSession<A> { code: string; myId: string; local: boolean; act(a: RoomAction<A>): void; emote(m: string): void; leave(): void }
 
 type HostMsg<G> = { t: 'state'; s: RoomState<G> } | { t: 'emote'; e: Emote } | { t: 'full' };
-type GuestMsg<A> = { t: 'hello'; id: string; name: string; avatar: string } | { t: 'act'; a: RoomAction<A> } | { t: 'emote'; emoji: string };
+type GuestMsg<A> = { t: 'hello'; id: string; name: string; avatar: string; title?: string; skin?: string } | { t: 'act'; a: RoomAction<A> } | { t: 'emote'; emoji: string };
 
 let emoteSeq = Date.now();
-export interface Me { id: string; name: string; avatar: string }
+export interface Me { id: string; name: string; avatar: string; title?: string; skin?: string }
 
 function core<G, A>(rules: Rules<G, A>, me: Me, h: Handlers<G>, send: (m: HostMsg<G>) => void, options?: Record<string, string>) {
-  const host = new RoomHost(rules, me.id, me.name, me.avatar, (s) => { h.onState(s); send({ t: 'state', s }); }, options);
+  const host = new RoomHost(rules, me.id, me.name, me.avatar, (s) => { h.onState(s); send({ t: 'state', s }); }, options, { title: me.title, skin: me.skin });
   const emote = (from: string, emoji: string) => { const e = { from, emoji, id: emoteSeq++ }; h.onEmote(e); send({ t: 'emote', e }); };
   return { host, emote };
 }
@@ -192,7 +196,7 @@ export function hostRoom<G, A>(prefix: string, rules: Rules<G, A>, me: Me, h: Ha
     onData: (l, raw) => {
       const m = raw as GuestMsg<A>;
       if (m.t === 'hello') {
-        if (!host.join(m.id, m.name, m.avatar)) { l.send({ t: 'full' } satisfies HostMsg<G>); setTimeout(() => l.close(), 300); return; }
+        if (!host.join(m.id, m.name, m.avatar, false, { title: m.title, skin: m.skin })) { l.send({ t: 'full' } satisfies HostMsg<G>); setTimeout(() => l.close(), 300); return; }
         conns.set(l, m.id);
         host.emit();
         return;
@@ -213,7 +217,7 @@ export function hostRoom<G, A>(prefix: string, rules: Rules<G, A>, me: Me, h: Ha
 }
 
 export function joinRoom<G, A>(prefix: string, code: string, me: Me, h: Handlers<G>): RoomSession<A> {
-  const hello: GuestMsg<A> = { t: 'hello', id: me.id, name: me.name, avatar: me.avatar };
+  const hello: GuestMsg<A> = { t: 'hello', id: me.id, name: me.name, avatar: me.avatar, title: me.title, skin: me.skin };
   let seated = false;
   const link = openGuest(prefix, code, me.id, hello, {
     onStatus: h.onStatus,

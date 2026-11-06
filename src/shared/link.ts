@@ -29,7 +29,7 @@ const GIVE_UP_AFTER = 90000;
 
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 // A room code starts with its game's letter, so a code typed into another game's Join box still finds its room.
-export const GAME_LETTER: Record<string, string> = { ludonova: 'N', seedhirush: 'S', dhandhaking: 'D' };
+export const GAME_LETTER: Record<string, string> = { ludonova: 'N', seedhirush: 'S', dhandhaking: 'D', haathustle: 'H' };
 /** The game a room code was made in, read from its first letter. */
 export const gameOfCode = (code: string) => Object.keys(GAME_LETTER).find((g) => GAME_LETTER[g] === code.trim().toUpperCase()[0]);
 const pick = () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
