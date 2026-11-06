@@ -5,6 +5,7 @@ import { buzz, sfx } from '../game/sound';
 import type { GameProps } from '../shared/GameShell';
 import { BAIL, BOARD, BUILD_LEVELS, GROUPS, MAX_BUILD, POWERS, RENT_MULT, WHEEL, fmt, type Card, type Power } from './data';
 import { ArtDefs, Buildings, MONUMENTS, SethJi, TilePic, type SethMood } from './Monument';
+import { DhandhaGuide } from './Guide';
 import {
   buyBackPrice, canBuild, groupSquares, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, sellValue, takeoverPrice,
   type CityEvent, type DAction, type DGame, type Fx,
@@ -153,6 +154,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const [manage, setManage] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [gift, setGift] = useState<{ to: string; amount: number } | null>(null);
+  const [rules, setRules] = useState(false);
   const [teleport, setTeleport] = useState(false);
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [flash, setFlash] = useState<Record<number, string>>({});
@@ -441,6 +443,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                 <span className="round-chip">R{game.round}{game.maxRounds ? `/${game.maxRounds}` : ''}</span>
                 <button className="log-btn" onClick={() => { sfx.tap(); setLogOpen(true); }}>📜 Log</button>
                 {meIn && giftTargets.length > 0 && <button className="log-btn" onClick={() => { sfx.tap(); setGift({ to: giftTargets[0].id, amount: Math.min(500, game.cash[me]) }); }}>💝 Send</button>}
+                <button className="log-btn" onClick={() => { sfx.tap(); setRules(true); }}>📖 Rules</button>
                 {placementOn(game) && <span className="season">🎓 PLACEMENT SEASON ×1.5</span>}
                 {mehngaiLevel(game) > 0 && <span className="season">📈 MEHNGAI · RENT {times(rentBoost(game))}</span>}
               </div>
@@ -567,6 +570,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
           <small className="dim">Tap anywhere to close</small>
         </div>
       )}
+
+      {rules && <DhandhaGuide start="rules" onClose={() => setRules(false)} />}
 
       {gift && (() => {
         const cash = game.cash[me] ?? 0;
