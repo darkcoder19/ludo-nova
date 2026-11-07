@@ -20,17 +20,17 @@ const S: Record<SKey, SDef> = {
   food: { name: 'Food Court', icon: '🍛', base: 1500, svc: 6, fee: 18, unlock: 120, maxN: 6, text: 'Hungry flyers eat while they wait for their plane.', add: 'Add a stall', spd: 'Faster service', inc: 'Pricier menu' },
   shop: { name: 'Duty Free', icon: '🛍️', base: 4000, svc: 7, fee: 32, unlock: 700, maxN: 6, text: 'Perfume, chocolates, souvenirs.', add: 'Add a shop', spd: 'Quicker billing', inc: 'Premium brands' },
   lounge: { name: 'Lounge', icon: '🛋️', base: 6000, svc: 10, fee: 70, unlock: 1500, maxN: 4, text: 'Business and first class relax here instead of the hall, and pay well for it.', add: 'Add lounge seats', spd: 'Faster service', inc: 'Fancier buffet' },
-  gate: { name: 'Gates', icon: '🛫', base: 1200, svc: 2.5, fee: 14, unlock: 0, maxN: 4, text: 'Each gate has its own stand and boarding area. A new gate means more planes.', add: 'Open a new gate', spd: 'Faster boarding', inc: 'Boarding fee' },
+  gate: { name: 'Gates', icon: '🛫', base: 1200, svc: 1.6, fee: 14, unlock: 0, maxN: 4, text: 'Each gate has its own stand and boarding area. A new gate means more planes.', add: 'Open a new gate', spd: 'Faster boarding', inc: 'Boarding fee' },
   walk: { name: 'Walkways', icon: '🚶', base: 500, svc: 0, fee: 0, unlock: 0, maxN: 1, text: 'Travelators and signboards: passengers walk faster everywhere.', add: '', spd: 'Faster walking', inc: '' },
 };
 const AREAS: SKey[] = ['checkin', 'security', 'seats', 'food', 'shop', 'lounge', 'gate'];
 type Cls = 0 | 1 | 2; // economy, business, first
 const CLS = [{ name: 'Economy', color: '#2b9bff', mult: 1 }, { name: 'Business', color: '#9b6bff', mult: 3 }, { name: 'First', color: '#f0b400', mult: 6 }];
 const PLANES = [
-  { id: 'atr', name: 'ATR 72', seats: [70, 0, 0], unlock: 0, L: 250, W: 26, span: 104, tail: '#2b7bff' },
-  { id: 'a320', name: 'A320', seats: [168, 12, 0], unlock: 350, L: 320, W: 30, span: 118, tail: '#ff8c42' },
-  { id: 'b787', name: '787 Dreamliner', seats: [220, 28, 8], unlock: 2500, L: 390, W: 36, span: 128, tail: '#12a88f' },
-  { id: 'a380', name: 'A380 Superjumbo', seats: [430, 70, 14], unlock: 9000, L: 450, W: 42, span: 134, tail: '#c9302c' },
+  { id: 'atr', name: 'ATR 72', seats: [70, 0, 0], unlock: 0, L: 250, W: 26, span: 104, tail: '#2b7bff', across: 4 },
+  { id: 'a320', name: 'A320', seats: [168, 12, 0], unlock: 350, L: 320, W: 30, span: 118, tail: '#ff8c42', across: 6 },
+  { id: 'b787', name: '787 Dreamliner', seats: [220, 28, 8], unlock: 2500, L: 390, W: 36, span: 128, tail: '#12a88f', across: 8 },
+  { id: 'a380', name: 'A380 Superjumbo', seats: [430, 70, 14], unlock: 9000, L: 450, W: 42, span: 134, tail: '#c9302c', across: 10 },
 ];
 const AIRLINES = ['UD', 'CJ', 'MX', 'MW', 'PA', 'SA'];
 const KEY = 'hawaiadda-v2';
@@ -84,17 +84,19 @@ const seatAt = (k: SKey, i: number): Pt => {
 };
 const NOSE = 905; // planes park nose-in to the jet bridges
 const planeX0 = NOSE;
-/** Seat positions inside the cabin for a flight with `n` passenger groups (two seats a row, either side of the aisle). */
-const cabinSeat = (plane: number, n: number, i: number): Pt => {
-  const P = PLANES[plane], rows = Math.ceil(n / 2), x0 = planeX0 + 40, x1 = planeX0 + P.L - 60;
-  const row = Math.floor(i / 2), side = i % 2 ? 1 : -1;
-  return { x: x0 + (rows > 1 ? (row * (x1 - x0)) / (rows - 1) : 0), y: side * P.W * 0.24 };
+const capOfPlane = (i: number) => PLANES[i].seats[0] + PLANES[i].seats[1] + PLANES[i].seats[2];
+/** Seat `i` of the plane's full seat map (first class at the front, then business, then economy), relative to the nose and centre line. */
+const seatMap = (plane: number, i: number): Pt => {
+  const P = PLANES[plane], cap = capOfPlane(plane), rows = Math.ceil(cap / P.across), x0 = planeX0 + 34, x1 = planeX0 + P.L - 46;
+  const row = Math.floor(i / P.across), col = i % P.across, half = P.across / 2, w = P.W * 0.82;
+  const cy = (col + 0.5 - half) * (w / P.across) + (col >= half ? 1.2 : -1.2); // a little aisle in the middle
+  return { x: x0 + (rows > 1 ? (row * (x1 - x0)) / (rows - 1) : 0), y: cy };
 };
 
 // ---------------- simulation ----------------
 type GState = 'walk' | 'queue' | 'svc' | 'wait' | 'line' | 'boarding' | 'seated' | 'gone';
-interface Group { id: number; cls: Cls; size: number; flight: number; x: number; y: number; path: Pt[]; st: GState; at: SKey | 'entry' | null; stage: number; t: number; tt: number; slot: number; extras: SKey[]; seat: number; color: string }
-interface Flight { id: number; plane: number; gate: number; code: string; groups: number; total: number; spawned: number; seated: number; land: number; parkedAt: number; leaveBy: number; state: 'due' | 'in' | 'parked' | 'out'; t: number; boarding: number | null }
+interface Group { id: number; cls: Cls; size: number; flight: number; x: number; y: number; path: Pt[]; st: GState; at: SKey | 'entry' | null; stage: number; t: number; tt: number; slot: number; extras: SKey[]; seat: number; color: string; ph?: number }
+interface Flight { id: number; plane: number; gate: number; code: string; groups: number; total: number; spawned: number; seated: number; paxIn: number; land: number; parkedAt: number; leaveBy: number; state: 'due' | 'in' | 'parked' | 'out'; t: number; boarding: number | null }
 interface Pop { x: number; y: number; text: string; t: number; big?: boolean }
 interface Sim { t: number; groups: Group[]; flights: Flight[]; queues: Record<string, number[]>; busy: Record<string, (number | null)[]>; pops: Pop[]; gateNext: number[]; seq: number; income: number[] }
 export function newSim(): Sim { return { t: 0, groups: [], flights: [], queues: {}, busy: {}, pops: [], gateNext: [3, 20, 35, 50], seq: 1, income: [] }; }
@@ -131,9 +133,9 @@ function scheduleFlight(s: Save, sim: Sim, gate: number) {
   const pick = pool[Math.min(pool.length - 1, Math.floor(Math.random() ** 0.7 * pool.length))];
   const seats = pick.p.seats, fill = Math.min(1, 0.6 + 0.08 * s.rating + (festivalOn() ? 0.15 : 0));
   const total = Math.max(10, Math.round((seats[0] + seats[1] + seats[2]) * fill));
-  const groups = Math.min(18, Math.max(5, Math.round(total / 12)));
+  const groups = Math.min(30, Math.max(8, Math.round(total / 6)));
   const land = sim.t + 30 + Math.random() * 30; // lands 30–60 s from now
-  sim.flights.push({ id: sim.seq++, plane: pick.i, gate, code: `${AIRLINES[Math.floor(Math.random() * AIRLINES.length)]}${100 + Math.floor(Math.random() * 900)}`, groups, total, spawned: 0, seated: 0,
+  sim.flights.push({ id: sim.seq++, plane: pick.i, gate, code: `${AIRLINES[Math.floor(Math.random() * AIRLINES.length)]}${100 + Math.floor(Math.random() * 900)}`, groups, total, spawned: 0, seated: 0, paxIn: 0,
     land, parkedAt: 0, leaveBy: 0, state: 'due', t: sim.t, boarding: null });
 }
 
@@ -200,9 +202,9 @@ export function stepSim(s: Save, sim: Sim, dt: number) {
     const line = sim.groups.filter((g) => g.flight === f.id && g.st === 'line').sort((a, b) => a.slot - b.slot);
     const g = line[0];
     if (!g || g.path.length) continue;
-    const y = slotY(f.gate), seat = cabinSeat(f.plane, f.groups, f.seated);
-    f.boarding = g.id; g.st = 'boarding'; g.seat = f.seated; g.tt = g.t = svcTime('gate', s.st.gate);
-    g.path = [{ x: 845, y: y - 22 }, { x: NOSE + 22, y: y - 22 }, { x: NOSE + 22, y }, { x: seat.x, y }, { x: seat.x, y: y + seat.y }];
+    const y = slotY(f.gate);
+    f.boarding = g.id; g.st = 'boarding'; g.seat = f.paxIn; g.ph = 0; g.tt = g.t = svcTime('gate', s.st.gate);
+    g.path = [{ x: 826, y: y - 22 }]; // up to the gate desk
     for (const o of line.slice(1)) o.slot--; // everyone steps up one place
   }
 
@@ -210,11 +212,17 @@ export function stepSim(s: Save, sim: Sim, dt: number) {
     if (g.st === 'gone' || g.st === 'seated') continue;
     const f = sim.flights.find((x) => x.id === g.flight);
     if (g.st === 'boarding') {
-      // a short ticket check at the gate, then down the jet bridge and the aisle at walking pace
-      if (g.t > 0) { g.t -= dt; continue; }
-      if (move(g, sp * 1.6)) continue; // people walk briskly down the aisle
+      // walk up to the desk, a ticket check there, then down the jet bridge and the aisle to their seats
+      if (g.ph === 0) {
+        if (move(g, sp)) continue;
+        if (g.t > 0) { g.t -= dt; continue; }
+        const y = f ? slotY(f.gate) : g.y, seat = f ? seatMap(f.plane, Math.min(capOfPlane(f.plane) - 1, f.paxIn)) : { x: g.x, y: 0 };
+        g.ph = 1; g.path = [{ x: NOSE + 22, y: y - 22 }, { x: NOSE + 22, y }, { x: seat.x, y }, { x: seat.x, y: y + seat.y }];
+        continue;
+      }
+      if (move(g, sp * 2.2)) continue; // people walk briskly down the aisle
       g.st = 'seated';
-      if (f) { f.seated++; f.boarding = null; s.served += g.size; earn(s, sim, g, feeOf('gate', s.st.gate) * CLS[g.cls].mult * g.size); }
+      if (f) { f.seated++; f.paxIn = Math.min(capOfPlane(f.plane), f.paxIn + g.size); f.boarding = null; s.served += g.size; earn(s, sim, g, feeOf('gate', s.st.gate) * CLS[g.cls].mult * g.size); }
       continue;
     }
     if (g.path.length && move(g, sp)) continue;
@@ -310,17 +318,19 @@ function plane(x: CanvasRenderingContext2D, f: Flight, sim: Sim, groups: Group[]
   x.fill(); x.stroke();
   x.fillStyle = '#1b3a6b'; x.beginPath(); x.ellipse(x0 + 10, 0, 5, W * 0.3, 0, 0, Math.PI * 2); x.fill(); // cockpit
   // cabin: seats in class colours, filled as passengers sit down
-  for (let i = 0; i < f.groups; i++) {
-    const p = cabinSeat(f.plane, f.groups, i);
-    x.fillStyle = 'rgba(27,16,53,.15)'; x.fillRect(p.x + dx - 5, p.y - 4, 10, 8);
+  const cap = capOfPlane(f.plane), sz = Math.max(2, Math.min(5, (P.W * 0.82) / P.across - 0.6));
+  for (let i = 0; i < cap; i++) {
+    const p = seatMap(f.plane, i), cls = i < P.seats[2] ? 2 : i < P.seats[2] + P.seats[1] ? 1 : 0;
+    x.fillStyle = i < f.paxIn ? CLS[cls].color : cls ? 'rgba(155,107,255,.22)' : 'rgba(27,16,53,.14)';
+    x.fillRect(p.x + dx - sz / 2, p.y - sz / 2, sz, sz);
   }
   x.restore();
   // seated and boarding passengers move with the plane
-  for (const g of groups) if (g.flight === f.id && (g.st === 'seated' || g.st === 'boarding')) person(x, { x: g.x + dx, y: g.y + dy }, g.color, 0.85, g.st === 'boarding' && g.t > 0 ? 1 - g.t / g.tt : null);
+  for (const g of groups) if (g.flight === f.id && g.st === 'boarding') person(x, { x: g.x + dx, y: g.y + dy }, g.color, 0.85, g.ph === 0 && !g.path.length && g.t > 0 ? 1 - g.t / g.tt : null);
   x.globalAlpha = 1;
   // label: capacity filling up
   if (f.state === 'parked' || f.state === 'in' || f.state === 'due') {
-    const pax = Math.round(f.seated * (f.total / f.groups)), cap = P.seats[0] + P.seats[1] + P.seats[2];
+    const pax = f.paxIn, cap = capOfPlane(f.plane);
     up(x, ROT ? planeX0 + 150 : planeX0 + 60, ROT ? y + 70 : y - P.span / 2 - 2, () => {
       x.fillStyle = 'rgba(10,20,30,.8)'; x.beginPath(); x.roundRect?.(0, -18, 150, 32, 8); x.fill();
       x.fillStyle = '#fff'; x.font = '800 11px system-ui'; x.textAlign = 'left';
@@ -392,7 +402,7 @@ function render(x: CanvasRenderingContext2D, s: Save, sim: Sim, view: View, sel:
   // passengers in the terminal (with a ring while being served)
   for (const g of sim.groups) {
     if (g.st === 'seated' || g.st === 'boarding') continue;
-    person(x, g, g.color, g.cls ? 1.15 : 1, g.st === 'svc' && g.tt > 0 ? Math.min(1, 1 - g.t / g.tt) : null);
+    person(x, g, g.color, g.cls ? 1.15 : 1, g.st === 'svc' && g.tt > 0 && !g.path.length ? Math.min(1, 1 - g.t / g.tt) : null);
   }
   for (const q of sim.pops) {
     x.globalAlpha = 1 - q.t / 1.8; x.font = `900 ${q.big ? 16 : 12}px system-ui`; x.textAlign = 'center';
@@ -430,8 +440,11 @@ export default function HawaiAdda() {
       const r = el.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
       c.width = r.width * dpr; c.height = r.height * dpr; c.style.width = `${r.width}px`; c.style.height = `${r.height}px`;
       const rot = r.height > r.width * 1.1, cw = rot ? LH : LW, ch = rot ? LW : LH;
-      const k = Math.min(r.width / (cw + 10), r.height / (ch + 10));
-      view.current = { w: r.width, h: r.height, k, ox: (r.width - cw * k) / 2, oy: (r.height - ch * k) / 2, rot };
+      // cover the whole stage; whatever doesn't fit is a drag away
+      const k = Math.max(r.width / cw, r.height / ch);
+      const old = view.current;
+      view.current = { w: r.width, h: r.height, k, ox: 0, oy: 0, rot };
+      panBy(old.rot === rot ? old.ox : 0, old.rot === rot ? old.oy : 0);
     };
     fit();
     const ro = new ResizeObserver(fit); ro.observe(el);
@@ -452,6 +465,21 @@ export default function HawaiAdda() {
     return () => { cancelAnimationFrame(raf); ro.disconnect(); store(ref.current); };
   }, [started]);
 
+  /** Keep the plan covering the stage while panning. */
+  const panBy = (ox: number, oy: number) => {
+    const v = view.current, cw = (v.rot ? LH : LW) * v.k, ch = (v.rot ? LW : LH) * v.k;
+    v.ox = Math.min(0, Math.max(v.w - cw, ox)); v.oy = Math.min(0, Math.max(v.h - ch, oy));
+  };
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const down = (e: React.PointerEvent) => { drag.current = { x: e.clientX, y: e.clientY, ox: view.current.ox, oy: view.current.oy, moved: false }; (e.target as Element).setPointerCapture?.(e.pointerId); };
+  const moveP = (e: React.PointerEvent) => {
+    const d = drag.current; if (!d) return;
+    const mx = e.clientX - d.x, my = e.clientY - d.y;
+    if (!d.moved && Math.hypot(mx, my) < 7) return;
+    d.moved = true; panBy(d.ox + mx, d.oy + my);
+  };
+  const upP = (e: React.PointerEvent) => { const d = drag.current; drag.current = null; if (d && !d.moved) tap(e); };
+  const wheel = (e: React.WheelEvent) => { panBy(view.current.ox - (e.shiftKey ? e.deltaY : e.deltaX), view.current.oy - (e.shiftKey ? 0 : e.deltaY)); };
   const tap = (e: React.PointerEvent) => {
     const r = cv.current!.getBoundingClientRect(), v = view.current;
     const sx = (e.clientX - r.left - v.ox) / v.k, sy = (e.clientY - r.top - v.oy) / v.k;
@@ -520,8 +548,8 @@ export default function HawaiAdda() {
         {festivalOn() && <span className="fest">{festivalOn()!.emoji} {festivalOn()!.name} rush</span>}
       </div>
       <div className="ha2-stage" ref={box}>
-        <canvas ref={cv} onPointerDown={tap} />
-        {!sel && <div className="ha2-hint">👆 Tap Check-in, Security, the Hall, Gates… to upgrade</div>}
+        <canvas ref={cv} onPointerDown={down} onPointerMove={moveP} onPointerUp={upP} onPointerCancel={() => (drag.current = null)} onWheel={wheel} />
+        {!sel && <div className="ha2-hint">👆 Tap an area to upgrade · drag to look around</div>}
       </div>
       {sel && l && (
         <div className="ha2-panel">

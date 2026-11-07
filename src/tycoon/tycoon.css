@@ -65,7 +65,7 @@
 .ha2-sub { flex: none; display: flex; gap: 6px; flex-wrap: wrap; font-size: 0.74rem; font-weight: 800; }
 .ha2-sub span { padding: 3px 10px; border-radius: 99px; background: rgba(255, 255, 255, 0.6); } .ha2-sub .next { background: rgba(255, 210, 63, 0.75); } .ha2-sub .fest { background: rgba(255, 140, 66, 0.8); color: #fff; }
 .ha2-stage { position: relative; flex: 1; min-height: 0; border-radius: 16px; overflow: hidden; background: #6fbf5a; box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.08); }
-.ha2-stage canvas { display: block; touch-action: manipulation; cursor: pointer; }
+.ha2-stage canvas { display: block; touch-action: none; cursor: grab; }
 .ha2-hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); padding: 6px 12px; border-radius: 99px; background: rgba(27, 16, 53, 0.8); color: #fff; font-weight: 800; font-size: 0.78rem; width: max-content; max-width: 94%; pointer-events: none; animation: ha-hint 2s ease-in-out infinite; }
 @keyframes ha-hint { 50% { opacity: 0.75; } }
 .ha2-panel { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 16px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.15); animation: pop-in 0.2s; }
@@ -78,3 +78,4 @@
 .ha2-opt:disabled { opacity: 0.5; cursor: default; } .ha2-opt:disabled em { background: #9aa7b3; }
 .ha2-opt:not(:disabled):active { transform: scale(0.96); }
 .ha2-lock { padding: 10px; border-radius: 12px; background: #f2f6fa; font-weight: 800; text-align: center; }
+.ha2-hud > * { white-space: nowrap; } @media (max-width: 420px) { .ha2-hud { gap: 5px; } .ha2-hud .cash { font-size: 1rem; } .ha2-hud .rate, .ha2-hud .pax { padding: 2px 7px; font-size: 0.75rem; } .ha2-hud .ha-speed button { padding: 3px 6px; } .ha2-sub .next { display: none; } }
