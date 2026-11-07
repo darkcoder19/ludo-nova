@@ -13,7 +13,7 @@ import { NoAdsChip } from '../account/AccountViews';
 import { adsEnabled } from '../ads/premium';
 import { TrollOverlay, TrollPicker, trollIndex, trollTarget } from './Trolls';
 import { ChatBubbles, ChatPicker, ResultExtras } from './Progress';
-import { recordProgress, type Progress } from '../game/progress';
+import { recordProgress, recordRivals, type Progress } from '../game/progress';
 
 const HEX: Record<Color, string> = { red: '#ff2e88', green: '#12d6b4', yellow: '#ffab1a', blue: '#7a5cff' };
 const CORNERS = ['tl', 'tr', 'br', 'bl'] as const;
@@ -154,7 +154,7 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
     recorded.current = true;
     const place = state.winners.indexOf(me.id) + 1;
     const { profile: p0, xp } = recordGame(profile, place, state.players.length, state.stats[me.id]?.captures ?? 0);
-    const pr = recordProgress(p0, 'ludonova', place, state.players.length, { captures: state.stats[me.id]?.captures ?? 0 });
+    const pr = recordRivals(recordProgress(p0, 'ludonova', place, state.players.length, { captures: state.stats[me.id]?.captures ?? 0 }), me.id, state.winners, state.players.filter((p) => !p.bot));
     setProg(pr);
     const p = pr.profile;
     onProfile(p);

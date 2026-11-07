@@ -91,3 +91,12 @@
 .hh-scene .cell { position: relative; border-radius: 8px; overflow: hidden; animation: hhbob 3s ease-in-out infinite; }
 .hh-scene .cell .hh-plot-art { position: absolute; inset: 0; }
 @keyframes hhbob { 50% { transform: translateY(-3px); } }
+.hub-row .fest-label { background: linear-gradient(90deg, #ffe04a, #ff8c42); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* solo games: a compact row under the room games */
+.solo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.solo-card { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 18px; text-decoration: none; color: #fff; background: linear-gradient(135deg, var(--a), var(--b)); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35); min-width: 0; animation: card-in 0.6s 0.4s backwards; }
+.solo-card .si { font-size: 1.6rem; flex: none; } .solo-card .st { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.solo-card b { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,.35); } .solo-card small { font-size: 0.68rem; font-weight: 800; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.solo-card .sp { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.9); color: #1b1035; font-size: 0.75rem; font-weight: 900; }
+@media (max-width: 400px) { .solo-card .sp { display: none; } .solo-card b { font-size: 0.86rem; } .solo-card { gap: 6px; padding-left: 8px; padding-right: 8px; } }

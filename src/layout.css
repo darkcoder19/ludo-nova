@@ -215,3 +215,16 @@
 
 /* PC: every game in one row */
 @media (min-width: 900px) { .hub .gcards { grid-template-columns: repeat(4, 1fr); } }
+
+/* multi-select lobby options (house rules) */
+.timer-pick .flags { display: flex; flex-wrap: wrap; gap: 5px; }
+.timer-pick .flags button { padding: 5px 9px; border-radius: 99px; font: inherit; font-size: 0.74rem; font-weight: 800; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); cursor: pointer; }
+.timer-pick .flags button.on { background: rgba(255, 171, 26, 0.28); border-color: #ffab1a; }
+.timer-pick .flags button:disabled { cursor: default; }
+/* six games on a short phone: slimmer room cards so the solo row fits too */
+@media (max-height: 700px) and (max-width: 899px) {
+  .hub .gc-scene { min-height: 66px; }
+  .hub .gcard p { display: none; }
+  .solo-card { padding: 6px 10px; }
+  .solo-card .si { font-size: 1.35rem; }
+}

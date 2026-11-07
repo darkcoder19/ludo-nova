@@ -10,6 +10,7 @@ import { GAMES, gameUrl, type GameInfo } from './games';
 import { BuildingArt, PlotArt } from '../haat/Art';
 import { GAME_LETTER, gameOfCode, routeToGame } from '../shared/link';
 import { DailyChip, ProgressPanel } from '../components/Progress';
+import { festivalOn } from '../game/festivals';
 import { loadProfile, saveProfile, type Profile } from '../game/profile';
 
 /** sarvimo.com/games — the game picker. */
@@ -36,12 +37,20 @@ export function Hub() {
       <JoinBox />
 
       <div className="hub-row">
-        <b>🎮 Games</b>
+        {festivalOn() ? <b className="fest-label">{festivalOn()!.emoji} {festivalOn()!.name} · 2× XP</b> : <b>🎮 Games</b>}
         <DailyChip profile={profile} onOpen={() => setProg(true)} />
       </div>
 
       <section className="gcards">
-        {GAMES.map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
+        {GAMES.filter((g) => !g.solo).map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
+      </section>
+
+      <section className="solo-row">
+        {GAMES.filter((g) => g.solo).map((g) => (
+          <a key={g.slug} className="solo-card" href={gameUrl(g.slug)} style={{ ['--a' as string]: g.colors[0], ['--b' as string]: g.colors[1] }} onClick={() => sfx.six()}>
+            <span className="si">{g.icon}</span><span className="st"><b>{g.name}</b><small>Solo · {g.kind}</small></span><span className="sp">▶</span>
+          </a>
+        ))}
       </section>
 
       {adsEnabled() && <BannerStrip />}
@@ -66,7 +75,7 @@ function JoinBox() {
       <input className="hj-code" placeholder="ROOM CODE" maxLength={5} value={code} aria-label="Room code"
         onChange={(e) => { setErr(''); setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); }} />
       <div className="hj-letters">
-        {GAMES.map((g) => (
+        {GAMES.filter((g) => GAME_LETTER[g.slug]).map((g) => (
           <span key={g.slug} className={game === g.slug ? 'on' : ''} style={{ ['--a' as string]: g.colors[0] }} title={g.name}>
             <b>{GAME_LETTER[g.slug]}</b><small>{g.name.replace(/(Nova|Rush|King| Hustle)$/, '')}</small>
           </span>

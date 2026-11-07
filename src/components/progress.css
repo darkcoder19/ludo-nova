@@ -7,7 +7,7 @@
 @keyframes chip-glow { 50% { box-shadow: 0 0 16px rgba(255, 140, 66, 0.55); } }
 
 /* ---------- panel ---------- */
-.prog-ov { z-index: 80; }
+.overlay.prog-ov { z-index: 80; }
 .card.prog { width: min(460px, calc(100vw - 24px)); max-height: 88dvh; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
 .prog-head { display: flex; align-items: center; gap: 10px; }
 .prog-head .lv { flex: 1; display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
@@ -60,8 +60,8 @@
 .skin-holi .face i.pip { background: radial-gradient(circle at 35% 35%, #fff, #f2f2f2); box-shadow: 0 0 0 2px rgba(27, 16, 53, 0.8); }
 
 /* ---------- results ---------- */
-.res-extras { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
-.res-extras .rx { padding: 7px 12px; border-radius: 12px; font-size: 0.82rem; font-weight: 700; animation: pop-in 0.4s backwards; }
+.res-extras { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 4px 0; }
+.res-extras .rx { padding: 4px 10px; border-radius: 99px; font-size: 0.74rem; font-weight: 700; line-height: 1.3; animation: pop-in 0.4s backwards; }
 .res-extras .rx.quest { background: rgba(0, 201, 122, 0.16); border: 1px solid rgba(0, 201, 122, 0.5); }
 .res-extras .rx.chest { background: rgba(255, 210, 63, 0.18); border: 1px solid rgba(255, 210, 63, 0.6); }
 .res-extras .rx.badge { background: rgba(155, 107, 255, 0.2); border: 1px solid rgba(155, 107, 255, 0.6); }
@@ -70,7 +70,7 @@
 
 /* ---------- quick chat ---------- */
 .chat-top { font-size: 1.05rem; }
-.chat-ov { z-index: 75; align-items: flex-end; }
+.overlay.chat-ov { z-index: 75; align-items: flex-end; }
 .card.chat-pick { width: min(460px, calc(100vw - 16px)); display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .chat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .chat-grid button { padding: 10px 8px; border-radius: 12px; font: inherit; font-size: 0.85rem; font-weight: 700; color: #fff; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.12); cursor: pointer; text-align: left; }
@@ -81,3 +81,35 @@
 .chat-b b { color: var(--c); } .chat-b span { font-weight: 700; }
 @keyframes chat-in { 0% { opacity: 0; transform: translateY(-14px) scale(0.8); } 10%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-8px); } }
 .badge .em { position: relative; } .badge .em .lock { position: absolute; right: -10px; bottom: -4px; font-size: 0.8rem; font-style: normal; filter: none; }
+
+/* ---------- rivalries ---------- */
+.rival-tag { display: inline-block; margin-top: 2px; font-size: 0.66rem; font-weight: 900; padding: 1px 7px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); color: #d9d4f5; }
+.rival-tag.lead { background: rgba(0, 201, 122, 0.2); color: #5dffb4; } .rival-tag.trail { background: rgba(255, 79, 106, 0.2); color: #ff8fa3; }
+.res-extras .rx.rival { background: rgba(255, 140, 66, 0.16); border: 1px solid rgba(255, 140, 66, 0.55); }
+.rivals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rivals li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); }
+.rivals li div { display: flex; flex-direction: column; } .rivals li small { color: var(--dim); font-weight: 700; font-size: 0.72rem; }
+.rivals li .score { font-weight: 900; font-size: 1.1rem; } .rivals li .score.lead { color: #5dffb4; } .rivals li .score.trail { color: #ff8fa3; }
+
+/* ---------- recap card ---------- */
+.overlay.recap-ov { z-index: 85; }
+.recap-card { width: min(420px, calc(100vw - 24px)); max-height: 92dvh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 26px;
+  background: linear-gradient(160deg, #4a2fa8, #24166a 55%, #160e45); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); animation: pop-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.rc-head { text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.rc-head b { font-size: 1.7rem; font-weight: 900; background: linear-gradient(90deg, #ffe04a, #ff8c42); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rc-head small { color: #d9d4f5; font-weight: 700; }
+.rc-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rc-lines li { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.09); animation: pop-in 0.4s backwards; }
+.rc-lines li span { font-size: 1.5rem; } .rc-lines li p { margin: 0; font-weight: 700; font-size: 0.88rem; line-height: 1.3; }
+.rc-foot { text-align: center; color: #ffd23f; font-weight: 900; }
+.recap-card .row { display: flex; gap: 8px; } .recap-card .row .btn { flex: 1; text-decoration: none; text-align: center; }
+.recap-card .row .btn.ghost { flex: 0 0 auto; }
+@media (max-width: 400px) { .prog-tabs button { font-size: 0.78rem; padding-left: 2px; padding-right: 2px; } }
+.recap-card .row a.btn { color: #fff; display: grid; place-items: center; } .recap-card .row .btn { white-space: nowrap; }
+
+/* ---------- festivals ---------- */
+.daily-chip .fest { font-size: 0.95rem; animation: fire-bob 1.4s ease-in-out infinite; }
+.fest-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--fa) 35%, transparent), color-mix(in srgb, var(--fb) 30%, transparent)); border: 1px solid color-mix(in srgb, var(--fa) 60%, transparent); }
+.fest-row span { font-size: 2rem; animation: fire-bob 1.6s ease-in-out infinite; } .fest-row div { display: flex; flex-direction: column; } .fest-row small { font-weight: 700; font-size: 0.74rem; opacity: 0.9; }
+.skin-diya .face { background: radial-gradient(circle at 50% 120%, #ff4f1f, #ffb400 45%, #fff3b0 80%); box-shadow: inset 0 0 0 2px #fff3b0, 0 0 12px rgba(255, 140, 0, 0.6); }
+.skin-diya .face i.pip { background: radial-gradient(circle at 50% 70%, #fff6c8, #ff8c00 60%, #b33a00); box-shadow: 0 0 6px #ffb400; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; }

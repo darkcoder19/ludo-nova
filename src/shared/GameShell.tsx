@@ -15,8 +15,9 @@ import { Joining } from '../components/Joining';
 import { routeToGame } from './link';
 import { clearResume, loadResume, trackResume } from './resume';
 import { RejoinCard } from '../components/Rejoin';
-import { ChatBubbles, ChatPicker, DailyChip, ProgressPanel, ResultExtras, TitleTag } from '../components/Progress';
-import { recordProgress, type Progress, type Stats } from '../game/progress';
+import { ChatBubbles, ChatPicker, DailyChip, ProgressPanel, ResultExtras, RivalTag, TitleTag } from '../components/Progress';
+import { recordProgress, recordRivals, type Progress, type Stats } from '../game/progress';
+import { RecapModal, type RecapData } from './Recap';
 import { hostRoom, joinRoom, soloRoom, TIMER_CHOICES, type Emote, type RoomSession, type RoomState, type Rules, type Status } from './room';
 
 export const SEAT_COLORS = ['#ff2d55', '#2b7bff', '#00c97a', '#ffb400'];
@@ -43,7 +44,8 @@ export interface ShellConfig<G, A> {
   rules: Rules<G, A> & { ranking(g: G): string[] };
   hero: ReactNode;
   /** Lobby options; `initial` is the default (else the first choice). */
-  options?: { key: string; label: string; initial?: string; choices: { value: string; label: string; hint?: string }[] }[];
+  /** `multi`: any number of choices can be on; the value is a comma-separated list. */
+  options?: { key: string; label: string; initial?: string; multi?: boolean; choices: { value: string; label: string; hint?: string }[] }[];
   Board(props: GameProps<G, A>): ReactNode;
   /** Optional how-to-play / rule book overlay. */
   Guide?(props: { onClose(): void }): ReactNode;
@@ -53,6 +55,8 @@ export interface ShellConfig<G, A> {
   podiumExtra?(g: G, pid: string): ReactNode;
   /** This player's numbers for daily quests, and badge ids the game awards them, when a game ends. */
   progress?(g: G, pid: string): { stats?: Stats; badges?: string[] };
+  /** The game's best moments for the shareable end-of-game recap card. */
+  recap?(g: G, name: (pid: string) => string): RecapData;
 }
 
 type Screen = 'home' | 'room';
@@ -124,7 +128,7 @@ export function GameShell<G, A>({ cfg }: { cfg: ShellConfig<G, A> }) {
       {screen === 'home' && <ShellHome cfg={cfg} profile={profile} onProfile={updateProfile} error={error}
         onStart={(k, arg, o) => withAd(() => start(k, arg, o))} onResume={() => start('resume')} />}
       {screen === 'room' && session && (!room || room.phase === 'lobby') && (
-        <ShellLobby cfg={cfg} session={session} room={room} code={code} status={status} onLeave={leave} />
+        <ShellLobby cfg={cfg} session={session} room={room} code={code} status={status} onLeave={leave} profile={profile} />
       )}
       {screen === 'room' && session && room && room.phase !== 'lobby' && room.game && (
         <ShellGame cfg={cfg} session={session} room={room} game={room.game} status={status} emotes={emotes}
@@ -222,6 +226,14 @@ function OptionPickers<G, A>({ cfg, values, onChange, disabled }: { cfg: ShellCo
         <div key={o.key} className="timer-pick">
           <span>{o.label}</span>
           {/* Choices without descriptions fit one compact row, like the turn timer. */}
+          {o.multi ? (
+            <div className="flags">
+              {o.choices.map((c) => {
+                const list = (values[o.key] ?? o.initial ?? '').split(',').filter(Boolean), on = list.includes(c.value);
+                return <button key={c.value} disabled={disabled} className={on ? 'on' : ''} onClick={() => { sfx.tap(); onChange(o.key, (on ? list.filter((x) => x !== c.value) : [...list, c.value]).join(',')); }}>{c.label}</button>;
+              })}
+            </div>
+          ) : (
           <div className={o.choices.some((c) => c.hint) ? 'modes' : 'seg'}>
             {o.choices.map((c) => (
               <button key={c.value} disabled={disabled} className={`${o.choices.some((x) => x.hint) ? 'mode' : ''} ${(values[o.key] ?? o.initial ?? o.choices[0].value) === c.value ? 'on' : ''}`} onClick={() => { sfx.tap(); onChange(o.key, c.value); }}>
@@ -229,6 +241,7 @@ function OptionPickers<G, A>({ cfg, values, onChange, disabled }: { cfg: ShellCo
               </button>
             ))}
           </div>
+          )}
         </div>
       ))}
     </>
@@ -236,8 +249,8 @@ function OptionPickers<G, A>({ cfg, values, onChange, disabled }: { cfg: ShellCo
 }
 
 // ---------------- lobby ----------------
-function ShellLobby<G, A>({ cfg, session, room, code, status, onLeave }: {
-  cfg: ShellConfig<G, A>; session: RoomSession<A>; room: RoomState<G> | null; code: string; status: { st: Status; msg?: string }; onLeave(): void;
+function ShellLobby<G, A>({ cfg, session, room, code, status, onLeave, profile }: {
+  cfg: ShellConfig<G, A>; session: RoomSession<A>; room: RoomState<G> | null; code: string; status: { st: Status; msg?: string }; onLeave(): void; profile: Profile;
 }) {
   const [copied, setCopied] = useState(false);
   const isHost = room?.hostId === session.myId;
@@ -274,7 +287,7 @@ function ShellLobby<G, A>({ cfg, session, room, code, status, onLeave }: {
             <div key={i} className={`seat ${p ? 'filled' : ''}`} style={{ ['--c' as string]: SEAT_COLORS[i] }}>
               {p ? (<>
                 <div className="seat-av"><Avatar id={p.avatar} size={52} /></div>
-                <div className="seat-name">{p.name}{p.id === session.myId && <em> (you)</em>}<TitleTag id={p.title} /></div>
+                <div className="seat-name">{p.name}{p.id === session.myId && <em> (you)</em>}<TitleTag id={p.title} />{p.id !== session.myId && !p.bot && <RivalTag profile={profile} id={p.id} />}</div>
                 <div className="seat-tag">{p.id === room?.hostId ? '👑 Host' : p.bot ? 'Bot' : 'Ready'}</div>
                 {isHost && p.id !== room?.hostId && <button className="kick" onClick={() => session.act({ t: 'kick', id: p.id })}>✕</button>}
               </>) : (<>
@@ -316,6 +329,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
   const [troll, setTroll] = useState<Emote | null>(null);
   const [chat, setChat] = useState(false);
   const [prog, setProg] = useState<Progress | null>(null);
+  const [recap, setRecap] = useState(false);
   const lastChat = useRef(0);
   const [moods, setMoods] = useState<Record<string, { m: Mood; id: number }>>({});
   const lastTroll = useRef(0);
@@ -356,7 +370,7 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
       if (place) {
         const p1 = recordGame(profile, place, rank.length, 0).profile;
         const extra = cfg.progress?.(game, me) ?? {};
-        const pr = recordProgress(p1, cfg.slug, place, rank.length, extra.stats, extra.badges);
+        const pr = recordRivals(recordProgress(p1, cfg.slug, place, rank.length, extra.stats, extra.badges), me, rank, room.players.filter((x) => !x.bot));
         setProg(pr); onProfile(pr.profile);
       }
       if (place === 1) { sfx.win(); [0, 400, 800].forEach((d) => setTimeout(() => confettiRef.current?.burst(innerWidth / 2, innerHeight * 0.35, SEAT_COLORS, 150), d)); } else sfx.lose();
@@ -416,12 +430,14 @@ function ShellGame<G, A>({ cfg, session, room, game, status, emotes, profile, on
             <ResultExtras p={prog} />
             <div className="row">
               {room.hostId === me ? <button className="btn primary" onClick={() => withAd(() => session.act({ t: 'rematch' }))}>↻ Rematch</button> : <div className="dim small">Waiting for host…</div>}
+              {cfg.recap && <button className="btn glass" onClick={() => { sfx.tap(); setRecap(true); }}>📸 Recap</button>}
               <button className="btn glass" onClick={onLeave}>Home</button>
             </div>
           </div>
         </div>
       )}
       {guide && cfg.Guide && <cfg.Guide onClose={() => setGuide(false)} />}
+      {recap && cfg.recap && <RecapModal d={cfg.recap(game, (id) => room.players.find((p) => p.id === id)?.name ?? '?')} onClose={() => setRecap(false)} />}
       <Confetti ref={confettiRef} />
     </div>
   );

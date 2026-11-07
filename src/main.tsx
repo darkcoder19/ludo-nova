@@ -5,6 +5,9 @@ import { UpgradeSheet } from './account/AccountViews';
 import SeedhiApp from './seedhi';
 import DhandhaApp from './dhandha';
 import HaatApp from './haat';
+import { lazy, Suspense } from 'react';
+const RunwayRaja = lazy(() => import('./atc/RunwayRaja'));
+const HawaiAdda = lazy(() => import('./tycoon/HawaiAdda'));
 import { ComingSoon, Hub } from './hub/Hub';
 import { currentSlug, GAMES } from './hub/games';
 import './hub/hub.css';
@@ -25,6 +28,8 @@ function Root() {
   if (game.slug === 'seedhirush') return <SeedhiApp />;
   if (game.slug === 'dhandhaking') return <DhandhaApp />;
   if (game.slug === 'haathustle') return <HaatApp />;
+  if (game.slug === 'runwayraja') return <Suspense fallback={null}><RunwayRaja /></Suspense>;
+  if (game.slug === 'hawaiadda') return <Suspense fallback={null}><HawaiAdda /></Suspense>;
   return <ComingSoon g={game} />;
 }
 

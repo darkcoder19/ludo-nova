@@ -61,6 +61,14 @@
       "destination": "/manifest-haathustle.webmanifest"
     },
     {
+      "source": "/games/manifest-runwayraja.webmanifest",
+      "destination": "/manifest-runwayraja.webmanifest"
+    },
+    {
+      "source": "/games/manifest-hawaiadda.webmanifest",
+      "destination": "/manifest-hawaiadda.webmanifest"
+    },
+    {
       "source": "/games",
       "destination": "/index.html"
     },

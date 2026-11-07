@@ -3,11 +3,13 @@ import { Avatar } from '../components/Avatar';
 import { Dice } from '../components/Dice';
 import { buzz, sfx } from '../game/sound';
 import type { GameProps } from '../shared/GameShell';
-import { BAIL, BOARD, BUILD_LEVELS, DEAL_MAX, GIFT_STEP, GROUPS, LOAN, MARKET, SEASONS, SETS_TO_WIN, type SeasonKind, MAX_BUILD, POWERS, RENT_MULT, WHEEL, fmt, type Card, type Power } from './data';
+import { BAIL, BETS, BET_INFO, BOARD, BUILD_LEVELS, DEAL_MAX, GHOST, GIFT_STEP, GROUPS, LOAN, MARKET, SEASONS, SETS_TO_WIN, STAKE, type BetKind, type SeasonKind, MAX_BUILD, POWERS, RENT_MULT, WHEEL, fmt, type Card, type Power } from './data';
 import { ArtDefs, Buildings, MONUMENTS, SethJi, TilePic, type SethMood } from './Monument';
 import { DhandhaGuide } from './Guide';
+import { festivalById } from '../game/festivals';
+import { THEMES, themeOfFest, type ThemeId } from './themes';
 import {
-  buyBackPrice, buyPrice, canBuild, fullSets, groupSquares, loanRoom, marketMult, marketValue, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, takeoverPrice,
+  betOdds, teamWorth, buyBackPrice, buyPrice, buyoutPrice, canBet, canBuild, canHaunt, canStake, fullSets, stakePrice, stakesOf, groupSquares, loanRoom, marketMult, marketValue, mehngaiLevel, netWorth, nextBuildCost, ownsGroup, placementOn, rentBoost, rentFor, takeoverPrice,
   type CityEvent, type DAction, type DGame, type Deal, type Fx,
 } from './rules';
 
@@ -152,6 +154,10 @@ const LINES: Record<string, string[]> = {
   strike: ['Hostel Strike! WiFi band, Recharge free ✊'],
   sale: ['Sale Season! Meri dukaan pe 20% off 🛍️'],
   market: ['Market update! Daam upar-neeche 📊'],
+  stake: ['Hissedari! Ab kiraye mein bhi hissa 📈', 'Smart investor! 25% ka maalik.'],
+  toll: ['BOO! 👻 Bhoot ka toll bharo.', 'Haunted plot! Bhoot bhi kiraya leta hai 👻'],
+  betWin: ['Shart jeet gaye! Seth-ji ka dil toota 😩', 'Lucky! Aaj kismat tumhari 🎲'],
+  ghost: ['Divaliya hua, par bhoot ban ke wapas 👻'],
   loan: ['Le lo beta, par Payday pe wapas 😏', 'Byaaj 20%. Seth-ji ka dil bada hai, hisaab nahi.'],
   sets: ['Teen set! Asli DhandhaKing yahi hai 👑'],
   gift: ['Dosti ho toh aisi! 💝', 'Sharing is caring. Seth-ji approves 🙏', 'Paisa idhar se udhar. Pyaar dono taraf 💸'],
@@ -165,6 +171,34 @@ const LINES: Record<string, string[]> = {
   tele: ['Teleport? Uber se bhi fast!'],
   free: ['Detention se azaadi! 🕊️'],
 };
+/** More of Seth-ji: extra lines for every moment, merged into the lists above. */
+const MORE: Record<string, string[]> = {
+  buy: ['Naya plot, nayi EMI. Mubarak ho!', 'Registry ho gayi, chai pe party 🍵', 'Location location location. Sahi pakda!', 'Is daam pe? Chori ka maal lagta hai 😏', 'Property ka papa ban gaya tu!'],
+  bigRent: ['Rent nahi, yeh toh dahej tha 😱', 'Itna kiraya? Hostel bhi sasta tha!', 'Paisa gaya, izzat bachi hai. Shayad.', 'Ouch! Bank balance ne resign kar diya.', 'Yeh thappad ki goonj sunayi di?'],
+  broke: ['Jeb mein chhed hai kya beta?', 'Ab Maggi pe guzara karna padega 🍜', 'Kharcha kam, dhandha zyada. Seth-ji ki salah.', 'Paisa khatam, tension shuru.'],
+  salary: ['Payday! Aaj ka din tumhara 💸', 'Stipend aa gaya! Canteen wale khush.', 'Paise aaye, ab dimaag lagao.', 'Salary credited. Mom ko call karna mat bhoolna 📞'],
+  jackpot: ['Gullak tod di! Tapri wale ro rahe hain 😂', 'Itna paisa? Party toh banti hai!', 'Kismat ka dhakkan khul gaya ☕'],
+  bankrupt: ['Dhandha band, sapne zinda. Agli baar!', 'Startup fail, lessons pass. Bhoot ban ke aao 👻', 'Divaliya! Par Seth-ji ka dil abhi bhi tumhare saath hai.'],
+  idle: ['Soch kya rahe ho, Shark Tank ka pitch?', 'Dice ko dhoop lag rahi hai, roll karo!', 'Jaldi karo, mera chai thanda ho raha hai ☕', 'Beta, time is money. Aur money is mine 😏', 'Roll karo warna main kar dunga!'],
+  villa: ['Villa! Ab toh Bollywood waale bhi kiraya denge 🎬', 'Swimming pool wala ghar? Show off!', 'Itni badi villa, itna bada rent 😈'],
+  jail: ['Detention mein WiFi nahi milega 📵', 'Principal ke office mein swagat hai!', 'Proxy pakdi gayi, ab pachtao 😂', 'Thoda aaram karo. Kiraya dusre bharenge.'],
+  shield: ['Shield ne bacha liya! Smart kid.', 'Rent dodge! Matrix style 😎'],
+  takeover: ['GIRVI ka maal, sabka maal! 😈', 'Corporate jungle mein swagat hai.'],
+  deal: ['Haath milao, sauda pakka 🤝', 'Win-win? Ya kisi ne chuna lagaya? 😏', 'Business ho toh aisa!'],
+  set: ['Poora set! Ab asli khel shuru 👑', 'Colour set complete. Rent double, attitude triple!'],
+  spin: ['Ghumao ghumao! Kismat ka pahiya ☕', 'Tapri ka jackpot bula raha hai!'],
+  double: ['Double Dhamaka ready. Koi toh aao meri gali 😈'],
+  free: ['Azaad! Ab dhandha karo, drama nahi.', 'Bail pe bahar. Seedha kaam pe lag jao!'],
+  festival: ['{city} mein mela! Rent ×{m}. Wah!', 'Sab {city} ja rahe hain. Owner ki chandi 🔥'],
+  slump: ['{city} mein sannata. Koi nahi aa raha 😶', '{city} ka market down. Ouch.'],
+  dbl: ['Doubles! Ek aur chance, ek aur dhamaka 🎲', 'Do baar same? Lucky ho ya jugaadu?', 'Doubles! Kismat aaj tumhare side hai.'],
+  mortgage: ['GIRVI rakh diya? Dhyaan rakhna, koi utha lega 😏', 'Mortgage! Seth-ji ka byaaj hi asli dhandha hai.', 'Plot girvi, dil nahi. Wapas lena jaldi!'],
+  pass: ['Pass? Theek hai, bolee lagegi 🔨', 'Nahi chahiye? Koi aur le jayega!', 'Mehnga laga? Bolee mein sasta milega shayad.'],
+  bid: ['Bolee garam hai! 🔥', 'Aur koi? Ek… do…', 'Ladai shuru! Kaun jeetega?'],
+  chatter: ['Market ka mood dekho, phir dhandha karo 📊', 'Kabhi stake bhi try karo. Dusron ke rent mein hissa!', 'Deal karo, chup mat baitho. Dhandha bolne se chalta hai.', 'Loan chahiye? Seth-ji hamesha hazir 😏', 'Mere zamane mein ek plot ₹100 ka tha…', 'Chai pe charcha, plot pe kharcha ☕'],
+};
+for (const [k, v] of Object.entries(MORE)) LINES[k] = [...(LINES[k] ?? []), ...v];
+
 const pickLine = (k: string, vars: Record<string, string> = {}) => {
   const arr = LINES[k];
   if (!arr) return '';
@@ -178,7 +212,7 @@ const short = (n: number) => (n >= 1000 ? `₹${+(n / 1000).toFixed(1)}k` : `₹
 const times = (x: number) => (x < 10 ? `×${+x.toFixed(1)}` : `×${Math.round(x)}`);
 interface Floater { id: number; pid: string; text: string; good: boolean }
 const MODAL_POPS = new Set(['event', 'set']);
-type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'gift' | 'streak' | 'takeover' | 'auctionWin' | 'shield' | 'counter' | 'season' | 'catchup'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
+type Pop = { id: number; kind: 'event' | 'land' | 'set' | 'villa' | 'eventEnd' | 'placement' | 'gift' | 'streak' | 'takeover' | 'auctionWin' | 'shield' | 'counter' | 'season' | 'catchup' | 'stake' | 'haunt'; sq?: number; pid: string; amount?: number; ev?: CityEvent; other?: string };
 
 export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, act, left }: GameProps<DGame, DAction>) {
   const [shown, setShown] = useState<Record<string, number>>(() => ({ ...game.pos }));
@@ -194,6 +228,10 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const [dealOpen, setDealOpen] = useState(false);
   const [loanOpen, setLoanOpen] = useState(false);
   const [sellSq, setSellSq] = useState<number | null>(null);
+  const [biz, setBiz] = useState(false);
+  const [stakesOpen, setStakesOpen] = useState(false);
+  const [betOpen, setBetOpen] = useState(false);
+  const [haunting, setHaunting] = useState(false);
   const [counterOpen, setCounterOpen] = useState(false);
   const [sethAnim, setSethAnim] = useState('');
   const [teleport, setTeleport] = useState(false);
@@ -224,6 +262,26 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   });
 
   const cur = game.order[game.turn];
+  const festival = festivalById(game.festival);
+  const theme = themeOfFest(game.festival);
+  // Log: a side panel on wide screens (open or tucked away), a drawer from the right on phones.
+  const wide = useWide();
+  const [logSide, setLogSide] = useState(() => { try { return localStorage.getItem('dk-logside') !== 'closed'; } catch { return true; } });
+  const toggleLog = () => { sfx.tap(); if (wide) { const v = !logSide; setLogSide(v); try { localStorage.setItem('dk-logside', v ? 'open' : 'closed'); } catch { /* private mode */ } } else setLogOpen(true); };
+  // A theme change (into a festival, or back to Classic) plays a curtain and a wave across the tiles.
+  const [themeIntro, setThemeIntro] = useState<string | null>(null);
+  useEffect(() => {
+    const key = theme ?? 'classic';
+    let last = ''; try { last = localStorage.getItem('dk-theme') ?? ''; } catch { /* private mode */ }
+    if (theme || (last && last !== 'classic')) {
+      setThemeIntro(key);
+      const t = setTimeout(() => setThemeIntro(null), 2600);
+      if (theme) setTimeout(() => say('', 'party', {}, true, THEMES[theme].greet), 1200);
+      try { localStorage.setItem('dk-theme', key); } catch { /* private mode */ }
+      return () => clearTimeout(t);
+    }
+    try { localStorage.setItem('dk-theme', key); } catch { /* private mode */ }
+  }, [theme]); // eslint-disable-line react-hooks/exhaustive-deps
   const mine = cur === me;
   const name = (pid: string) => room.players.find((p) => p.id === pid)?.name ?? '?';
   const avatarOf = (pid: string) => room.players.find((p) => p.id === pid)?.avatar ?? 'c0';
@@ -232,8 +290,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const tile = (sq: number) => q(`[data-sq="${sq}"]`);
   const nod = (kind: 'yes' | 'nope') => { setSethAnim(kind); setTimeout(() => setSethAnim(''), 700); };
 
-  const say = (key: string, m: SethMood, vars?: Record<string, string>, shades = false) => {
-    const text = pickLine(key, vars);
+  const say = (key: string, m: SethMood, vars?: Record<string, string>, shades = false, lines?: string[]) => {
+    const text = lines ? lines[Math.floor(Math.random() * lines.length)] : pickLine(key, vars);
     const id = Date.now() + Math.random();
     setSeth({ mood: m, say: text, id, shades });
     setTimeout(() => setSeth((s) => (s.id === id ? { mood: 'idle', say: '', id, shades: false } : s)), 2600);
@@ -330,6 +388,9 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
       const s = f.sq != null ? BOARD[f.sq] : null;
       const gcol = s?.group != null ? GROUPS[s.group].color : '#9b6bff';
       let delay = hasSpin && ['pot', 'power', 'build', 'villa'].includes(f.kind) ? 2400 : LANDING.has(f.kind) ? arrive : 150;
+      if ((f.kind === 'betWin' || f.kind === 'betLose') && f.text !== 'mine') delay = 950; // after the dice settle
+      if ((f.kind === 'betWin' || f.kind === 'betLose') && f.text === 'mine') delay = arrive;
+      if (f.kind === 'toll' || f.kind === 'stakeCut') delay = arrive + 300;
       if (f.kind === 'salary' && m) delay = 650 + (((40 - m.from) % 40) || 40) * 170;
       at(delay, () => {
         switch (f.kind) {
@@ -371,7 +432,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             float(f, `🏦 +${fmt(f.amount!)}`, true); say('sethYes', 'count'); sfx.pop();
             overlay(q('[data-anchor="banker"]'), 'SOLD ✓', 'stamp approved', 1400); nod('yes');
             break;
-          case 'mortgage': flashTile(f.sq!, 'girvi', 800); if (f.amount) fly(banker(), chip(f.pid), COIN, 0, 3); break;
+          case 'mortgage': flashTile(f.sq!, 'girvi', 800); if (f.amount) fly(banker(), chip(f.pid), COIN, 0, 3); say('mortgage', 'count'); break;
           case 'unmort': flashTile(f.sq!, 'ungirvi', 600); fly(chip(f.pid), banker(), COIN, 0, 4); if (f.pid === me) say('buyback', 'happy'); break;
           case 'deal':
             if (f.amount) fly(chip(f.amount > 0 ? f.pid : f.other!), chip(f.amount > 0 ? f.other! : f.pid), COIN, 0, coinsFor(Math.abs(f.amount)));
@@ -414,6 +475,29 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
           }
           case 'repay': fly(chip(f.pid), banker(), COIN, 0, coinsFor(f.amount ?? 500)); break;
           case 'sets': confetti(innerWidth / 2, innerHeight * 0.4, [color(f.pid), '#ffd23f', '#fff'], 160); say('sets', 'party', {}, true); sfx.win(); break;
+          case 'stake':
+            fly(chip(f.pid), chip(f.other!), COIN, 0, coinsFor(f.amount ?? 500));
+            overlay(tile(f.sq!), '25%', 'tag up stake', 1900, { '--oc': color(f.pid) });
+            pop({ kind: 'stake', pid: f.pid, other: f.other, sq: f.sq, amount: f.amount }, 2600); say('stake', 'count'); sfx.home();
+            break;
+          case 'stakeCut': fly(chip(f.other!), chip(f.pid), COIN, 0, 3); float(f, `📈 +${fmt(f.amount!)}`, true); break;
+          case 'buyout':
+            fly(f.text === 'bank' ? banker() : chip(f.other!), chip(f.pid), COIN, 0, coinsFor(f.amount ?? 500));
+            float(f, `📈 +${fmt(f.amount!)}`, true);
+            break;
+          case 'haunt': overlay(tile(f.sq!), '👻', 'drop ghost', 1300); pop({ kind: 'haunt', pid: f.pid, sq: f.sq }, 2400); if (game.out.includes(f.pid) && f.pid === me) say('ghost', 'shocked'); break;
+          case 'toll':
+            fly(chip(f.pid), chip(f.other!), COIN, 0, 3);
+            overlay(tile(f.sq!), 'BOO!', 'stamp boo sm', 1300);
+            float(f, `👻 −${fmt(f.amount!)}`, false); say('toll', 'shocked'); sfx.captured();
+            break;
+          case 'bet': float(f, `🎲 ${fmt(f.amount!)} on ${BET_INFO[f.text as BetKind]?.name ?? ''}`, true); sfx.pop(); break;
+          case 'betWin':
+            fly(banker(), chip(f.pid), COIN, 0, coinsFor(f.amount ?? 400));
+            overlay(chip(f.pid), 'SHART JEETA!', 'stamp approved', 1400); float(f, `🎲 +${fmt(f.amount!)}`, true);
+            say('betWin', 'sad'); sfx.win();
+            break;
+          case 'betLose': fly(chip(f.pid), q('[data-anchor="pot"]'), COIN, 0, 1); break;
           case 'gift':
             fly(chip(f.pid), chip(f.other!), COIN, 0, coinsFor(f.amount ?? 100));
             float(f, `💝 −${fmt(f.amount!)}`, false);
@@ -470,6 +554,15 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
     return () => timers.forEach((t) => clearTimeout(t)); // eslint-disable-line react-hooks/exhaustive-deps
   }, [game.fx]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Seth-ji reacts to doubles, and chats when nothing has happened for a while.
+  const lastSay = useRef(Date.now());
+  useEffect(() => { if (game.dice[0] === game.dice[1] && game.rollId > 0) setTimeout(() => say('dbl', 'happy'), 900); }, [game.rollId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { lastSay.current = Date.now(); }, [seth.id]);
+  useEffect(() => {
+    const t = setInterval(() => { if (Date.now() - lastSay.current > 28000 && game.phase !== 'auction') say('chatter', 'idle'); }, 6000);
+    return () => clearInterval(t);
+  }, [game.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (game.phase === 'auction' && game.auction?.leader) say('bid', 'happy'); }, [game.auction?.price]); // eslint-disable-line react-hooks/exhaustive-deps
   // Auction / wheel announcements from Seth-ji.
   useEffect(() => { if (game.phase === 'auction' && game.auction) say('auction', 'happy', { city: BOARD[game.auction.sq].name }); }, [game.phase === 'auction']); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (game.phase === 'spin') { say('spin', 'happy'); setWheel({ idx: 0, id: -1, spun: false }); } }, [game.phase === 'spin']); // eslint-disable-line react-hooks/exhaustive-deps
@@ -505,7 +598,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
   const potFill = Math.min(1, game.pot / 6000);
 
   return (
-    <div className="dk v5" ref={root}>
+    <div className={`dk v5 ${theme ? `fest theme-${theme}` : 'theme-classic'} ${wide ? (logSide ? 'log-open' : 'log-tucked') : ''}`} ref={root} style={festival ? { ['--fa' as string]: festival.colors[0], ['--fb' as string]: festival.colors[1] } : undefined}>
       <ArtDefs />
       <div className="dk-players">
         {room.players.map((p) => {
@@ -518,7 +611,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               <div className="pav"><Avatar id={p.avatar} size={34} mood={out ? 'sad' : mood(p.id)} hyped={cur === p.id} />{game.jail[p.id] > 0 && <i className="bars" />}</div>
               <div className="dk-pinfo">
                 <b>{p.name}{(game.streak[p.id] ?? 0) >= 2 && ' 🔥'}</b>
-                <span className="cash">{out ? <s>Bankrupt</s> : fmt(cashShown[p.id] ?? game.cash[p.id])}{(game.debt?.[p.id] ?? 0) > 0 && !out && <em className="debt" title="Owes Seth-ji">🏦−{short(game.debt![p.id])}</em>}{game.mode === 'sets' && !out && <em className="sets">🏆{fullSets(game, p.id)}/{SETS_TO_WIN}</em>}</span>
+                <span className="cash">{out ? (game.ghosts?.[p.id] ? <span className="ghost-cash" title="Ghost landlord: tolls collected">👻 {fmt(game.cash[p.id] ?? 0)}</span> : <s>Bankrupt</s>) : fmt(cashShown[p.id] ?? game.cash[p.id])}{!out && stakesOf(game, p.id).length > 0 && <em className="stk" title="City stakes held">📈{stakesOf(game, p.id).length}</em>}{(game.debt?.[p.id] ?? 0) > 0 && !out && <em className="debt" title="Owes Seth-ji">🏦−{short(game.debt![p.id])}</em>}{game.mode === 'sets' && !out && <em className="sets">🏆{fullSets(game, p.id)}/{SETS_TO_WIN}</em>}{game.teams && <em className={`team t${game.teams[p.id]}`} title="Roommates team">{game.teams[p.id] === 0 ? 'A' : 'B'}</em>}</span>
                 <span className="pips">{GROUPS.map((g, gi) => {
                   const any = groupSquares(gi).some((k) => game.owner[k] === p.id), full = ownsGroup(game, p.id, gi);
                   return <i key={gi} className={full ? 'full' : any ? 'any' : ''} style={{ ['--g' as string]: g.color }} />;
@@ -532,21 +625,33 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
       </div>
 
       <div className="dk-stage">
+        {themeIntro && (
+          <div className={`theme-curtain t-${themeIntro}`} key={themeIntro}>
+            <i className="cl" /><i className="cr" />
+            <b>{themeIntro === 'classic' ? '✨ Classic board' : `${THEMES[themeIntro as ThemeId].emoji} ${THEMES[themeIntro as ThemeId].name} theme`}</b>
+            <small>{themeIntro === 'classic' ? 'The festival is over. Back to the campus classic.' : THEMES[themeIntro as ThemeId].tag}</small>
+          </div>
+        )}
         <div className="dk-scroll" ref={fit.ref}>
-          <div className={`dk-board geo-${geo.n}x${geo.m} ${teleport ? 'tele-mode' : ''} ${rentBoost(game) > 1 ? 'placement' : ''} ${uc < 30 ? 'tight' : ''}`} style={{ width: fit.w, height: fit.h, ['--u' as string]: `${fit.w / (2 * geo.K + geo.n)}px`, ['--uc' as string]: `${uc}px`, ['--ds' as string]: Math.max(0.42, Math.min(0.8, uc / 52)), gridTemplateColumns: `${geo.K}fr repeat(${geo.n}, 1fr) ${geo.K}fr`, gridTemplateRows: `${geo.K}fr repeat(${geo.m}, 1fr) ${geo.K}fr` }}>
+          <div className={`dk-board ${themeIntro ? 'theme-in' : ''} geo-${geo.n}x${geo.m} ${teleport ? 'tele-mode' : ''} ${rentBoost(game) > 1 ? 'placement' : ''} ${uc < 30 ? 'tight' : ''}`} style={{ width: fit.w, height: fit.h, ['--u' as string]: `${fit.w / (2 * geo.K + geo.n)}px`, ['--uc' as string]: `${uc}px`, ['--ds' as string]: Math.max(0.42, Math.min(0.8, uc / 52)), gridTemplateColumns: `${geo.K}fr repeat(${geo.n}, 1fr) ${geo.K}fr`, gridTemplateRows: `${geo.K}fr repeat(${geo.m}, 1fr) ${geo.K}fr` }}>
+            {theme && <ThemeFx theme={theme} />}
             {BOARD.map((s, i) => {
               const { r, c, side } = cell(i, geo);
               const o = game.owner[i];
               const g = s.group != null ? GROUPS[s.group] : null;
               const ev = evOf(i);
               const teleOk = teleport && s.price && !o;
+              const hauntOk = haunting && canHaunt(game, me, i);
+              const ghostHere = Object.entries(game.ghosts ?? {}).find(([, x]) => x.sq === i)?.[0];
+              const holder = game.stakes?.[i];
               return (
                 <button key={i} data-sq={i}
-                  className={`dk-sq ${side} k-${s.kind} ${o && s.kind === 'city' && ownsGroup(game, o, s.group!) ? 'fullset' : ''} ${o ? 'owned' : ''} ${o && o === me ? 'mine' : ''} ${game.mort[i] ? 'mort' : ''} ${ev ? (ev.mult > 1 ? 'boom' : 'slump') : ''} ${flash[i] ?? ''} ${here === i ? 'here' : ''} ${teleOk ? 'tele-ok' : ''}`}
-                  style={{ gridRow: r, gridColumn: c, ['--g' as string]: g?.color ?? 'transparent', ['--o' as string]: o ? color(o) : 'transparent' }}
+                  className={`dk-sq ${side} k-${s.kind} ${o && s.kind === 'city' && ownsGroup(game, o, s.group!) ? 'fullset' : ''} ${o ? 'owned' : ''} ${o && o === me ? 'mine' : ''} ${game.mort[i] ? 'mort' : ''} ${ev ? (ev.mult > 1 ? 'boom' : 'slump') : ''} ${flash[i] ?? ''} ${here === i ? 'here' : ''} ${teleOk || hauntOk ? 'tele-ok' : ''} ${ghostHere ? 'haunted' : ''}`}
+                  style={{ gridRow: r, gridColumn: c, ['--g' as string]: g?.color ?? 'transparent', ['--o' as string]: o ? color(o) : 'transparent', ['--i' as string]: i }}
                   onClick={() => {
                     sfx.tap();
                     if (teleport) { if (teleOk) { act({ t: 'power', p: 'tele', sq: i }); setTeleport(false); } return; }
+                    if (haunting) { if (hauntOk) { act({ t: 'haunt', sq: i }); setHaunting(false); } return; }
                     setPeek(i);
                   }}>
                   <TilePic kind={s.kind} name={s.name} />
@@ -556,6 +661,8 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                   {ev && <span className="evb">{ev.emoji}<b>×{ev.mult}</b></span>}
                   {o && <span className={`own-badge ${o === me ? 'me' : ''}`} title={`Owned by ${name(o)}`}><Avatar id={avatarOf(o)} size={20} /></span>}
                   {game.mort[i] && <span className="girvi">GIRVI</span>}
+                  {holder && <span className="stake-badge" style={{ ['--sc' as string]: color(holder) }} title={`${name(holder)} holds 25%`}>25%</span>}
+                  {ghostHere && <span className="ghost-badge" style={{ ['--gc' as string]: color(ghostHere) }} title={`Haunted by ${name(ghostHere)}`}>👻</span>}
                 </button>
               );
             })}
@@ -564,11 +671,13 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               <div className="dk-brand">
                 <b>Dhandha<em>King</em></b>
                 <span className="round-chip">R{game.round}{game.maxRounds ? `/${game.maxRounds}` : ''}</span>
-                <button className="log-btn" onClick={() => { sfx.tap(); setLogOpen(true); }}>📜 Log</button>
+                <button className="log-btn" onClick={toggleLog}>📜 Log</button>
                 {meIn && giftTargets.length > 0 && <button className="log-btn" onClick={() => { sfx.tap(); setGift({ to: giftTargets[0].id, amount: GIFT_STEP }); }}>💝 Send</button>}
                 <button className="log-btn" onClick={() => { sfx.tap(); setRules(true); }}>📖 Rules</button>
                 {placementOn(game) && <span className="season">🎓 PLACEMENT SEASON ×1.5</span>}
                 {game.season && <span className={`season cal s-${game.season.kind}`}>{SEASONS[game.season.kind].emoji} {SEASONS[game.season.kind].name.toUpperCase()} · {SEASON_SHORT[game.season.kind]} · {game.season.rounds}r</span>}
+                {festival && <span className="season festchip">{festival.emoji} {festival.name.toUpperCase()} · {festival.perkText}</span>}
+                {game.teams && <span className="season teams">👯 A {short(Math.round(teamWorth(game, 0)))} vs B {short(Math.round(teamWorth(game, 1)))}</span>}
                 {game.mode === 'sets' && <span className="season sets">🏆 TEEN SET · first to {SETS_TO_WIN} full sets</span>}
                 {mehngaiLevel(game) > 0 && <span className="season">📈 MEHNGAI · RENT {times(rentBoost(game))}</span>}
               </div>
@@ -582,8 +691,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                   <b>{fmt(game.pot)}</b>
                 </span>
                 {timed && <span className={`turn-clock ${secs <= 5 ? 'low' : ''}`}>⏱ {waitingId === me ? 'You' : name(waitingId)} · {secs}s</span>}
-                {canManage && giftTargets.length > 0 && <button className="log-btn" onClick={() => { sfx.tap(); setDealOpen(true); }}>🤝 Deal</button>}
-                {canManage && <button className="log-btn" onClick={() => { sfx.tap(); setLoanOpen(true); }}>🏦 Loan</button>}
+                {canManage && <button className="log-btn biz" onClick={() => { sfx.tap(); setBiz(true); }}>💼 Dhandha</button>}
                 {game.events.map((e) => (
                   <button key={e.id} className={`pill ev ${e.mult > 1 ? 'boom' : 'slump'}`} onClick={() => setPeek(e.sq)}>{e.emoji} {BOARD[e.sq].short} ×{e.mult}·{e.rounds}r</button>
                 ))}
@@ -595,7 +703,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               </div>
               <div className="dk-note" key={game.note}>{game.note}</div>
               {/* Live log: the latest events stay on the board; tap for the full history. */}
-              <ol className="dk-feed" onClick={() => { sfx.tap(); setLogOpen(true); }} title="Open the full game log">
+              <ol className="dk-feed" onClick={toggleLog} title="Open the full game log">
                 {(game.log ?? []).filter((l) => l.t !== game.note).slice(-4).reverse().map((l, k) => (
                   <li key={l.id} className={k === 0 ? 'new' : ''} style={{ ['--c' as string]: l.pid && room.players.some((p) => p.id === l.pid) ? color(l.pid) : 'rgba(255,255,255,.3)' }}>{l.t}</li>
                 ))}
@@ -603,6 +711,15 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
               <div className="dk-actions">
                 {game.phase === 'deal' && game.deal ? <span className="dim">🤝 {game.deal.from === me ? `Waiting for ${name(game.deal.to)} to answer…` : game.deal.to === me ? 'You have a deal offer' : `${name(game.deal.to)} is weighing a deal…`}</span>
                   : !mine && game.phase !== 'auction' && <span className="dim">{name(cur)} is thinking…</span>}
+                {canBet(game, me) && (game.cash[me] ?? 0) >= BETS.AMOUNTS[0] && <button className="btn shart-btn sm" onClick={() => { sfx.tap(); setBetOpen(true); }}>🎲 Shart lagao</button>}
+                {(() => { const b = game.bets?.find((x) => x.pid === me); return b ? <span className="my-bet">🎲 Your shart: {fmt(b.amount)} on {BET_INFO[b.kind].name} ×{b.odds}</span> : null; })()}
+                {game.ghosts?.[me] && game.out.includes(me) && (
+                  <span className="ghost-bar">👻 Haunting <b>{BOARD[game.ghosts[me].sq].short}</b>
+                    {game.round - game.ghosts[me].since >= GHOST.MOVE_EVERY
+                      ? <button className={`btn glass xs ${haunting ? 'on' : ''}`} onClick={() => setHaunting(!haunting)}>{haunting ? 'Tap a tile…' : 'Move'}</button>
+                      : <small>move in {GHOST.MOVE_EVERY - (game.round - game.ghosts[me].since)}r</small>}
+                  </span>
+                )}
                 {mine && game.phase === 'roll' && (<>
                   {jailed && game.jugaad[me] > 0 && <button className="btn glass sm" onClick={() => act({ t: 'jugaad' })}>🩺 Doctor's Note</button>}
                   {jailed && <button className="btn glass sm" disabled={game.cash[me] < BAIL} onClick={() => act({ t: 'bail' })}>Late fine {fmt(BAIL)}</button>}
@@ -643,6 +760,13 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
             }))}
           </div>
         </div>
+        {wide && (
+          <aside className={`dk-logside ${logSide ? 'open' : ''}`}>
+            <button className="ls-tab" onClick={toggleLog} title={logSide ? 'Hide the log' : 'Show the log'}>{logSide ? '›' : '‹'}<span>📜 Log</span></button>
+            {logSide && <><b className="ls-head">📜 Game log</b><LogList log={game.log ?? []} room={room} color={color} /></>}
+          </aside>
+        )}
+        {!wide && !logOpen && <button className="ls-pull" onClick={toggleLog} title="Open the game log">‹ 📜</button>}
       </div>
 
       {mine && game.phase === 'buy' && sq.price && (() => {
@@ -702,6 +826,11 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
       {peek !== null && !manage && (
         <div className="dk-sheet peek" onClick={() => setPeek(null)}>
           <Deed i={peek} game={game} name={name} me={me} />
+          {canManage && canStake(game, me, peek) && (
+            <button className="btn premium" onClick={(e) => { e.stopPropagation(); act({ t: 'stake', sq: peek }); setPeek(null); }}>
+              📈 Buy 25% of {BOARD[peek].short} · {fmt(stakePrice(game, peek))}
+            </button>
+          )}
           <small className="dim">Tap anywhere to close</small>
         </div>
       )}
@@ -709,6 +838,21 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
       {rules && <DhandhaGuide start="rules" onClose={() => setRules(false)} />}
       {dealOpen && canManage && <DealSheet game={game} me={me} targets={giftTargets} color={color} name={name} onClose={() => setDealOpen(false)} onSend={(a) => { act(a); setDealOpen(false); }} />}
       {loanOpen && canManage && <LoanSheet game={game} me={me} onClose={() => setLoanOpen(false)} act={act} />}
+      {biz && canManage && (
+        <div className="dk-manage" onClick={() => setBiz(false)}>
+          <div className="card dk-biz" onClick={(e) => e.stopPropagation()}>
+            <div className="row-between"><b>💼 Dhandha</b><button className="btn ghost xs" onClick={() => setBiz(false)}>✕</button></div>
+            <div className="biz-grid">
+              <button disabled={!giftTargets.length} onClick={() => { setBiz(false); setDealOpen(true); }}><span>🤝</span><b>Deal</b><small>Swap cities and cash</small></button>
+              <button onClick={() => { setBiz(false); setStakesOpen(true); }}><span>📈</span><b>Stakes</b><small>Own 25% of someone's rent</small></button>
+              <button disabled={!myProps.length} onClick={() => { setBiz(false); setManage(true); }}><span>🏷️</span><b>Sell a city</b><small>To a friend or Seth-ji</small></button>
+              <button onClick={() => { setBiz(false); setLoanOpen(true); }}><span>🏦</span><b>Loan</b><small>Borrow from Seth-ji</small></button>
+            </div>
+          </div>
+        </div>
+      )}
+      {stakesOpen && canManage && <StakesSheet game={game} me={me} name={name} color={color} onClose={() => setStakesOpen(false)} act={act} />}
+      {betOpen && canBet(game, me) && <BetSheet game={game} me={me} roller={name(cur)} onClose={() => setBetOpen(false)} act={(a) => { act(a); setBetOpen(false); }} />}
       {counterOpen && game.phase === 'deal' && game.deal?.to === me && !game.deal.counter && (
         <DealSheet game={game} me={me} targets={giftTargets.filter((p) => p.id === game.deal!.from)} color={color} name={name} counter={game.deal}
           onClose={() => setCounterOpen(false)} onSend={(a) => { act(a); setCounterOpen(false); }} />
@@ -773,18 +917,11 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
         );
       })()}
 
-      {logOpen && (
-        <div className="dk-manage" onClick={() => setLogOpen(false)}>
-          <div className="card dk-log" onClick={(e) => e.stopPropagation()}>
-            <div className="row-between"><b>📜 Game log</b><button className="btn ghost xs" onClick={() => setLogOpen(false)}>✕</button></div>
-            <ol>
-              {[...(game.log ?? [])].reverse().map((l, k, arr) => (
-                <li key={l.id} style={{ ['--c' as string]: l.pid && room.players.some((p) => p.id === l.pid) ? color(l.pid) : 'rgba(255,255,255,0.25)' }}>
-                  {(k === 0 || arr[k - 1].r !== l.r) && <small className="round">Round {l.r}</small>}
-                  <span>{l.t}</span>
-                </li>
-              ))}
-            </ol>
+      {logOpen && !wide && (
+        <div className="dk-drawer-ov" onClick={() => setLogOpen(false)}>
+          <div className="dk-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="row-between"><b>📜 Game log</b><button className="btn ghost xs" onClick={() => setLogOpen(false)}>›</button></div>
+            <LogList log={game.log ?? []} room={room} color={color} />
           </div>
         </div>
       )}
@@ -811,6 +948,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                       {g && <div className="hc-build"><Buildings n={game.build[i]} /><small>{BUILD_LEVELS[game.build[i]]}</small></div>}
                       <div className="hc-rent">Rent now <b>{fmt(rentFor(game, i, 7))}</b></div>
                       <MarketLine game={game} sq={i} />
+                      {game.stakes?.[i] && <small className="stake-t">📈 {name(game.stakes[i])} holds 25% of the rent</small>}
                       {g && !full && <small className="dim">Collect all {groupSquares(s.group!).length} {g.name} cities to build</small>}
                       {game.mort[i] && <small className="girvi-t">GIRVI · mortgaged</small>}
                     </div>
@@ -820,6 +958,7 @@ export function DhandhaBoard({ room, game, me, color, mood, setMood, confetti, a
                       {!game.build[i] && (game.mort[i]
                         ? <button className="btn buyback-btn xs" disabled={!canManage || game.cash[me] < buyBackPrice(i)} onClick={() => act({ t: 'unmortgage', sq: i })}>💰 Buy back {fmt(buyBackPrice(i))}</button>
                         : <button className="btn ghost xs" disabled={!canManage} onClick={() => act({ t: 'mortgage', sq: i })}>Mortgage +{fmt(s.price! / 2)}</button>)}
+                      {game.stakes?.[i] && <button className="btn glass xs" disabled={!canManage || game.cash[me] < buyoutPrice(game, i)} onClick={() => act({ t: 'buyout', sq: i })}>💼 Buy back 25% · {fmt(buyoutPrice(game, i))}</button>}
                       <button className="btn sell xs" disabled={!canManage} onClick={() => setSellSq(i)}>🏷️ Sell · {short(marketValue(game, i))}</button>
                     </div>
                   </div>
@@ -937,6 +1076,8 @@ function PopUp({ p, name, color, game, onClose }: { p: Pop; name(id: string): st
     ? <div className="toast-pop gold big">📈 MEHNGAI! Every rent is now {times(p.amount ?? 1)}</div>
     : <div className="toast-pop gold big">🎓 PLACEMENT SEASON — every rent ×1.5 till the end!</div>;
   if (p.kind === 'gift') return p.amount === -1 ? <div className="toast-pop gold">🤝 Deal done: {name(p.pid)} ⇄ {name(p.other ?? '')}</div> : <div className="toast-pop gold">💝 {name(p.pid)} sent {fmt(p.amount ?? 0)} to {name(p.other ?? '')}</div>;
+  if (p.kind === 'stake') return <div className="toast-pop gold">📈 {name(p.pid)} bought 25% of {s?.name} from {name(p.other ?? '')} for {fmt(p.amount ?? 0)}</div>;
+  if (p.kind === 'haunt') return <div className="toast-pop ghost">👻 {name(p.pid)} now haunts {s?.name}: {fmt(GHOST.TOLL)} toll to land there</div>;
   if (p.kind === 'counter') return <div className="toast-pop">🔁 {name(p.pid)} sends {name(p.other ?? '')} a counter-offer</div>;
   if (p.kind === 'season') { const se = SEASONS[p.other as SeasonKind]; return se ? <div className="toast-pop">{se.emoji} {se.name} is over</div> : null; }
   if (p.kind === 'catchup') return p.other === 'bonus'
@@ -982,6 +1123,8 @@ function Deed({ i, game, name, me }: { i: number; game: DGame; name(pid: string)
       <div className="deed-title"><b>{s.name}</b><small>{g ? g.name : s.kind === 'train' ? 'Transport' : s.kind === 'utility' ? 'Utility' : 'Special tile'}</small></div>
       {s.flavour && <p className="deed-flav">“{s.flavour}”</p>}
       {s.price && <div className="deed-mkt">📊 Market value <MarketLine game={game} sq={i} bare /></div>}
+      {game.stakes?.[i] && <div className="deed-mkt">📈 <b>{name(game.stakes[i])}</b> holds 25% of this rent</div>}
+      {Object.entries(game.ghosts ?? {}).filter(([, x]) => x.sq === i).map(([id]) => <div key={id} className="deed-mkt ghost">👻 Haunted by <b>{name(id)}</b>: {fmt(GHOST.TOLL)} toll to land here</div>)}
       {s.price && rentBoost(game) > 1 && <div className="deed-ev boom">📈 {placementOn(game) ? 'Placement Season' : 'Mehngai'}: every rent {times(rentBoost(game))} right now</div>}
       {ev && <div className={`deed-ev ${ev.mult > 1 ? 'boom' : 'slump'}`}>{ev.emoji} {ev.title}: rent ×{ev.mult} for {ev.rounds} more round{ev.rounds > 1 ? 's' : ''}</div>}
       {s.kind === 'city' && (
@@ -1172,6 +1315,118 @@ function SellSheet({ game, me, sq, targets, color, onClose, act }: {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------- city stakes ----------------
+/** Buy 25% of someone else's city (a quarter of its rent is yours), and see stakes in your own cities. */
+function StakesSheet({ game, me, name, color, onClose, act }: { game: DGame; me: string; name(id: string): string; color(id: string): string; onClose(): void; act(a: DAction): void }) {
+  const mine = stakesOf(game, me);
+  const others = BOARD.map((_, i) => i).filter((i) => BOARD[i].price != null && game.owner[i] && game.owner[i] !== me && !game.mort[i] && !game.stakes?.[i])
+    .sort((a, b) => rentFor(game, b, 7) - rentFor(game, a, 7));
+  const inMine = Object.keys(game.stakes ?? {}).map(Number).filter((i) => game.owner[i] === me);
+  const full = mine.length >= STAKE.MAX;
+  const row = (i: number, right: React.ReactNode, note?: string) => (
+    <li key={i} style={{ ['--c' as string]: color(game.owner[i]!) }}>
+      <CityChip sq={i} />
+      <span className="st-mid"><small>{name(game.owner[i]!)}{note ? ` · ${note}` : ''}</small><b>Rent {fmt(rentFor(game, i, 7))} → your 25%: {fmt(Math.round(rentFor(game, i, 7) * STAKE.SHARE))}</b></span>
+      {right}
+    </li>
+  );
+  return (
+    <div className="dk-manage" onClick={onClose}>
+      <div className="card dk-stakes" onClick={(e) => e.stopPropagation()}>
+        <div className="row-between"><b>📈 City stakes</b><button className="btn ghost xs" onClick={onClose}>✕</button></div>
+        <small className="dim">Buy 25% of someone's city: every time it collects rent, a quarter comes to you. The owner gets your money now and can buy the stake back later for more. Up to {STAKE.MAX} stakes. Earned so far: <b>{fmt(game.stats.x?.stake?.[me] ?? 0)}</b></small>
+        {mine.length > 0 && (<><h4>Your stakes ({mine.length}/{STAKE.MAX})</h4><ul className="st-list">{mine.map((i) => row(i, <span className="st-own">25% ✓</span>))}</ul></>)}
+        {inMine.length > 0 && (<><h4>Stakes in your cities</h4><ul className="st-list">{inMine.map((i) => (
+          <li key={i} style={{ ['--c' as string]: color(game.stakes![i]) }}>
+            <CityChip sq={i} /><span className="st-mid"><small>{name(game.stakes![i])} holds 25%</small><b>Buy it back for {fmt(buyoutPrice(game, i))}</b></span>
+            <button className="btn glass xs" disabled={game.cash[me] < buyoutPrice(game, i)} onClick={() => act({ t: 'buyout', sq: i })}>Buy back</button>
+          </li>
+        ))}</ul></>)}
+        <h4>Buy a stake</h4>
+        {others.length ? <ul className="st-list">{others.map((i) => row(i,
+          <button className="btn premium xs" disabled={full || !canStake(game, me, i)} onClick={() => act({ t: 'stake', sq: i })}>{fmt(stakePrice(game, i))}</button>))}</ul>
+          : <small className="dim">Nobody owns a city you can buy into yet.</small>}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- side bets ----------------
+/** A shart on someone else's roll: Seth-ji the bookie shows live odds. Lost bets go into the Tapri gullak. */
+function BetSheet({ game, me, roller, onClose, act }: { game: DGame; me: string; roller: string; onClose(): void; act(a: DAction): void }) {
+  const [amount, setAmount] = useState(BETS.AMOUNTS[0]);
+  const ghost = game.out.includes(me);
+  const kinds = (Object.keys(BET_INFO) as BetKind[]).filter((k) => !(ghost && k === 'mine'));
+  return (
+    <div className="dk-manage" onClick={onClose}>
+      <div className="card dk-bet" onClick={(e) => e.stopPropagation()}>
+        <div className="row-between"><b>🎲 Shart on {roller}'s roll</b><button className="btn ghost xs" onClick={onClose}>✕</button></div>
+        <small className="dim">Seth-ji is the bookie. Win and he pays the odds; lose and your shart goes into the Tapri gullak. One shart per roll.</small>
+        <div className="seg">{BETS.AMOUNTS.map((v) => <button key={v} className={amount === v ? 'on' : ''} disabled={(game.cash[me] ?? 0) < v} onClick={() => setAmount(v)}>{fmt(v)}</button>)}</div>
+        <div className="bet-grid">
+          {kinds.map((k) => {
+            const odds = betOdds(game, k, me);
+            return (
+              <button key={k} disabled={odds <= 1 || (game.cash[me] ?? 0) < amount} onClick={() => act({ t: 'bet', kind: k, amount })}>
+                <span>{BET_INFO[k].emoji}</span><b>{BET_INFO[k].name}</b><small>{BET_INFO[k].hint}</small>
+                <em>{odds > 1 ? `×${odds} · win ${fmt(Math.round(amount * odds))}` : 'not possible now'}</em>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- log with pictures ----------------
+const LOG_ICON: Record<string, string> = {
+  pay: '💸', earn: '💰', salary: '💵', buy: '🏷️', build: '🏗️', villa: '🏰', sell: '🔨', mortgage: '🏦', unmort: '💰', cardSold: '🧔', sethNo: '🙅', deal: '🤝', counter: '🔁',
+  gift: '💝', loan: '🏦', repay: '🏦', jail: '🚨', free: '🕊️', pot: '☕', spin: '🎡', event: '🔥', eventEnd: '📉', setComplete: '👑', sets: '🏆', power: '⚡', shield: '🛡️',
+  double: '💥', tele: '🌀', takeover: '😈', auctionWin: '🔨', streak: '🔥', bankrupt: '💥', season: '🗓️', catchup: '🎒', market: '📊', placement: '📈', stake: '📈',
+  stakeCut: '📈', buyout: '💼', haunt: '👻', toll: '👻', bet: '🎲', betWin: '🎲', betLose: '🎲', land: '📍',
+};
+function LogList({ log, room, color }: { log: DGame['log']; room: GameProps<DGame, DAction>['room']; color(id: string): string }) {
+  const player = (id?: string) => (id ? room.players.find((p) => p.id === id) : undefined);
+  return (
+    <ol className="dk-loglist">
+      {[...log].reverse().map((l, k, arr) => {
+        const who = player(l.pid), other = player(l.o), s = l.sq != null ? BOARD[l.sq] : null;
+        return (
+          <li key={l.id} style={{ ['--c' as string]: who ? color(who.id) : 'rgba(255,255,255,0.25)' }} className={k === 0 ? 'new' : ''}>
+            {(k === 0 || arr[k - 1].r !== l.r) && <small className="round">Round {l.r}</small>}
+            <div className="ll-row">
+              <span className="ll-pic">{s ? <TilePic kind={s.kind} name={s.name} /> : <span className="ll-ico">{(l.k && LOG_ICON[l.k]) || (/^[p{L}p{N}]/u.test(l.t) ? '📌' : Array.from(l.t)[0])}</span>}</span>
+              <span className="ll-text">{l.t}</span>
+              <span className="ll-who">{who && <Avatar id={who.avatar} size={22} />}{other && other.id !== who?.id && <Avatar id={other.avatar} size={18} />}</span>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Whether the screen is wide enough for the log to sit beside the board. */
+function useWide() {
+  const q = '(min-width: 900px) and (min-aspect-ratio: 1/1)';
+  const [w, setW] = useState(() => typeof matchMedia !== 'undefined' && matchMedia(q).matches);
+  useEffect(() => { const m = matchMedia(q), f = () => setW(m.matches); m.addEventListener('change', f); return () => m.removeEventListener('change', f); }, []);
+  return w;
+}
+
+// ---------------- festival particles ----------------
+function ThemeFx({ theme }: { theme: ThemeId }) {
+  const T = THEMES[theme];
+  const [bits] = useState(() => Array.from({ length: LOW ? 8 : 14 }, (_, i) => ({ i, x: Math.random() * 100, d: 6 + Math.random() * 8, delay: -Math.random() * 12, s: 0.7 + Math.random() * 0.8, e: T.particles[i % T.particles.length] })));
+  if (RM) return null;
+  return (
+    <div className={`theme-fx m-${T.motion} t-${theme}`} aria-hidden>
+      {bits.map((b) => <i key={b.i} style={{ left: `${b.x}%`, animationDuration: `${b.d}s`, animationDelay: `${b.delay}s`, ['--s' as string]: b.s }}>{b.e}</i>)}
     </div>
   );
 }

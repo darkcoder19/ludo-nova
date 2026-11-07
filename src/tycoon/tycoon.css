@@ -1,0 +1,57 @@
+/* Hawai Adda */
+.rr-logo.ha { background: linear-gradient(135deg, #ff8c42, #ffd23f); }
+.rr-hero h1 em.ha { color: #ffd23f; }
+.ha-save { display: flex; flex-direction: column; gap: 2px; text-align: center; } .ha-save small { color: var(--dim); font-weight: 700; }
+.banner.ok { background: rgba(0, 201, 122, 0.18); border: 1px solid rgba(0, 201, 122, 0.5); padding: 8px 12px; border-radius: 12px; font-weight: 800; text-align: center; }
+.screen.ha-game { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 6px; padding: calc(env(safe-area-inset-top) + 6px) 8px 8px; background: linear-gradient(180deg, #8fd3ff 0%, #c8ecff 100%); color: #1b1035; transition: background 1s; }
+.screen.ha-game.night { background: linear-gradient(180deg, #0b1440, #24166a); color: #fff; }
+.ha-hud { display: flex; align-items: center; gap: 6px; flex: none; }
+.ha-hud .btn.ghost { color: inherit; }
+.ha-stats { flex: 1; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-weight: 900; min-width: 0; }
+.ha-stats b { font-size: 1.1rem; } .ha-stats b.neg { color: #e5304f; } .ha-stats span { font-size: 0.82rem; }
+.ha-speed button { padding: 4px 8px; font-size: 0.75rem; }
+.ha-sub { display: flex; gap: 6px; flex-wrap: wrap; flex: none; font-size: 0.74rem; font-weight: 800; }
+.ha-sub span { padding: 3px 10px; border-radius: 99px; background: rgba(255, 255, 255, 0.55); } .night .ha-sub span { background: rgba(255, 255, 255, 0.12); }
+.ha-sub .goal { background: rgba(255, 210, 63, 0.75); color: #2a1300; }
+.ha-main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+@media (min-aspect-ratio: 1/1) { .ha-main { flex-direction: row; } .ha-panel { width: min(420px, 42%); } }
+.ha-gridwrap { position: relative; flex: 1; min-height: 0; min-width: 0; display: grid; place-items: center; container-type: size; }
+.ha-grid { display: grid; grid-template-columns: repeat(var(--n), 1fr); grid-template-rows: repeat(var(--n), 1fr); gap: 3px; width: min(100cqw, 100cqh); aspect-ratio: 1; padding: 6px; border-radius: 16px; background: #6fbf5a; box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.08); }
+.night .ha-grid { background: #23452a; }
+.ha-tile { position: relative; border: none; border-radius: 8px; padding: 0; display: grid; place-items: center; cursor: pointer; font: inherit; background: #82cf6c; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.1); overflow: visible; }
+.night .ha-tile { background: #2e5a36; }
+.ha-tile .ic { font-size: min(6.5cqw, 6.5cqh); line-height: 1; }
+.ha-tile.can { background: #b6f2a0; outline: 2px dashed rgba(27, 16, 53, 0.35); animation: fire-bob 1.4s ease-in-out infinite; }
+.ha-tile.sel { outline: 3px solid #ffd23f; z-index: 2; }
+.ha-tile:not(.empty) { background: #eef4f8; } .night .ha-tile:not(.empty) { background: #3a4a6a; }
+.ha-tile.runway { background: repeating-linear-gradient(90deg, #444b55 0 40%, #fff 40% 50%, #444b55 50% 90%, #fff 90% 100%) center / 100% 8% no-repeat, #444b55 !important; }
+.ha-tile.runway .ic { opacity: 0.25; }
+.ha-tile.runway.busy { box-shadow: 0 0 0 2px #ffd23f, inset 0 -3px 0 rgba(0, 0, 0, 0.1); }
+.ha-tile .rw-plane { position: absolute; font-size: min(6cqw, 6cqh); animation: rw-land 1.8s ease-in-out infinite; }
+@keyframes rw-land { from { transform: translate(-90%, -40%) scale(1.3); opacity: 0; } 30% { opacity: 1; } to { transform: translate(90%, 0) scale(0.9); opacity: 0; } }
+.ha-tile .parked { position: absolute; right: 2px; bottom: 2px; font-size: min(3.6cqw, 3.6cqh); transform: rotate(-45deg); }
+.ha-tile .lv { position: absolute; top: 1px; left: 3px; font-style: normal; font-size: 0.55rem; color: #ffb400; }
+.ha-tile .pop { position: absolute; left: 50%; top: 0; z-index: 5; transform: translateX(-50%); white-space: nowrap; font-style: normal; font-weight: 900; font-size: 0.72rem; padding: 1px 6px; border-radius: 6px; pointer-events: none; animation: tag-up 1.8s ease-out forwards; }
+.ha-tile .pop.good { background: #00b86b; color: #fff; } .ha-tile .pop.bad { background: #e5304f; color: #fff; }
+.ha-goalpop { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); padding: 8px 14px; border-radius: 99px; background: linear-gradient(135deg, #ffd23f, #ff8c42); color: #2a1300; font-weight: 900; font-size: 0.85rem; width: max-content; max-width: 94%; animation: pop-in 0.4s; z-index: 6; }
+.ha-panel { flex: none; display: flex; flex-direction: column; gap: 6px; max-height: 42%; min-height: 0; background: rgba(255, 255, 255, 0.7); border-radius: 16px; padding: 8px; color: #1b1035; }
+@media (min-aspect-ratio: 1/1) { .ha-panel { max-height: none; } }
+.night .ha-panel { background: rgba(20, 14, 60, 0.85); color: #fff; }
+.ha-tabs { flex: none; } .ha-tabs button { flex: 1; font-size: 0.8rem; }
+.ha-build { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 5px; overflow-y: auto; min-height: 0; }
+.ha-card { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; border-radius: 12px; font: inherit; color: inherit; cursor: pointer; background: rgba(255, 255, 255, 0.75); border: 2px solid transparent; }
+.night .ha-card { background: rgba(255, 255, 255, 0.08); }
+.ha-card .ic { font-size: 1.4rem; } .ha-card b { font-size: 0.7rem; line-height: 1.1; text-align: center; } .ha-card small { font-size: 0.66rem; font-weight: 800; opacity: 0.75; }
+.ha-card.on { border-color: #ff8c42; background: #fff3d6; } .night .ha-card.on { background: rgba(255, 140, 66, 0.25); }
+.ha-card:disabled { opacity: 0.45; }
+.ha-hint { grid-column: 1 / -1; font-size: 0.72rem; }
+.ha-sel { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 12px; background: rgba(255, 210, 63, 0.3); }
+.ha-sel small { font-size: 0.74rem; } .ha-sel .row { display: flex; gap: 6px; flex-wrap: wrap; }
+.ha-air, .ha-log { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; }
+.ha-air h4 { margin: 2px 0 0; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
+.ha-con { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 7px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.75); border-left: 4px solid var(--ac); }
+.night .ha-con { background: rgba(255, 255, 255, 0.08); }
+.ha-con div { display: flex; flex-direction: column; min-width: 0; } .ha-con b { font-size: 0.85rem; } .ha-con small { font-size: 0.72rem; opacity: 0.85; }
+.ha-con.mine { flex-direction: column; align-items: flex-start; gap: 0; }
+.ha-log ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; } .ha-log li { font-size: 0.78rem; padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.5); }
+.night .ha-log li { background: rgba(255, 255, 255, 0.08); }

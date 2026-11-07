@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AUCTION_STEP, BAIL, BOARD, CALENDAR, CARDS, CASH_CHOICES, CATCHUP, DEAL_MAX, SEASONS, GIFT_STEP, GROUPS, LOAN, MAX_POWERS, MEHNGAI, SETS_TO_WIN, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
+import { AUCTION_STEP, BAIL, BETS, BET_INFO, BOARD, CALENDAR, GHOST, STAKE, CARDS, CASH_CHOICES, CATCHUP, DEAL_MAX, SEASONS, GIFT_STEP, GROUPS, LOAN, MAX_POWERS, MEHNGAI, SETS_TO_WIN, POWERS, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, fmt, type Power } from './data';
+import { HOUSE_NAMES } from './rules';
 import { ArtDefs, Buildings, SethJi, TilePic } from './Monument';
 
 const STEPS = [
@@ -178,6 +179,40 @@ export function DhandhaGuide({ onClose, start = 'video' }: { onClose(): void; st
             <ul>
               {Object.values(SEASONS).map((s) => <li key={s.name}><b>{s.emoji} {s.name}:</b> {s.text}.</li>)}
             </ul>
+
+            <h3>📈 City stakes</h3>
+            <ul>
+              <li>On your turn, open <b>💼 Dhandha → Stakes</b> (or tap a city on the board) to buy <b>25%</b> of a city someone else owns, for {STAKE.PRICE * 100}% of its market value. The owner gets that money.</li>
+              <li>Every time that city collects rent, a quarter of it is yours. Even when you land there yourself, a quarter of your rent comes back.</li>
+              <li>The owner can buy the stake back on their turn for {STAKE.BUYOUT * 100}% of market value, which is more than you paid. You can hold up to {STAKE.MAX} stakes. If the city goes back to Seth-ji, he pays you a quarter of its value.</li>
+            </ul>
+
+            <h3>👻 Ghost landlords</h3>
+            <ul>
+              <li>Going bankrupt doesn't end the fun: you become a <b>ghost</b> and haunt the richest tile on the board.</li>
+              <li>Anyone who lands on your haunted tile pays you a <b>{fmt(GHOST.TOLL)} toll</b>. Every {GHOST.MOVE_EVERY} rounds you can move to a new tile (tap <b>Move</b>, then the tile).</li>
+              <li>Ghosts can still place sharts with their toll money. The best ghost gets a shout-out in the recap.</li>
+            </ul>
+
+            <h3>🎲 Shart lagao (side bets)</h3>
+            <ul>
+              <li>Before someone else rolls, tap <b>🎲 Shart lagao</b> and bet {BETS.AMOUNTS.map((a) => fmt(a)).join(' or ')} on their roll: {Object.values(BET_INFO).map((b) => `${b.emoji} ${b.name}`).join(', ')}.</li>
+              <li>Seth-ji is the bookie: the odds are shown live (a long shot pays more, up to ×{BETS.MAX_ODDS}). Win and he pays out; lose and your shart goes into the Tapri gullak.</li>
+              <li>One shart per roll, and never on your own roll.</li>
+            </ul>
+
+            <h3>👯 Roommates 2v2</h3>
+            <ul>
+              <li>Pick <b>Roommates 2v2</b> with exactly 4 players. Players 1 &amp; 3 are Team A, players 2 &amp; 4 Team B (shown as A/B on the player cards).</li>
+              <li>Roommates pay each other <b>no rent</b>. Send money, trade and buy stakes to help your roommate.</li>
+              <li>After 15 rounds the team with more combined worth wins, or the last team standing.</li>
+            </ul>
+
+            <h3>🏠 House rules</h3>
+            <p>The host can switch any of these on in the lobby: {Object.values(HOUSE_NAMES).join(', ')}. Fast Mehngai starts rent inflation at round 25 instead of 55.</p>
+
+            <h3>🪔 Festivals</h3>
+            <p>On real festival dates (Diwali, Holi, Christmas, cricket season and more) the board lights up and the game gets a perk, such as a Payday bonus, a fuller Tapri gullak or cities that start trending. Quests give double XP, and playing during Diwali or Holi collects that festival's dice skin for good.</p>
 
             <h3>🎒 Nobody gets left behind</h3>
             <ul>

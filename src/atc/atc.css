@@ -1,0 +1,42 @@
+/* Runway Raja */
+.rr-home .rr-hero { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.rr-logo { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; font-size: 2.2rem; background: linear-gradient(135deg, #12d6b4, #2b7bff); box-shadow: 0 10px 30px rgba(43, 123, 255, 0.45); animation: fire-bob 2s ease-in-out infinite; }
+.rr-hero small { font-weight: 900; letter-spacing: 0.12em; color: var(--dim); font-size: 0.7rem; margin-top: 6px; }
+.rr-hero h1 { margin: 0; font-size: 2.2rem; font-weight: 900; } .rr-hero h1 em { font-style: normal; color: #5dffb4; }
+.rr-hero p { margin: 2px 0 0; color: var(--dim); font-weight: 600; }
+.rr-how { display: flex; flex-direction: column; gap: 6px; }
+.rr-how div { display: flex; gap: 10px; align-items: center; } .rr-how span { font-size: 1.4rem; width: 30px; text-align: center; flex: none; }
+.rr-how p { margin: 0; font-size: 0.84rem; line-height: 1.3; } .rr-how b.g { color: #5dffb4; } .rr-how b.r { color: #ff5c7a; }
+.rr-result { text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.rr-result .big { font-size: 2.6rem; font-weight: 900; color: #5dffb4; line-height: 1; } .rr-result small { color: var(--dim); font-weight: 700; }
+.screen.rr-game { position: fixed; inset: 0; display: flex; flex-direction: column; background: #06121c; padding: 0; gap: 0; }
+.rr-hud { flex: none; display: flex; align-items: center; gap: 8px; padding: calc(env(safe-area-inset-top) + 6px) 10px 6px; background: rgba(6, 18, 28, 0.9); border-bottom: 1px solid rgba(80, 200, 255, 0.2); font-weight: 900; }
+.rr-hud .rr-score { font-size: 1.1rem; color: #5dffb4; } .rr-hud .rr-lives { flex: 1; text-align: center; letter-spacing: 2px; }
+.rr-wind { font-size: 0.8rem; padding: 3px 10px; border-radius: 99px; background: rgba(80, 200, 255, 0.15); color: #9fd8ff; white-space: nowrap; }
+.rr-wind.warn { background: rgba(255, 210, 63, 0.25); color: #ffd23f; animation: fire-bob 0.6s ease-in-out infinite; }
+.rr-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.rr-stage canvas { display: block; touch-action: none; }
+.rr-tip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); padding: 8px 14px; border-radius: 99px; background: #1a1240; border: 1px solid #ffd23f; font-weight: 800; font-size: 0.85rem; width: max-content; max-width: 92%; animation: pop-in 0.3s; pointer-events: none; }
+.rr-paused { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6, 18, 28, 0.6); font-weight: 900; font-size: 1.3rem; }
+.rr-radio { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 6px 12px; border-radius: 12px; width: max-content; max-width: 94%; font: 700 0.78rem ui-monospace, Consolas, monospace; color: #b6ffd9; background: rgba(4, 20, 14, 0.85); border: 1px solid rgba(93, 255, 180, 0.4); pointer-events: none; animation: pop-in 0.2s; }
+.rr-radio.atc { color: #ffe08a; border-color: rgba(255, 210, 63, 0.45); }
+.rr-radio i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; animation: fire-bob 0.5s ease-in-out infinite; flex: none; }
+.rr-hud .btn.off { opacity: 0.5; }
+.rr-hud > * { white-space: nowrap; } .rr-hud .rr-lives { font-size: 0.8rem; letter-spacing: 0; } @media (max-width: 400px) { .rr-hud { gap: 4px; padding-left: 6px; padding-right: 6px; } .rr-hud .btn.sm { padding: 4px 7px; } }
+/* v2: levels, tap commands, progress */
+.rr-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rr-level { display: flex; flex-direction: column; gap: 3px; padding: 10px 8px; border-radius: 16px; font: inherit; color: inherit; text-align: left; cursor: pointer; background: rgba(255, 255, 255, 0.06); border: 2px solid transparent; }
+.rr-level b { font-size: 0.95rem; } .rr-level small { font-size: 0.7rem; color: var(--dim); font-weight: 700; line-height: 1.25; } .rr-level span { font-size: 0.7rem; font-weight: 900; color: #ffd23f; margin-top: auto; }
+.rr-level.on.easy { border-color: #00c97a; background: rgba(0, 201, 122, 0.14); } .rr-level.on.medium { border-color: #ffd23f; background: rgba(255, 210, 63, 0.12); } .rr-level.on.hard { border-color: #ff2d55; background: rgba(255, 45, 85, 0.12); }
+@media (max-width: 420px) { .rr-level small { display: none; } }
+.rr-result .stars { font-size: 1.8rem; letter-spacing: 4px; color: rgba(255, 255, 255, 0.2); } .rr-result .stars .on { color: #ffd23f; text-shadow: 0 0 12px #ffd23f; }
+.rr-result.lost .big { color: #ff8fa3; } .rr-result .big small { font-size: 0.8rem; color: #ffd23f; }
+.rr-hud .rr-diff { font-size: 0.9rem; }
+.rr-prog { position: relative; flex: 1; min-width: 60px; height: 22px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); display: grid; place-items: center; font-size: 0.78rem; overflow: hidden; }
+.rr-prog b { color: #5dffb4; } .rr-prog i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, rgba(0, 201, 122, 0.45), rgba(18, 214, 180, 0.6)); z-index: -1; transition: width 0.4s; }
+.rr-prog { isolation: isolate; }
+.rr-hud .rr-lives { flex: none; }
+.rr-cmds { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px); background: rgba(6, 18, 28, 0.95); border-top: 2px solid #ffd23f; animation: pop-in 0.18s; }
+.rr-cmds .rr-who { display: flex; flex-direction: column; margin-right: auto; min-width: 0; } .rr-cmds .rr-who b { color: #ffd23f; } .rr-cmds .rr-who small { font-size: 0.7rem; color: #9fd8ff; font-weight: 700; }
+.rr-cmds .btn.sm { padding: 9px 12px; font-weight: 900; }
+.rr-radio { bottom: 8px; }

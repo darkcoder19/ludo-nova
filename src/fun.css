@@ -228,3 +228,20 @@ html, body { overscroll-behavior: none; }
 @keyframes hp-star { 0% { transform: scale(0.3); opacity: 1; } 100% { transform: translateY(-0.9px) scale(1.4); opacity: 0; } }
 .token.arriving .hop { animation: arrive 0.8s cubic-bezier(0.2, 1.5, 0.4, 1); }
 @keyframes arrive { 0% { transform: scale(1.6) rotate(0); } 60% { transform: scale(1.2) rotate(360deg); } 100% { transform: scale(1) rotate(360deg); } }
+
+/* short phones: seats in one row, a slimmer code card, and the options card gives way (scrolling inside if it must) */
+@media (max-height: 760px) and (max-width: 899px) {
+  .lobby .room-code { padding: 8px; gap: 6px; }
+  .lobby .code span { width: 34px; height: 40px; font-size: 1.3rem; }
+  .lobby .seats { grid-template-columns: repeat(4, 1fr); flex: none; grid-auto-rows: auto; gap: 6px; }
+  .lobby .seat { padding: 6px 2px; }
+  .lobby .seat-av { width: 40px; height: 40px; } .lobby .seat-av .avatar-svg { width: 36px; height: 36px; }
+  .lobby .seat-name { font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; }
+  .lobby .seat .btn.xs { padding: 2px 6px; font-size: 0.65rem; }
+  .lobby .lobby-mode { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+  .lobby .timer-pick { margin-top: 6px; gap: 4px; }
+  .lobby .mode { padding: 6px 8px; }
+  .lobby .mode small { display: none; }
+  .lobby .lobby-mode .seg button { padding-top: 6px; padding-bottom: 6px; }
+  .lobby .btn.big { padding: 11px; }
+}

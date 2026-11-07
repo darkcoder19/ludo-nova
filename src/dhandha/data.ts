@@ -101,6 +101,20 @@ export const SEASONS: Record<SeasonKind, { name: string; emoji: string; text: st
 };
 /** Catch-up at Payday: the player far behind gets a bonus, the runaway leader pays a little tax. */
 export const CATCHUP = { BONUS: 1000, BONUS_BELOW: 0.6, TAX: 500, TAX_ABOVE: 1.6 };
+/** City stakes: a 25% share of someone else's city earns a quarter of every rent it collects. */
+export const STAKE = { SHARE: 0.25, PRICE: 0.35, BUYOUT: 0.5, MAX: 3 };
+/** Ghost landlords: a bankrupt player haunts one tile and takes a toll from whoever lands there. */
+export const GHOST = { TOLL: 300, MOVE_EVERY: 3 };
+/** Side bets (shart) on someone else's roll. Seth-ji is the bookie: odds = 0.9 ÷ chance; lost bets feed the gullak. */
+export const BETS = { AMOUNTS: [200, 500], EDGE: 0.9, MAX_ODDS: 10 };
+export type BetKind = 'doubles' | 'under' | 'over' | 'seven' | 'mine';
+export const BET_INFO: Record<BetKind, { name: string; emoji: string; hint: string }> = {
+  doubles: { name: 'Doubles', emoji: '🎲', hint: 'both dice the same' },
+  under: { name: 'Under 7', emoji: '⬇️', hint: 'total 2 to 6' },
+  over: { name: 'Over 7', emoji: '⬆️', hint: 'total 8 to 12' },
+  seven: { name: 'Lucky 7', emoji: '🍀', hint: 'total exactly 7' },
+  mine: { name: 'Pays me rent', emoji: '💸', hint: 'lands on one of your cities' },
+};
 
 /** Rent multipliers for 0..5 buildings. */
 export const RENT_MULT = [1, 5, 15, 45, 65, 90];

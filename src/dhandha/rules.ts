@@ -1,14 +1,17 @@
 // DhandhaKing — property tycoon rules ("Campus to Crorepati"). Pure functions run by the room host.
 import { AUTO, type Rules, type Seat } from '../shared/room';
+import { FESTIVALS, festivalById, festivalOn } from '../game/festivals';
+import { themeOfFest } from './themes';
 import {
   AUCTION_STEP, BAIL, BOARD, BUILD_LEVELS, CALENDAR, CARDS, CATCHUP, DEAL_MAX, MARKET, SEASONS, GIFT_STEP, LOAN, SETS_TO_WIN, CITY_FESTIVALS, CITY_SLUMPS, GROUPS, JAIL, MAX_BUILD, MAX_POWERS, MEHNGAI, PLACEMENT_ROUND, POWERS,
-  CASH_CHOICES, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, buildCost, fmt, type Card, type Power, type SeasonKind,
+  BETS, BET_INFO, GHOST, STAKE, CASH_CHOICES, RENT_MULT, SALARY, START_CASH, STREAK_BONUS, WHEEL, buildCost, fmt, type BetKind, type Card, type Power, type SeasonKind,
 } from './data';
 
 export type FxKind =
   | 'event' | 'eventEnd' | 'land' | 'setComplete' | 'villa' | 'cardSold' | 'pay' | 'earn' | 'buy' | 'build' | 'sell' | 'jail'
   | 'bankrupt' | 'pot' | 'salary' | 'mortgage' | 'unmort' | 'gift' | 'deal' | 'loan' | 'repay' | 'sets' | 'free' | 'shield' | 'double' | 'takeover' | 'streak'
-  | 'spin' | 'auctionWin' | 'placement' | 'power' | 'tele' | 'sethNo' | 'season' | 'catchup' | 'market' | 'counter';
+  | 'spin' | 'auctionWin' | 'placement' | 'power' | 'tele' | 'sethNo' | 'season' | 'catchup' | 'market' | 'counter'
+  | 'stake' | 'stakeCut' | 'buyout' | 'haunt' | 'toll' | 'bet' | 'betWin' | 'betLose';
 export interface Fx { id: number; kind: FxKind; pid: string; other?: string; amount?: number; sq?: number; text?: string }
 export interface DMove { id: number; pid: string; from: number; to: number; jump: boolean }
 export interface CityEvent { id: number; sq: number; title: string; reason: string; emoji: string; mult: number; rounds: number }
@@ -36,7 +39,13 @@ export interface DGame {
   round: number;
   maxRounds: number;
   /** quick: 15 rounds · classic: last one standing · sets: first to 3 complete colour sets. */
-  mode?: 'quick' | 'classic' | 'sets';
+  mode?: 'quick' | 'classic' | 'sets' | 'teams';
+  /** Roommates 2v2: player → team 0 or 1. Roommates pay each other no rent; the richer team wins. */
+  teams?: Record<string, number>;
+  /** House rules the host switched on in the lobby. */
+  house?: string[];
+  /** The real-calendar festival this game started in (festive board + a perk). */
+  festival?: string | null;
   /** What each player owes Seth-ji (interest included). */
   debt?: Record<string, number>;
   /** A city deal waiting for its answer. */
@@ -50,6 +59,14 @@ export interface DGame {
   sethTried?: number[];
   /** Round each player last proposed a deal (bots wait a few rounds between offers). */
   lastOffer?: Record<string, number>;
+  /** City stakes: square → the player holding a 25% share of its rent. */
+  stakes?: Record<number, string>;
+  /** Ghost landlords: bankrupt player → the tile they haunt and the round they last moved. */
+  ghosts?: Record<string, { sq: number; since: number }>;
+  /** Side bets (shart) on the roll that's coming. */
+  bets?: Bet[];
+  /** Records for the end-of-game recap (biggest rent, jackpot, Seth-ji sale…). */
+  rec?: Record<string, RecLine>;
   pot: number;
   events: CityEvent[];
   lastEventRound: number;
@@ -69,7 +86,10 @@ export interface DGame {
 }
 /** A proposed swap: `give` cities (and positive cash) go from → to, `get` cities (and negative cash) come back. */
 export interface Deal { from: string; to: string; give: number[]; get: number[]; cash: number; back: 'roll' | 'end'; sale?: boolean; counter?: boolean }
-export interface LogLine { id: number; r: number; t: string; pid?: string }
+/** A log line; `sq` (tile), `k` (what happened) and `o` (the other player) let the log show pictures. */
+export interface LogLine { id: number; r: number; t: string; pid?: string; sq?: number; k?: string; o?: string }
+export interface Bet { pid: string; kind: BetKind; amount: number; odds: number }
+export interface RecLine { pid: string; other?: string; amount: number; sq?: number; r: number }
 
 export type DAction =
   | { t: 'roll' } | { t: 'buy' } | { t: 'pass' } | { t: 'cardOk' } | { t: 'end' } | { t: 'skip' } | { t: 'advance' }
@@ -78,15 +98,19 @@ export type DAction =
   | { t: 'build'; sq: number } | { t: 'sell'; sq: number } | { t: 'sellSeth'; sq: number; price: number } | { t: 'offerCity'; sq: number; to: string; price: number } | { t: 'mortgage'; sq: number } | { t: 'unmortgage'; sq: number }
   | { t: 'gift'; to: string; amount: number }
   | { t: 'deal'; to: string; give: number[]; get: number[]; cash: number } | { t: 'dealYes' } | { t: 'dealNo' } | { t: 'dealCounter'; give: number[]; get: number[]; cash: number }
-  | { t: 'loan'; amount: number } | { t: 'repay'; amount: number };
+  | { t: 'loan'; amount: number } | { t: 'repay'; amount: number }
+  | { t: 'stake'; sq: number } | { t: 'buyout'; sq: number } | { t: 'haunt'; sq: number } | { t: 'bet'; kind: BetKind; amount: number };
 
+export const HOUSE_NAMES: Record<string, string> = { noBolee: '🚫 No bolee', doublePay: '💸 Double Payday', fastMehngai: '📈 Fast Mehngai', noGhosts: '👻 No ghosts', noBets: '🎲 No sharts' };
 let seq = Date.now(); // from the clock: a restarted host never reuses an id guests already saw
 const clone = (g: DGame): DGame => ({
   ...g, events: g.events.map((e) => ({ ...e })), cash: { ...g.cash }, pos: { ...g.pos }, owner: [...g.owner], build: [...g.build], mort: [...g.mort],
   jail: { ...g.jail }, jugaad: { ...g.jugaad }, out: [...g.out], fx: [], hand: Object.fromEntries(Object.entries(g.hand).map(([k, v]) => [k, [...v]])),
   dblArmed: { ...g.dblArmed }, streak: { ...g.streak }, lastRentRound: { ...g.lastRentRound }, debt: { ...(g.debt ?? {}) },
   deal: g.deal ? { ...g.deal, give: [...g.deal.give], get: [...g.deal.get] } : null, market: g.market ? [...g.market] : BOARD.map(() => 1), season: g.season ? { ...g.season } : null,
-  sethTried: [...(g.sethTried ?? [])], lastOffer: { ...(g.lastOffer ?? {}) }, auction: g.auction ? { ...g.auction, queue: [...g.auction.queue] } : null,
+  sethTried: [...(g.sethTried ?? [])], lastOffer: { ...(g.lastOffer ?? {}) }, stakes: { ...(g.stakes ?? {}) },
+  ghosts: Object.fromEntries(Object.entries(g.ghosts ?? {}).map(([k, v]) => [k, { ...v }])), bets: (g.bets ?? []).map((b) => ({ ...b })),
+  rec: Object.fromEntries(Object.entries(g.rec ?? {}).map(([k, v]) => [k, { ...v }])), auction: g.auction ? { ...g.auction, queue: [...g.auction.queue] } : null,
   stats: { rent: { ...g.stats.rent }, bought: { ...g.stats.bought }, peak: { ...g.stats.peak }, built: { ...g.stats.built }, potWins: { ...g.stats.potWins }, minCash: { ...g.stats.minCash },
     x: Object.fromEntries(Object.entries(g.stats.x ?? {}).map(([k, v]) => [k, { ...v }])) },
 });
@@ -100,7 +124,12 @@ export const ownsGroup = (g: DGame, pid: string, grp: number) => groupSquares(gr
 export const placementStart = (g: DGame) => g.maxRounds - PLACEMENT_ROUND;
 export const placementOn = (g: DGame) => PLACEMENT_ROUND > 0 && g.maxRounds > 0 && g.round >= placementStart(g);
 /** Classic (no round limit): how many Mehngai steps have kicked in. */
-export const mehngaiLevel = (g: DGame) => (g.maxRounds > 0 || g.round < MEHNGAI.START ? 0 : 1 + Math.floor((g.round - MEHNGAI.START) / MEHNGAI.EVERY));
+export const house = (g: DGame, rule: string) => !!g.house?.includes(rule);
+/** When Mehngai starts: round 55, or 25 with the Fast Mehngai house rule. */
+export const mehngaiStart = (g: DGame) => (house(g, 'fastMehngai') ? 25 : MEHNGAI.START);
+export const mehngaiLevel = (g: DGame) => (g.maxRounds > 0 || g.round < mehngaiStart(g) ? 0 : 1 + Math.floor((g.round - mehngaiStart(g)) / MEHNGAI.EVERY));
+/** A team's worth: everything its players still in the game own. */
+export const teamWorth = (g: DGame, t: number) => Object.entries(g.teams ?? {}).filter(([id, x]) => x === t && !g.out.includes(id)).reduce((s, [id]) => s + netWorth(g, id), 0);
 /** Everything that scales rent with time: Placement Season (quick) or Mehngai (classic). */
 export const rentBoost = (g: DGame) => (placementOn(g) ? 1.5 : MEHNGAI.STEP ** mehngaiLevel(g));
 
@@ -123,7 +152,8 @@ export function rentFor(g: DGame, sq: number, diceSum: number): number {
 }
 
 export const netWorth = (g: DGame, pid: string) =>
-  g.cash[pid] - (g.debt?.[pid] ?? 0) + BOARD.reduce((sum, s, i) => (g.owner[i] === pid ? sum + s.price! * marketMult(g, i) - (g.mort[i] ? buyBackPrice(i) : 0) + builtCost(g, i) : sum), 0);
+  g.cash[pid] - (g.debt?.[pid] ?? 0) + BOARD.reduce((sum, s, i) => (g.owner[i] === pid ? sum + s.price! * marketMult(g, i) - (g.mort[i] ? buyBackPrice(i) : 0) + builtCost(g, i) : sum), 0)
+    + Object.entries(g.stakes ?? {}).reduce((sum, [k, h]) => (h === pid ? sum + BOARD[Number(k)].price! * marketMult(g, Number(k)) * 0.25 : sum), 0);
 
 /** Resale market multiplier of a square (1 = list price). */
 export const marketMult = (g: DGame, sq: number) => g.market?.[sq] ?? 1;
@@ -206,6 +236,7 @@ function bankrupt(g: DGame, pid: string, creditor: string | null) {
   g.again = false;
   g.hand[pid] = [];
   fx(g, { kind: 'bankrupt', pid, other: creditor ?? undefined });
+  becomeGhost(g, pid);
   g.note = `💥 ${g.names[pid]} is bankrupt! Startup shut down.`;
 }
 
@@ -242,7 +273,7 @@ function catchUp(g: DGame, pid: string) {
 function startMove(g: DGame, pid: string, to: number, jump = false, salary = true) {
   const from = g.pos[pid];
   if (salary && to < from && !(to === JAIL && g.jail[pid])) {
-    const pay = SALARY * (g.season?.kind === 'placement' ? 2 : 1);
+    const pay = SALARY * (g.season?.kind === 'placement' ? 2 : 1) * (house(g, 'doublePay') ? 2 : 1) + (festivalById(g.festival)?.perk === 'bonus' ? 500 : 0);
     g.cash[pid] += pay; fx(g, { kind: 'salary', pid, amount: pay });
     catchUp(g, pid);
     const owe = g.debt?.[pid] ?? 0;
@@ -251,6 +282,116 @@ function startMove(g: DGame, pid: string, to: number, jump = false, salary = tru
   g.pos[pid] = to;
   g.move = { id: seq++, pid, from, to, jump };
   g.phase = 'moving';
+}
+
+/** Keep the biggest moment of each kind for the recap. */
+function record(g: DGame, key: string, line: Omit<RecLine, 'r'>) {
+  if (!(line.amount > 0)) return;
+  g.rec = g.rec ?? {};
+  if ((g.rec[key]?.amount ?? 0) < line.amount) g.rec[key] = { ...line, r: g.round };
+}
+
+// ---------- city stakes ----------
+export const stakePrice = (g: DGame, sq: number) => Math.max(MARKET.STEP, r100(marketValue(g, sq) * STAKE.PRICE));
+export const buyoutPrice = (g: DGame, sq: number) => Math.max(MARKET.STEP, r100(marketValue(g, sq) * STAKE.BUYOUT));
+export const stakesOf = (g: DGame, pid: string) => Object.entries(g.stakes ?? {}).filter(([, h]) => h === pid).map(([k]) => Number(k));
+/** A 25% stake can be bought in a city someone else owns, not on GIRVI, with no stake yet (up to 3 stakes each). */
+export const canStake = (g: DGame, pid: string, sq: number) => {
+  const o = g.owner[sq];
+  return BOARD[sq]?.price != null && !!o && o !== pid && !g.out.includes(pid) && !g.mort[sq] && !g.stakes?.[sq]
+    && stakesOf(g, pid).length < STAKE.MAX && g.cash[pid] >= stakePrice(g, sq);
+};
+/** Stakes follow their city: gone when the stakeholder owns it or goes bust; Seth-ji pays a quarter of its value when it comes back to him. */
+function tidyStakes(g: DGame) {
+  for (const [k, h] of Object.entries(g.stakes ?? {})) {
+    const sq = Number(k), o = g.owner[sq];
+    if (o && o !== h && !g.out.includes(h)) continue;
+    delete g.stakes![sq];
+    if (!o && !g.out.includes(h)) {
+      const v = r100((BOARD[sq].price! * marketMult(g, sq)) * STAKE.SHARE);
+      g.cash[h] += v;
+      fx(g, { kind: 'buyout', pid: h, sq, amount: v, text: 'bank' });
+    }
+  }
+}
+
+// ---------- ghost landlords ----------
+/** A bankrupt player haunts the richest tile in town (they can move it later). */
+function becomeGhost(g: DGame, pid: string) {
+  if (active(g).length < 2 || house(g, 'noGhosts')) return;
+  g.ghosts = g.ghosts ?? {};
+  const taken = new Set(Object.values(g.ghosts).map((x) => x.sq));
+  const best = BOARD.map((_, i) => i).filter((i) => g.owner[i] && !taken.has(i)).sort((a, b) => rentFor(g, b, 7) - rentFor(g, a, 7))[0]
+    ?? BOARD.map((_, i) => i).find((i) => i > 0 && !taken.has(i))!;
+  g.ghosts[pid] = { sq: best, since: g.round - GHOST.MOVE_EVERY };
+  fx(g, { kind: 'haunt', pid, sq: best });
+}
+export const canHaunt = (g: DGame, pid: string, sq: number) => {
+  const gh = g.ghosts?.[pid];
+  return !!gh && g.out.includes(pid) && sq > 0 && sq < BOARD.length && sq !== gh.sq && g.round - gh.since >= GHOST.MOVE_EVERY
+    && !Object.entries(g.ghosts ?? {}).some(([id, x]) => id !== pid && x.sq === sq);
+};
+function ghostToll(g: DGame, pid: string, sq: number) {
+  const ghost = Object.entries(g.ghosts ?? {}).find(([id, x]) => x.sq === sq && id !== pid)?.[0];
+  if (!ghost) return;
+  const toll = Math.min(GHOST.TOLL, Math.max(0, g.cash[pid]));
+  if (!toll) return;
+  g.cash[pid] -= toll; g.cash[ghost] += toll;
+  fx(g, { kind: 'toll', pid, other: ghost, sq, amount: toll });
+}
+
+// ---------- side bets (shart) ----------
+const isDice = (k: BetKind) => k !== 'mine';
+/** The chance of a bet winning on the coming roll. */
+function betChance(g: DGame, kind: BetKind, pid: string) {
+  let n = 0;
+  const roller = cur(g), from = g.pos[roller];
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) {
+    const t = a + b, dbl = a === b;
+    if (kind === 'doubles') n += dbl ? 1 : 0;
+    else if (kind === 'under') n += t < 7 ? 1 : 0;
+    else if (kind === 'over') n += t > 7 ? 1 : 0;
+    else if (kind === 'seven') n += t === 7 ? 1 : 0;
+    else {
+      if (g.jail[roller] > 1 && !dbl) continue; // stays in Detention
+      const to = (from + t) % 40;
+      n += g.owner[to] === pid && !g.mort[to] ? 1 : 0;
+    }
+  }
+  return n / 36;
+}
+/** Seth-ji's odds: 0.9 ÷ chance, capped at ×10; 0 when the bet can't win. */
+export function betOdds(g: DGame, kind: BetKind, pid: string) {
+  const p = betChance(g, kind, pid);
+  return p > 0 ? Math.min(BETS.MAX_ODDS, Math.floor((BETS.EDGE / p) * 10) / 10) : 0;
+}
+export const canBet = (g: DGame, pid: string) => !house(g, 'noBets') && g.phase === 'roll' && pid !== cur(g) && g.order.includes(pid) && !isOver(g) && !(g.bets ?? []).some((b) => b.pid === pid);
+function settleBet(g: DGame, b: Bet, won: boolean) {
+  if (won) {
+    const win = Math.round(b.amount * b.odds);
+    g.cash[b.pid] += win;
+    fx(g, { kind: 'betWin', pid: b.pid, amount: win, text: b.kind });
+    record(g, 'bet', { pid: b.pid, amount: win });
+  } else {
+    g.pot += b.amount;
+    fx(g, { kind: 'betLose', pid: b.pid, amount: b.amount, text: b.kind });
+  }
+}
+/** Dice bets settle the moment the dice land. */
+function settleDiceBets(g: DGame, d: [number, number]) {
+  const t = d[0] + d[1];
+  const win: Record<BetKind, boolean> = { doubles: d[0] === d[1], under: t < 7, over: t > 7, seven: t === 7, mine: false };
+  for (const b of (g.bets ?? []).filter((x) => isDice(x.kind))) settleBet(g, b, win[b.kind]);
+  g.bets = (g.bets ?? []).filter((x) => !isDice(x.kind));
+}
+/** "Pays me rent" bets settle where the roller lands (or lose if they never move). */
+function settleRentBets(g: DGame, pid: string, sq: number | null) {
+  for (const b of g.bets ?? []) settleBet(g, b, sq != null && g.owner[sq] === b.pid && b.pid !== pid && !g.mort[sq]);
+  g.bets = [];
+}
+function refundBets(g: DGame) {
+  for (const b of g.bets ?? []) g.cash[b.pid] += b.amount;
+  g.bets = [];
 }
 
 function collectRent(g: DGame, payer: string, owner: string, sq: number, r: number) {
@@ -263,8 +404,18 @@ function collectRent(g: DGame, payer: string, owner: string, sq: number, r: numb
   }
   let amount = r;
   if (g.dblArmed[owner]) { amount *= 2; g.dblArmed[owner] = false; fx(g, { kind: 'double', pid: owner, sq, amount }); }
+  const before = g.cash[owner];
   pay(g, payer, owner, amount);
+  const got = g.cash[owner] - before;
   g.stats.rent[owner] = (g.stats.rent[owner] ?? 0) + amount;
+  record(g, 'rent', { pid: payer, other: owner, amount: got, sq });
+  // A stakeholder takes a quarter of whatever rent the city collects.
+  const holder = g.stakes?.[sq];
+  if (holder && holder !== owner && !g.out.includes(holder) && got > 0) {
+    const cut = Math.round(got * STAKE.SHARE);
+    g.cash[owner] -= cut; g.cash[holder] += cut;
+    fx(g, { kind: 'stakeCut', pid: holder, other: owner, amount: cut, sq });
+  }
   const ev = g.events.find((e) => e.sq === sq);
   g.note = `${g.names[payer]} paid ${fmt(amount)} rent to ${g.names[owner]}${ev ? ` (${ev.emoji} ${ev.title} ×${ev.mult})` : ''}`;
   // rent streak: collecting rent on 3 consecutive rounds
@@ -283,12 +434,15 @@ function collectRent(g: DGame, payer: string, owner: string, sq: number, r: numb
 function land(g: DGame) {
   const pid = cur(g), sq = g.pos[pid], s = BOARD[sq];
   g.phase = 'end';
+  ghostToll(g, pid, sq);
+  settleRentBets(g, pid, sq);
   switch (s.kind) {
     case 'city': case 'train': case 'utility': {
       const o = g.owner[sq];
       if (!o) { g.phase = 'buy'; g.note = `${s.name} is for sale · ${fmt(s.price!)}`; return; }
       if (o === pid) { g.note = `${g.names[pid]} chills at their own ${s.name}`; return; }
       if (g.mort[sq]) { g.phase = 'buy'; g.note = `${s.name} is mortgaged — hostile takeover possible!`; return; }
+      if (g.teams && g.teams[pid] === g.teams[o]) { g.note = `🏠 ${g.names[pid]} crashes at roommate ${g.names[o]}'s ${s.name}: no rent`; return; }
       collectRent(g, pid, o, sq, rentFor(g, sq, g.dice[0] + g.dice[1]));
       return;
     }
@@ -344,7 +498,7 @@ function spinWheel(g: DGame) {
   const freeHouse = BOARD.map((_, i) => i).find((i) => BOARD[i].kind === 'city' && g.owner[i] === pid && ownsGroup(g, pid, BOARD[i].group!)
     && groupSquares(BOARD[i].group!).every((k) => !g.mort[k]) && g.build[i] < MAX_BUILD);
   switch (prize) {
-    case 'pot': give(g.pot, 'pot'); g.note = g.pot === 0 ? `☕ ${g.names[pid]} wins the FULL gullak!` : ''; break;
+    case 'pot': record(g, 'jackpot', { pid, amount: g.pot }); give(g.pot, 'pot'); g.note = g.pot === 0 ? `☕ ${g.names[pid]} wins the FULL gullak!` : ''; break;
     case 'half': give(Math.floor(g.pot / 2), 'pot'); break;
     case 'cash': give(500, 'bank'); break;
     case 'power': if (!grantPower(g, pid)) give(500, 'bank'); break;
@@ -394,7 +548,7 @@ function tickRound(g: DGame) {
   for (const e of g.events.filter((x) => x.rounds <= 0)) fx(g, { kind: 'eventEnd', pid: g.order[0], sq: e.sq });
   g.events = g.events.filter((e) => e.rounds > 0);
   if (PLACEMENT_ROUND > 0 && g.maxRounds > 0 && g.round === placementStart(g)) fx(g, { kind: 'placement', pid: g.order[0] });
-  if (g.maxRounds === 0 && g.round >= MEHNGAI.START && (g.round - MEHNGAI.START) % MEHNGAI.EVERY === 0) fx(g, { kind: 'placement', pid: g.order[0], text: 'mehngai', amount: rentBoost(g) });
+  if (g.maxRounds === 0 && g.round >= mehngaiStart(g) && (g.round - mehngaiStart(g)) % MEHNGAI.EVERY === 0) fx(g, { kind: 'placement', pid: g.order[0], text: 'mehngai', amount: rentBoost(g) });
   tickSeason(g);
   tickMarket(g);
   if (g.round < 3 || g.events.length >= 2 || g.round - g.lastEventRound < 2 || Math.random() > 0.35) return;
@@ -471,7 +625,8 @@ export const takeoverPrice = (sq: number) => BOARD[sq].price!;
 /** What it costs the owner to buy a mortgaged (GIRVI) city back. */
 export const buyBackPrice = (sq: number) => Math.round(BOARD[sq].price! * 0.55);
 
-export const isOver = (g: DGame) => active(g).length <= 1 || (g.maxRounds > 0 && g.round > g.maxRounds) || setsWinner(g) != null;
+export const isOver = (g: DGame) => active(g).length <= 1 || (g.maxRounds > 0 && g.round > g.maxRounds) || setsWinner(g) != null
+  || (!!g.teams && new Set(active(g).map((id) => g.teams![id])).size < 2);
 
 /** Whose decision the game waits on (auction bidders take turns). */
 const waiting = (g: DGame) => (isOver(g) || g.phase === 'moving' ? null : g.phase === 'auction' && g.auction ? g.auction.queue[0] : g.phase === 'deal' && g.deal ? g.deal.to : cur(g));
@@ -487,23 +642,40 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
     const order = players.map((p) => p.id);
     const z = <T,>(v: T) => Object.fromEntries(order.map((id) => [id, v])) as Record<string, T>;
     const money = CASH_CHOICES.includes(Number(options.cash)) ? Number(options.cash) : START_CASH; // host's pick in the lobby
-    return {
+    const teams = options.rounds === 'teams' && order.length === 4; // roommates need exactly four players
+    // the host can pick a board theme; Auto follows the real calendar
+    const pickT = String(options.theme ?? 'auto');
+    const fest = pickT === 'auto' ? festivalOn() : pickT === 'classic' ? null : FESTIVALS.find((f) => themeOfFest(f.id) === pickT) ?? null;
+    const g: DGame = {
       order, names: Object.fromEntries(players.map((p) => [p.id, p.name])), cash: z(money), pos: z(0),
       owner: BOARD.map(() => null), build: BOARD.map(() => 0), mort: BOARD.map(() => false), jail: z(0), jugaad: z(0),
       turn: Math.floor(Math.random() * order.length), dice: [1, 1], rollId: 0, doubles: 0, again: false, phase: 'roll',
-      move: null, card: null, out: [], round: 1, maxRounds: options.rounds === 'classic' || options.rounds === 'sets' ? 0 : 15, pot: 0,
-      mode: options.rounds === 'classic' ? 'classic' : options.rounds === 'sets' ? 'sets' : 'quick', debt: z(0), deal: null,
+      move: null, card: null, out: [], round: 1, maxRounds: options.rounds === 'classic' || options.rounds === 'sets' ? 0 : 15, pot: fest?.perk === 'gullak' ? 1500 : 0,
+      mode: options.rounds === 'classic' ? 'classic' : options.rounds === 'sets' ? 'sets' : teams ? 'teams' : 'quick', debt: z(0), deal: null,
+      teams: teams ? Object.fromEntries(order.map((id, i) => [id, i % 2])) : undefined, house: String(options.house ?? '').split(',').filter(Boolean), festival: fest?.id ?? null,
       events: [], lastEventRound: 0, hand: Object.fromEntries(order.map((id) => [id, [] as Power[]])), dblArmed: z(false), streak: z(0), lastRentRound: z(-9),
-      spin: null, auction: null, market: BOARD.map(() => 1), season: null, sethTried: [], lastOffer: {},
+      spin: null, auction: null, market: BOARD.map(() => 1), season: null, sethTried: [], lastOffer: {}, stakes: {}, ghosts: {}, bets: [], rec: {},
       stats: { rent: z(0), bought: z(0), peak: z(money), built: z(0), potWins: z(0), minCash: z(money) },
       fx: [], note: 'Campus to Crorepati. Roll!', log: [{ id: seq++, r: 1, t: '🎬 Game on! Everyone starts with ' + fmt(money) }],
     };
+    if (teams) g.log.push({ id: seq++, r: 1, t: `👯 Roommates: ${order.filter((_, i) => i % 2 === 0).map((id) => g.names[id]).join(' & ')} vs ${order.filter((_, i) => i % 2 === 1).map((id) => g.names[id]).join(' & ')}` });
+    else if (options.rounds === 'teams') g.log.push({ id: seq++, r: 1, t: '👯 Roommates needs 4 players, so this is a Quick game' });
+    if (g.house!.length) g.log.push({ id: seq++, r: 1, t: `🏠 House rules: ${g.house!.map((h) => HOUSE_NAMES[h] ?? h).join(', ')}` });
+    if (fest) {
+      g.log.push({ id: seq++, r: 1, t: `${fest.emoji} ${fest.name} special: ${fest.perkText}` });
+      if (fest.perk === 'trend') {
+        const cities = BOARD.map((b, i) => (b.kind === 'city' && CITY_FESTIVALS[b.name] ? i : -1)).filter((i) => i >= 0).sort(() => Math.random() - 0.5).slice(0, 2);
+        for (const sq of cities) g.events.push({ id: seq++, sq, ...CITY_FESTIVALS[BOARD[sq].name], rounds: 4 });
+      }
+    }
+    return g;
   },
   waitingOn: waiting,
   turnKey: (g) => `${g.turn}:${g.phase}:${g.rollId}:${g.auction ? `${g.auction.queue[0]}:${g.auction.next}` : ''}:${g.deal ? g.deal.to : ''}`,
   over: isOver,
-  ranking: (g) => [...active(g).sort((a, b) => (b === setsWinner(g) ? 1 : 0) - (a === setsWinner(g) ? 1 : 0) || (g.mode === 'sets' ? fullSets(g, b) - fullSets(g, a) : 0) || netWorth(g, b) - netWorth(g, a)), ...[...g.out].reverse()],
-  botDelay: (g) => (g.phase === 'card' ? 2500 : g.phase === 'spin' || g.phase === 'deal' ? 1200 : 850),
+  ranking: (g) => g.teams ? [...active(g).sort((a, b) => teamWorth(g, g.teams![b]) - teamWorth(g, g.teams![a]) || netWorth(g, b) - netWorth(g, a)), ...[...g.out].reverse()]
+    : [...active(g).sort((a, b) => (b === setsWinner(g) ? 1 : 0) - (a === setsWinner(g) ? 1 : 0) || (g.mode === 'sets' ? fullSets(g, b) - fullSets(g, a) : 0) || netWorth(g, b) - netWorth(g, a)), ...[...g.out].reverse()],
+  botDelay: (g) => (g.phase === 'card' ? 2500 : g.phase === 'spin' || g.phase === 'deal' ? 1200 : g.phase === 'roll' ? 2800 : 850),
   auto: (g) => (g.phase === 'moving' && g.move ? { a: { t: 'advance' }, delay: 700 + (g.move.jump ? 600 : ((g.move.to - g.move.from + 40) % 40) * 170) + 300 } : null),
 
   bot(g, pid) {
@@ -539,6 +711,11 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
         if (redeem != null) return { t: 'unmortgage', sq: redeem };
         const offer = botPropose(g, pid);
         if (offer) return offer;
+        const out = Object.keys(g.stakes ?? {}).map(Number).find((k) => g.owner[k] === pid && g.cash[pid] - buyoutPrice(g, k) > 8000);
+        if (out != null) return { t: 'buyout', sq: out };
+        const pick = BOARD.map((_, i) => i).filter((i) => canStake(g, pid, i) && g.cash[pid] - stakePrice(g, i) > 5000)
+          .map((i) => ({ i, v: (rentFor(g, i, 7) * STAKE.SHARE) / stakePrice(g, i) })).sort((a, b) => b.v - a.v)[0];
+        if (pick && pick.v >= 0.35) return { t: 'stake', sq: pick.i };
         const target = BOARD.map((_, i) => i).filter((i) => canBuild(g, pid, i) && g.cash[pid] - nextBuildCost(g, i) > 3000)
           .sort((a, b) => g.build[a] - g.build[b])[0];
         return target != null ? { t: 'build', sq: target } : { t: 'end' };
@@ -563,11 +740,17 @@ export const dhandhaRules: Rules<DGame, DAction> & { ranking(g: DGame): string[]
     if (g && !setsWinner(g0) && setsWinner(g)) { const w = setsWinner(g)!; fx(g, { kind: 'sets', pid: w }); g.note = `🏆 ${g.names[w]} owns ${SETS_TO_WIN} complete sets and wins!`; }
     if (g) writeLog(g0, g);
     if (g) for (const f of g.fx) {
-      const bump = (k: string, id: string) => { const x = (g.stats.x ??= {}); x[k] = { ...(x[k] ?? {}), [id]: (x[k]?.[id] ?? 0) + 1 }; };
+      const bump = (k: string, id: string, n = 1) => { const x = (g.stats.x ??= {}); x[k] = { ...(x[k] ?? {}), [id]: (x[k]?.[id] ?? 0) + (n ?? 1) }; };
       if (f.kind === 'deal') { bump('deals', f.pid); if (f.other) bump('deals', f.other); }
       if (f.kind === 'auctionWin') bump('bolees', f.pid);
-      if (f.kind === 'cardSold') bump('seth', f.pid);
+      if (f.kind === 'cardSold') { bump('seth', f.pid); record(g, 'seth', { pid: f.pid, amount: f.amount ?? 0, sq: f.sq }); }
+      if (f.kind === 'deal') record(g, 'deal', { pid: f.pid, other: f.other, amount: Math.abs(f.amount ?? 0) });
+      if (f.kind === 'jail') bump('jail', f.pid);
+      if (f.kind === 'toll') bump('toll', f.other!, f.amount);
+      if (f.kind === 'stakeCut') bump('stake', f.pid, f.amount);
+      if (f.kind === 'betWin') bump('betWon', f.pid, f.amount);
     }
+    if (g) tidyStakes(g);
     if (g && g.out.includes(cur(g)) && g.phase !== 'moving' && g.phase !== 'auction' && !isOver(g)) { g.again = false; endTurn(g); }
     if (g) for (const id of g.order) {
       if (netWorth(g, id) > (g.stats.peak[id] ?? 0)) g.stats.peak[id] = netWorth(g, id);
@@ -662,6 +845,13 @@ function fxLine(g: DGame, f: Fx): string | null {
     case 'setComplete': return `👑 ${who} owns the full ${GROUPS[BOARD[f.sq!].group!].name} set — can build now`;
     case 'power': return f.text && f.text !== 'double-armed' ? `⚡ ${who} got a power-up: ${POWERS[f.text as Power]?.name ?? f.text}` : null;
     case 'eventEnd': return `${BOARD[f.sq!].name} is back to normal rent`;
+    case 'stakeCut': return `📈 ${who} got ${fmt(f.amount ?? 0)} from their 25% of ${BOARD[f.sq!].name}`;
+    case 'buyout': return f.text === 'bank' ? `📈 Seth-ji paid ${who} ${fmt(f.amount ?? 0)} for their stake in ${BOARD[f.sq!].name}` : null;
+    case 'haunt': return `👻 ${who} haunts ${BOARD[f.sq!].name}: ${fmt(GHOST.TOLL)} toll to land there`;
+    case 'toll': return `👻 ${who} paid a ${fmt(f.amount ?? 0)} toll to ${g.names[f.other!] ?? 'a ghost'}`;
+    case 'bet': return `🎲 ${who} bets ${fmt(f.amount ?? 0)} on ${BET_INFO[f.text as BetKind]?.name}`;
+    case 'betWin': return `🎲 ${who} won ${fmt(f.amount ?? 0)} on ${BET_INFO[f.text as BetKind]?.name}!`;
+    case 'betLose': return `🎲 ${who}'s shart on ${BET_INFO[f.text as BetKind]?.name} went into the gullak`;
     case 'season': {
       const s = SEASONS[f.text as SeasonKind];
       return s ? (f.amount ? `${s.emoji} ${s.name}! ${s.text} for ${f.amount} rounds` : `${s.emoji} ${s.name} is over`) : null;
@@ -689,10 +879,14 @@ function writeLog(g0: DGame, g: DGame) {
   for (const f of g.fx) {
     if (bankNote && (f.kind === 'loan' || f.kind === 'repay')) continue;
     const t = fxLine(g, f);
-    if (t) add.push({ id: seq++, r: g.round, t, pid: f.pid });
+    if (t) add.push({ id: seq++, r: g.round, t, pid: f.pid, sq: f.sq, k: f.kind, o: f.other });
   }
   // Plain dice rolls and "for sale" prompts would flood the log; what they led to gets its own line.
-  if (g.note && g.note !== g0.note && !/ rolled \d+ ?\+ ?\d+$| is for sale /.test(g.note)) add.push({ id: seq++, r: g.round, t: g.note, pid: who });
+  if (g.note && g.note !== g0.note && !/ rolled \d+ ?\+ ?\d+$| is for sale /.test(g.note)) {
+    // the line's picture: the tile the action happened on (or where the player is standing for rent and buys)
+    const f = g.fx.find((x) => x.sq != null) ?? g.fx[0];
+    add.push({ id: seq++, r: g.round, t: g.note, pid: who, sq: f?.sq ?? (/rent|bought|passed|took over|Sold to/i.test(g.note) ? g.pos[who] : undefined), k: f?.kind, o: f?.other });
+  }
   if (add.length) g.log = [...(g0.log ?? []), ...add].slice(-LOG_MAX);
 }
 
@@ -711,6 +905,26 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
     if (!ok(pid) || !ok(a.to) || a.to === pid || !(amt > 0) || amt % GIFT_STEP || amt > g.cash[pid] || isOver(g)) return null;
     g.cash[pid] -= amt; g.cash[a.to] += amt;
     fx(g, { kind: 'gift', pid, other: a.to, amount: amt });
+    return g;
+  }
+  // A ghost (bankrupt player) can move their haunt every few rounds.
+  if (a.t === 'haunt') {
+    if (isOver(g) || !canHaunt(g, pid, a.sq)) return null;
+    g.ghosts![pid] = { sq: a.sq, since: g.round };
+    fx(g, { kind: 'haunt', pid, sq: a.sq });
+    g.note = `👻 ${g.names[pid]} now haunts ${BOARD[a.sq].name}`;
+    return g;
+  }
+  // Anyone but the roller (ghosts too) can place one shart on the coming roll.
+  if (a.t === 'bet') {
+    const amt = Math.round(Number(a.amount) || 0);
+    if (!BET_INFO[a.kind] || !BETS.AMOUNTS.includes(amt) || !canBet(g, pid) || g.cash[pid] < amt) return null;
+    if (a.kind === 'mine' && g.out.includes(pid)) return null;
+    const odds = betOdds(g, a.kind, pid);
+    if (odds <= 1) return null;
+    g.cash[pid] -= amt;
+    g.bets = [...(g.bets ?? []), { pid, kind: a.kind, amount: amt, odds }];
+    fx(g, { kind: 'bet', pid, amount: amt, text: a.kind });
     return g;
   }
   // A deal is answered by the player it was offered to.
@@ -795,6 +1009,24 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
     g.note = `🤝 Seth-ji bought ${BOARD[a.sq].name} from ${g.names[me]} for ${fmt(price)}`;
     return g;
   }
+  if (a.t === 'stake') {
+    if (!canManage || !canStake(g, me, a.sq)) return null;
+    const price = stakePrice(g, a.sq), o = g.owner[a.sq]!;
+    g.cash[me] -= price; g.cash[o] += price;
+    g.stakes = { ...(g.stakes ?? {}), [a.sq]: me };
+    fx(g, { kind: 'stake', pid: me, other: o, sq: a.sq, amount: price });
+    g.note = `📈 ${g.names[me]} bought 25% of ${BOARD[a.sq].name} from ${g.names[o]} for ${fmt(price)}`;
+    return g;
+  }
+  if (a.t === 'buyout') {
+    const h = g.stakes?.[a.sq], price = buyoutPrice(g, a.sq);
+    if (!canManage || !h || g.owner[a.sq] !== me || g.cash[me] < price) return null;
+    g.cash[me] -= price; g.cash[h] += price;
+    delete g.stakes![a.sq];
+    fx(g, { kind: 'buyout', pid: h, other: me, sq: a.sq, amount: price });
+    g.note = `💼 ${g.names[me]} bought back the 25% of ${BOARD[a.sq].name} from ${g.names[h]} for ${fmt(price)}`;
+    return g;
+  }
   if (a.t === 'loan') {
     const amt = Math.floor(Number(a.amount) || 0);
     if (!canManage || amt <= 0 || amt % LOAN.STEP || amt > loanRoom(g, me)) return null;
@@ -811,7 +1043,7 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
     return g;
   }
   switch (a.t) {
-    case 'skip': if (g.phase !== 'roll') return null; g.note = `⏰ ${g.names[me]} ran out of time`; g.again = false; endTurn(g); g.rollId++; return g;
+    case 'skip': if (g.phase !== 'roll') return null; refundBets(g); g.note = `⏰ ${g.names[me]} ran out of time`; g.again = false; endTurn(g); g.rollId++; return g;
     case 'bail':
       if (g.phase !== 'roll' || !g.jail[me] || g.cash[me] < BAIL) return null;
       g.cash[me] -= BAIL; g.pot += BAIL; g.jail[me] = 0; fx(g, { kind: 'pay', pid: me, amount: BAIL, text: 'pot' }); fx(g, { kind: 'free', pid: me });
@@ -832,6 +1064,7 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
       // teleport replaces your roll
       if (g.phase !== 'roll' || g.jail[me] || !BOARD[a.sq]?.price || g.owner[a.sq]) return null;
       g.hand[me].splice(i, 1);
+      refundBets(g);
       fx(g, { kind: 'tele', pid: me, sq: a.sq });
       g.again = false;
       g.note = `🌀 ${g.names[me]} teleported to ${BOARD[a.sq].name}!`;
@@ -844,14 +1077,15 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
       const d: [number, number] = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
       const dbl = d[0] === d[1];
       g.dice = d; g.rollId++;
+      settleDiceBets(g, d);
       if (g.jail[me]) {
         if (dbl) { g.jail[me] = 0; fx(g, { kind: 'free', pid: me }); }
         else if (--g.jail[me] === 0) pay(g, me, 'pot', BAIL);
-        else { g.phase = 'end'; g.note = `${g.names[me]} rolled ${d[0]}+${d[1]} — still in Detention 📚`; return g; }
+        else { settleRentBets(g, me, null); g.phase = 'end'; g.note = `${g.names[me]} rolled ${d[0]}+${d[1]} — still in Detention 📚`; return g; }
         g.again = false;
       } else if (dbl) {
         g.doubles++;
-        if (g.doubles === 3) { toJail(g, me, 'Three doubles? Too lucky. Suspicious.'); return g; }
+        if (g.doubles === 3) { settleRentBets(g, me, null); toJail(g, me, 'Three doubles? Too lucky. Suspicious.'); return g; }
         g.again = true;
       } else g.again = false;
       g.note = `${g.names[me]} rolled ${d[0]} + ${d[1]}${dbl ? ' — DOUBLES!' : ''}`;
@@ -886,6 +1120,7 @@ function actInner(g0: DGame, pid: string, a: DAction): DGame | null {
       if (g.phase !== 'buy') return null;
       if (g.owner[sq]) { g.phase = 'end'; g.note = `${g.names[me]} skipped the takeover`; return g; }
       g.note = `${g.names[me]} passed on ${BOARD[sq].name}`;
+      if (house(g, 'noBolee')) { g.phase = 'end'; return g; }
       startAuction(g, sq);
       return g;
     case 'cardOk': if (g.phase !== 'card' || !g.card) return null; applyCard(g); return g;

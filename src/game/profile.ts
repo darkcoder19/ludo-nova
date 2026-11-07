@@ -18,6 +18,10 @@ export interface Profile {
   badges?: Record<string, number>;
   title?: string;
   skin?: string;
+  /** Head-to-head record against each friend (by their player id). */
+  /** Festival dice skins collected by playing during the festival. */
+  collected?: string[];
+  rivals?: Record<string, { name: string; avatar: string; w: number; l: number; last: string }>;
 }
 
 export const AVATARS = Array.from({ length: 15 }, (_, i) => `c${i}`);
