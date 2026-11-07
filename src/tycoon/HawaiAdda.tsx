@@ -1,238 +1,479 @@
-// Hawai Adda: a single-player airport tycoon. Build on a grid, sign airlines, keep flights on time and passengers
-// happy, and grow a village airstrip into an international hub. Saves on the device; earns a little while you're away.
+// Hawai Adda: an idle airport tycoon. Passengers walk in, check in, clear security, wait in the hall (or eat, shop,
+// relax in the lounge) until their plane lands, line up in the boarding area and board one by one, walking down the
+// aisle to their seat. You earn at every step. Tap any area to add counters, speed them up or earn more per passenger.
 import { useEffect, useRef, useState } from 'react';
 import { Backdrop } from '../components/Home';
 import { festivalOn } from '../game/festivals';
 import { loadProfile, recordGame, saveProfile } from '../game/profile';
 import { recordProgress } from '../game/progress';
 import { isMuted, setMuted, sfx } from '../game/sound';
+import '../atc/atc.css'; // shared hero / how-to card styles
 import './tycoon.css';
 
-type BKey = 'tower' | 'runway' | 'gate' | 'terminal' | 'security' | 'chai' | 'food' | 'parking' | 'shops' | 'lounge' | 'cargo';
-interface BDef { name: string; icon: string; cost: number; upkeep: number; unlock: number; text: string }
-const B: Record<BKey, BDef> = {
-  tower: { name: 'ATC Tower', icon: '🗼', cost: 8000, upkeep: 200, unlock: 1, text: 'Needed to run any flight. Upgrades speed up the runways.' },
-  runway: { name: 'Runway', icon: '🛬', cost: 15000, upkeep: 400, unlock: 1, text: 'One take-off or landing every 20 min. Level 2: takes Large jets.' },
-  gate: { name: 'Gate', icon: '🚪', cost: 4000, upkeep: 100, unlock: 1, text: 'Parks one flight at a time.' },
-  terminal: { name: 'Terminal', icon: '🏢', cost: 6000, upkeep: 150, unlock: 1, text: 'Handles 150 passengers a flight (more per level).' },
-  security: { name: 'Security', icon: '🛂', cost: 3000, upkeep: 120, unlock: 1, text: 'Checks 120 passengers a flight. Short of it means queues and angry flyers.' },
-  chai: { name: 'Chai Stall', icon: '☕', cost: 1500, upkeep: 30, unlock: 1, text: '+₹2 from every passenger.' },
-  food: { name: 'Food Court', icon: '🍛', cost: 4000, upkeep: 80, unlock: 2, text: '+₹4 from every passenger.' },
-  parking: { name: 'Parking', icon: '🅿️', cost: 2500, upkeep: 40, unlock: 2, text: '+₹2 from every passenger.' },
-  shops: { name: 'Duty Free', icon: '🛍️', cost: 8000, upkeep: 160, unlock: 3, text: '+₹7 a passenger, only when the airport is ⭐3 or more.' },
-  lounge: { name: 'Lounge', icon: '🛋️', cost: 7000, upkeep: 140, unlock: 3, text: 'Happier passengers: rating grows faster.' },
-  cargo: { name: 'Cargo Shed', icon: '📦', cost: 10000, upkeep: 200, unlock: 4, text: 'Unlocks cargo airlines (no passengers, big fees).' },
+// ---------------- data ----------------
+type SKey = 'checkin' | 'security' | 'seats' | 'food' | 'shop' | 'lounge' | 'gate' | 'walk';
+interface SDef { name: string; icon: string; base: number; svc: number; fee: number; unlock: number; maxN: number; text: string; add: string; spd: string; inc: string }
+const S: Record<SKey, SDef> = {
+  checkin: { name: 'Check-in', icon: '🧾', base: 300, svc: 4, fee: 9, unlock: 0, maxN: 8, text: 'Every passenger checks in first.', add: 'Add a counter', spd: 'Faster check-in', inc: 'Higher check-in fee' },
+  security: { name: 'Security', icon: '🛂', base: 400, svc: 5, fee: 8, unlock: 0, maxN: 8, text: 'Scanners and frisking. Long queues make people miss flights.', add: 'Add a lane', spd: 'Faster scanners', inc: 'Security fee' },
+  seats: { name: 'Waiting Hall', icon: '💺', base: 250, svc: 0, fee: 2, unlock: 0, maxN: 8, text: 'Passengers wait here until their plane lands. Standing passengers get grumpy.', add: 'Add a row of seats', spd: 'Comfier seats (rating)', inc: 'Paid WiFi' },
+  food: { name: 'Food Court', icon: '🍛', base: 1500, svc: 6, fee: 18, unlock: 120, maxN: 6, text: 'Hungry flyers eat while they wait for their plane.', add: 'Add a stall', spd: 'Faster service', inc: 'Pricier menu' },
+  shop: { name: 'Duty Free', icon: '🛍️', base: 4000, svc: 7, fee: 32, unlock: 700, maxN: 6, text: 'Perfume, chocolates, souvenirs.', add: 'Add a shop', spd: 'Quicker billing', inc: 'Premium brands' },
+  lounge: { name: 'Lounge', icon: '🛋️', base: 6000, svc: 10, fee: 70, unlock: 1500, maxN: 4, text: 'Business and first class relax here instead of the hall, and pay well for it.', add: 'Add lounge seats', spd: 'Faster service', inc: 'Fancier buffet' },
+  gate: { name: 'Gates', icon: '🛫', base: 1200, svc: 2.5, fee: 14, unlock: 0, maxN: 4, text: 'Each gate has its own stand and boarding area. A new gate means more planes.', add: 'Open a new gate', spd: 'Faster boarding', inc: 'Boarding fee' },
+  walk: { name: 'Walkways', icon: '🚶', base: 500, svc: 0, fee: 0, unlock: 0, maxN: 1, text: 'Travelators and signboards: passengers walk faster everywhere.', add: '', spd: 'Faster walking', inc: '' },
 };
-const ORDER: BKey[] = ['tower', 'runway', 'gate', 'terminal', 'security', 'chai', 'food', 'parking', 'shops', 'lounge', 'cargo'];
-const LEVELS = [
-  { name: 'Hawai Patti', pax: 0 }, { name: 'Small Town Airport', pax: 3000 }, { name: 'Regional Airport', pax: 15000 }, { name: 'Metro Airport', pax: 50000 }, { name: 'International Hub', pax: 150000 },
+const AREAS: SKey[] = ['checkin', 'security', 'seats', 'food', 'shop', 'lounge', 'gate'];
+type Cls = 0 | 1 | 2; // economy, business, first
+const CLS = [{ name: 'Economy', color: '#2b9bff', mult: 1 }, { name: 'Business', color: '#9b6bff', mult: 3 }, { name: 'First', color: '#f0b400', mult: 6 }];
+const PLANES = [
+  { id: 'atr', name: 'ATR 72', seats: [70, 0, 0], unlock: 0, L: 250, W: 26, span: 104, tail: '#2b7bff' },
+  { id: 'a320', name: 'A320', seats: [168, 12, 0], unlock: 350, L: 320, W: 30, span: 118, tail: '#ff8c42' },
+  { id: 'b787', name: '787 Dreamliner', seats: [220, 28, 8], unlock: 2500, L: 390, W: 36, span: 128, tail: '#12a88f' },
+  { id: 'a380', name: 'A380 Superjumbo', seats: [430, 70, 14], unlock: 9000, L: 450, W: 42, span: 134, tail: '#c9302c' },
 ];
-const AIRLINES = [
-  { name: 'Udaan Air', color: '#2b7bff' }, { name: 'Chai Jet', color: '#ff8c42' }, { name: 'Monsoon Express', color: '#12d6b4' }, { name: 'Maharaja Wings', color: '#b8860b' },
-  { name: 'Patang Airways', color: '#ff4fd8' }, { name: 'Desi Hop', color: '#00c97a' }, { name: 'Sitara Air', color: '#7a5cff' }, { name: 'Bharat Cargo', color: '#8d6e63' },
-];
-type Size = 'S' | 'M' | 'L' | 'C';
-const SIZE: Record<Size, { pax: number; fee: number; label: string }> = { S: { pax: 60, fee: 1200, label: 'Small' }, M: { pax: 150, fee: 3000, label: 'Medium' }, L: { pax: 300, fee: 7000, label: 'Large' }, C: { pax: 0, fee: 6000, label: 'Cargo' } };
-interface Contract { id: number; airline: number; size: Size; perDay: number; fee: number; minRep: number; days: number }
-interface Flight { id: number; c: number; at: number; state: 'due' | 'late' | 'gate' | 'done'; gate?: number; until?: number; code: string }
-interface Save {
-  v: 1; cash: number; rep: number; day: number; min: number; grid: (BKey | null)[]; lvl: number[]; contracts: Contract[]; offers: Contract[];
-  flights: Flight[]; runwayFree: number[]; pax: number; flown: number; earned: number; goals: string[]; event: string; seq: number; lastSeen: number; log: string[];
-}
-const N = 7; // 7×7 grid
-const KEY = 'hawaiadda-v1';
-const DAY_SECONDS = 90; // one airport day lasts 90 seconds at 1×
+const AIRLINES = ['UD', 'CJ', 'MX', 'MW', 'PA', 'SA'];
+const KEY = 'hawaiadda-v2';
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
-const hhmm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
-const levelOfPax = (pax: number) => LEVELS.reduce((l, x, i) => (pax >= x.pax ? i : l), 0);
+const short = (n: number) => (n >= 1e7 ? `₹${+(n / 1e7).toFixed(2)}Cr` : n >= 1e5 ? `₹${+(n / 1e5).toFixed(1)}L` : n >= 1000 ? `₹${+(n / 1000).toFixed(1)}k` : `₹${Math.round(n)}`);
+const LEVEL_NAMES = [[0, 'Hawai Patti'], [500, 'Small Town Airport'], [3000, 'Regional Airport'], [12000, 'Metro Airport'], [40000, 'International Hub']] as const;
+const levelName = (pax: number) => LEVEL_NAMES.reduce((n, [p, name]) => (pax >= p ? name : n), LEVEL_NAMES[0][1] as string);
 
-const GOALS: { id: string; text: string; reward: number; done(s: Save): boolean }[] = [
-  { id: 'tower', text: 'Build an ATC Tower', reward: 2000, done: (s) => s.grid.includes('tower') },
-  { id: 'runway', text: 'Build a Runway', reward: 3000, done: (s) => s.grid.includes('runway') },
-  { id: 'basics', text: 'Build a Gate, a Terminal and Security', reward: 3000, done: (s) => (['gate', 'terminal', 'security'] as BKey[]).every((k) => s.grid.includes(k)) },
-  { id: 'airline', text: 'Sign your first airline (📋 Airlines)', reward: 4000, done: (s) => s.contracts.length > 0 },
-  { id: 'pax1k', text: 'Serve 1,000 passengers', reward: 6000, done: (s) => s.pax >= 1000 },
-  { id: 'chai', text: 'Open a Chai Stall', reward: 1500, done: (s) => s.grid.includes('chai') },
-  { id: 'rep3', text: 'Reach a ⭐3 rating', reward: 10000, done: (s) => s.rep >= 3 },
-  { id: 'gates3', text: 'Run 3 gates', reward: 8000, done: (s) => s.grid.filter((b) => b === 'gate').length >= 3 },
-  { id: 'lakh', text: 'Earn ₹1 lakh in total', reward: 15000, done: (s) => s.earned >= 100000 },
-  { id: 'long', text: 'Upgrade a runway to take Large jets', reward: 15000, done: (s) => s.grid.some((b, i) => b === 'runway' && s.lvl[i] >= 2) },
-  { id: 'pax50k', text: 'Become a Metro Airport (50,000 passengers)', reward: 50000, done: (s) => s.pax >= 50000 },
-  { id: 'hub', text: 'Become an International Hub', reward: 150000, done: (s) => s.pax >= 150000 },
-];
+interface Lvl { n: number; spd: number; inc: number }
+interface Save { v: 2; cash: number; rating: number; served: number; flights: number; earned: number; st: Record<SKey, Lvl>; seen: number; perMin: number }
+export const fresh = (): Save => ({ v: 2, cash: 2500, rating: 3, served: 0, flights: 0, earned: 0, seen: Date.now(), perMin: 0,
+  st: { checkin: { n: 1, spd: 1, inc: 1 }, security: { n: 1, spd: 1, inc: 1 }, seats: { n: 1, spd: 1, inc: 1 }, food: { n: 0, spd: 1, inc: 1 }, shop: { n: 0, spd: 1, inc: 1 },
+    lounge: { n: 0, spd: 1, inc: 1 }, gate: { n: 1, spd: 1, inc: 1 }, walk: { n: 1, spd: 1, inc: 1 } } });
+const load = (): Save => {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (s?.v === 2) { s.st.walk ??= { n: 1, spd: 1, inc: 1 }; s.st.gate.n = Math.min(4, s.st.gate.n); s.st.seats.n = Math.min(8, s.st.seats.n); s.st.lounge.n = Math.min(4, s.st.lounge.n); return s; }
+  } catch { /* fresh */ }
+  return fresh();
+};
+const store = (s: Save) => { try { localStorage.setItem(KEY, JSON.stringify({ ...s, seen: Date.now() })); } catch { /* full */ } };
 
-function fresh(): Save {
-  return { v: 1, cash: 50000, rep: 2.5, day: 1, min: 6 * 60, grid: Array(N * N).fill(null), lvl: Array(N * N).fill(0), contracts: [], offers: [], flights: [], runwayFree: [],
-    pax: 0, flown: 0, earned: 0, goals: [], event: '', seq: 1, lastSeen: Date.now(), log: ['🛬 Welcome to your airstrip! Start with an ATC Tower and a Runway.'] };
+// costs grow with each step
+export const costAdd = (k: SKey, l: Lvl) => Math.round(S[k].base * (l.n === 0 ? 1 : (k === 'gate' ? 2.6 : 1.75) ** l.n));
+export const costSpd = (k: SKey, l: Lvl) => Math.round(S[k].base * 0.8 * 1.6 ** l.spd);
+export const costInc = (k: SKey, l: Lvl) => Math.round(S[k].base * 0.9 * 1.7 ** l.inc);
+const svcTime = (k: SKey, l: Lvl) => S[k].svc / (1 + 0.32 * (l.spd - 1));
+const feeOf = (k: SKey, l: Lvl) => S[k].fee * (1 + 0.45 * (l.inc - 1));
+const capOf = (k: SKey, l: Lvl) => (k === 'seats' ? l.n * 8 : k === 'food' || k === 'shop' ? l.n * 3 : k === 'lounge' ? l.n * 4 : l.n);
+/** Walking speed in floor-plan units a second: slow to start, faster with every Walkways upgrade. */
+const walkSpeed = (s: Save) => 34 * (1 + 0.28 * (s.st.walk.spd - 1));
+
+// ---------------- floor plan (1400×620, landscape; turned upright on phones) ----------------
+interface Pt { x: number; y: number }
+const LW = 1400, LH = 620;
+const ENTRY: Pt = { x: 40, y: 310 };
+const SLOT = 145; // each gate owns a horizontal band of the apron: planes never overlap
+const slotY = (i: number) => 30 + i * SLOT + SLOT / 2;
+const AREA: Record<Exclude<SKey, 'walk'>, { x: number; y: number; w: number; h: number }> = {
+  checkin: { x: 110, y: 60, w: 130, h: 500 }, security: { x: 275, y: 60, w: 130, h: 500 },
+  food: { x: 440, y: 30, w: 220, h: 105 }, seats: { x: 440, y: 160, w: 140, h: 300 }, lounge: { x: 590, y: 160, w: 70, h: 300 }, shop: { x: 440, y: 485, w: 220, h: 105 },
+  gate: { x: 690, y: 30, w: 170, h: 4 * SLOT },
+};
+const boardArea = (i: number) => ({ x: 695, y: slotY(i) - SLOT / 2 + 8, w: 140, h: SLOT - 16 });
+const counter = (k: 'checkin' | 'security', i: number, n: number): Pt => ({ x: k === 'checkin' ? 200 : 365, y: 310 + (i - (n - 1) / 2) * Math.min(62, 440 / Math.max(1, n)) });
+const seatAt = (k: SKey, i: number): Pt => {
+  if (k === 'food') return { x: 460 + (i % 6) * 34, y: 75 + Math.floor(i / 6) * 28 };
+  if (k === 'shop') return { x: 460 + (i % 6) * 34, y: 530 + Math.floor(i / 6) * 28 };
+  if (k === 'lounge') return { x: 610 + (i % 2) * 30, y: 195 + Math.floor(i / 2) * 32 };
+  return { x: 458 + (i % 5) * 26, y: 195 + Math.floor(i / 5) * 21 }; // hall seats
+};
+const NOSE = 905; // planes park nose-in to the jet bridges
+const planeX0 = NOSE;
+/** Seat positions inside the cabin for a flight with `n` passenger groups (two seats a row, either side of the aisle). */
+const cabinSeat = (plane: number, n: number, i: number): Pt => {
+  const P = PLANES[plane], rows = Math.ceil(n / 2), x0 = planeX0 + 40, x1 = planeX0 + P.L - 60;
+  const row = Math.floor(i / 2), side = i % 2 ? 1 : -1;
+  return { x: x0 + (rows > 1 ? (row * (x1 - x0)) / (rows - 1) : 0), y: side * P.W * 0.24 };
+};
+
+// ---------------- simulation ----------------
+type GState = 'walk' | 'queue' | 'svc' | 'wait' | 'line' | 'boarding' | 'seated' | 'gone';
+interface Group { id: number; cls: Cls; size: number; flight: number; x: number; y: number; path: Pt[]; st: GState; at: SKey | 'entry' | null; stage: number; t: number; tt: number; slot: number; extras: SKey[]; seat: number; color: string }
+interface Flight { id: number; plane: number; gate: number; code: string; groups: number; total: number; spawned: number; seated: number; land: number; parkedAt: number; leaveBy: number; state: 'due' | 'in' | 'parked' | 'out'; t: number; boarding: number | null }
+interface Pop { x: number; y: number; text: string; t: number; big?: boolean }
+interface Sim { t: number; groups: Group[]; flights: Flight[]; queues: Record<string, number[]>; busy: Record<string, (number | null)[]>; pops: Pop[]; gateNext: number[]; seq: number; income: number[] }
+export function newSim(): Sim { return { t: 0, groups: [], flights: [], queues: {}, busy: {}, pops: [], gateNext: [3, 20, 35, 50], seq: 1, income: [] }; }
+
+function earn(s: Save, sim: Sim, at: Pt, amount: number) {
+  s.cash += amount; s.earned += amount; sim.income.push(amount);
+  sim.pops.push({ x: at.x, y: at.y - 16, text: `+${short(amount)}`, t: 0 });
 }
-function load(): Save { try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s?.v === 1) return s; } catch { /* fresh */ } return fresh(); }
-const store = (s: Save) => { try { localStorage.setItem(KEY, JSON.stringify({ ...s, lastSeen: Date.now() })); } catch { /* full */ } };
+const walkTo = (g: Group, ...pts: Pt[]) => { g.path = pts; g.st = 'walk'; };
 
-const count = (s: Save, k: BKey) => s.grid.reduce((n, b, i) => n + (b === k ? 1 + Math.max(0, s.lvl[i] - 1) * 0.5 : 0), 0); // a level-2 building counts 1.5
-const has = (s: Save, k: BKey) => s.grid.includes(k);
-const log = (s: Save, t: string) => { s.log = [t, ...s.log].slice(0, 40); };
-
-function makeOffer(s: Save): Contract {
-  const lvl = levelOfPax(s.pax), cargo = has(s, 'cargo') && Math.random() < 0.25;
-  const size: Size = cargo ? 'C' : lvl >= 3 && Math.random() < 0.35 ? 'L' : lvl >= 1 && Math.random() < 0.55 ? 'M' : 'S';
-  const airline = cargo ? 7 : Math.floor(Math.random() * 7);
-  const perDay = 1 + Math.floor(Math.random() * (2 + lvl));
-  return { id: s.seq++, airline, size, perDay, fee: Math.round(SIZE[size].fee * (0.85 + Math.random() * 0.4) / 100) * 100, minRep: Math.max(0, Math.min(4.5, (size === 'L' ? 3.2 : size === 'M' ? 2 : 0.5) + Math.random() - 0.5)), days: 5 + Math.floor(Math.random() * 6) };
-}
-
-/** Each new day: contracts age, flights get scheduled, upkeep is paid, a daily event may happen. */
-function newDay(s: Save) {
-  s.day++; s.min = 6 * 60;
-  const upkeep = s.grid.reduce((t, b, i) => t + (b ? B[b].upkeep * (1 + s.lvl[i] * 0.3) : 0), 0);
-  s.cash -= upkeep;
-  log(s, `🌅 Day ${s.day}: upkeep ${fmt(upkeep)}`);
-  for (const c of s.contracts) c.days--;
-  const ended = s.contracts.filter((c) => c.days <= 0);
-  for (const c of ended) log(s, `📋 ${AIRLINES[c.airline].name}'s contract ended. Sign them again from Airlines!`);
-  s.contracts = s.contracts.filter((c) => c.days > 0 && s.rep >= c.minRep - 0.8);
-  while (s.offers.length < 3) s.offers.push(makeOffer(s));
-  if (Math.random() < 0.4) s.offers[Math.floor(Math.random() * s.offers.length)] = makeOffer(s);
-  const fest = festivalOn();
-  const r = Math.random();
-  s.event = fest ? 'festival' : r < 0.18 ? 'monsoon' : r < 0.3 ? 'vip' : '';
-  if (s.event === 'monsoon') log(s, '🌧️ Monsoon day: runways take twice as long');
-  if (s.event === 'festival') log(s, `${fest!.emoji} ${fest!.name} rush: 50% more passengers today!`);
-  scheduleDay(s);
-  if (s.event === 'vip') { s.flights.push({ id: s.seq++, c: -1, at: 10 * 60 + Math.random() * 600, state: 'due', code: 'VIP1' }); log(s, '🕴️ A VIP charter is coming today: ₹15,000 if it lands on time'); }
-  if (s.cash < 0) log(s, '⚠️ You are in the red. Cut costs or sign more airlines!');
-}
-function scheduleDay(s: Save) {
-  for (const c of s.contracts) for (let k = 0; k < c.perDay; k++) {
-    const at = 6 * 60 + 30 + (k + Math.random() * 0.8) * ((17 * 60) / c.perDay);
-    s.flights.push({ id: s.seq++, c: c.id, at, state: 'due', code: `${AIRLINES[c.airline].name.split(' ').map((w) => w[0]).join('')}${100 + Math.floor(Math.random() * 900)}` });
+/** Next stop after the previous one is done: check-in → security → (food / shop) → hall or lounge. */
+function advance(s: Save, sim: Sim, g: Group) {
+  const route: SKey[] = ['checkin', 'security', ...g.extras, g.cls > 0 && s.st.lounge.n ? 'lounge' : 'seats'];
+  g.stage++;
+  const next = route[g.stage];
+  if (!next) { g.st = 'wait'; return; }
+  g.at = next;
+  if (next === 'checkin' || next === 'security') {
+    (sim.queues[next] ??= []).push(g.id);
+    const a = AREA[next]; walkTo(g, { x: a.x - 14, y: 310 + (Math.random() - 0.5) * 50 });
+    return;
   }
+  // take a free seat / table, or stand at the side of the area
+  const used = new Set(sim.groups.filter((o) => o !== g && o.at === next && o.st !== 'gone' && o.st !== 'line' && o.st !== 'boarding' && o.st !== 'seated').map((o) => o.slot));
+  let slot = -1; for (let i = 0; i < capOf(next, s.st[next]); i++) if (!used.has(i)) { slot = i; break; }
+  g.slot = slot;
+  const a = AREA[next as Exclude<SKey, 'walk'>], p = slot >= 0 ? seatAt(next, slot) : { x: a.x + 15 + Math.random() * (a.w - 30), y: a.y + a.h - 14 };
+  walkTo(g, { x: Math.max(g.x, a.x - 12), y: p.y }, p);
 }
 
-interface Pop { id: number; tile: number; text: string; good: boolean }
+/** Time the next plane lands at a free gate; its passengers start arriving well before it does. */
+function scheduleFlight(s: Save, sim: Sim, gate: number) {
+  const pool = PLANES.map((p, i) => ({ p, i })).filter(({ p }) => s.served >= p.unlock);
+  const pick = pool[Math.min(pool.length - 1, Math.floor(Math.random() ** 0.7 * pool.length))];
+  const seats = pick.p.seats, fill = Math.min(1, 0.6 + 0.08 * s.rating + (festivalOn() ? 0.15 : 0));
+  const total = Math.max(10, Math.round((seats[0] + seats[1] + seats[2]) * fill));
+  const groups = Math.min(18, Math.max(5, Math.round(total / 12)));
+  const land = sim.t + 30 + Math.random() * 30; // lands 30–60 s from now
+  sim.flights.push({ id: sim.seq++, plane: pick.i, gate, code: `${AIRLINES[Math.floor(Math.random() * AIRLINES.length)]}${100 + Math.floor(Math.random() * 900)}`, groups, total, spawned: 0, seated: 0,
+    land, parkedAt: 0, leaveBy: 0, state: 'due', t: sim.t, boarding: null });
+}
 
-/** Advance the airport by `mins` game minutes; returns floating texts for the screen. */
-function tick(s: Save, mins: number): Pop[] {
-  const pops: Pop[] = [];
-  s.min += mins;
-  if (s.min >= 24 * 60) newDay(s);
-  const ready = has(s, 'tower');
-  const runways = s.grid.map((b, i) => (b === 'runway' ? i : -1)).filter((i) => i >= 0);
-  const gates = s.grid.map((b, i) => (b === 'gate' ? i : -1)).filter((i) => i >= 0);
-  const towerLvl = Math.max(0, ...s.grid.map((b, i) => (b === 'tower' ? s.lvl[i] : 0)));
-  const rwyTime = (s.event === 'monsoon' ? 40 : 20) * (towerLvl >= 2 ? 0.7 : 1);
-  // free the gates whose flights are done
-  for (const f of s.flights) if (f.state === 'gate' && s.min >= (f.until ?? 0)) f.state = 'done';
-  for (const f of s.flights) {
-    if ((f.state !== 'due' && f.state !== 'late') || s.min < f.at) continue;
-    const c = s.contracts.find((x) => x.id === f.c);
-    const size: Size = f.c === -1 ? 'M' : c?.size ?? 'S';
-    if (f.c !== -1 && !c) { f.state = 'done'; continue; }
-    const busyGates = new Set(s.flights.filter((x) => x.state === 'gate').map((x) => x.gate));
-    const gate = gates.find((g) => !busyGates.has(g));
-    const rwy = runways.find((r) => (s.runwayFree[r] ?? 0) <= s.min && (size !== 'L' || s.lvl[r] >= 2));
-    if (ready && gate != null && rwy != null && (size === 'C' ? has(s, 'cargo') : has(s, 'terminal') && has(s, 'security'))) {
-      s.runwayFree[rwy] = s.min + rwyTime;
-      f.state = 'gate'; f.gate = gate; f.until = s.min + 50;
-      // passengers flow through the terminal and security; whatever doesn't fit waits and grumbles
-      let pax = Math.round(SIZE[size].pax * (s.event === 'festival' ? 1.5 : 1));
-      const cap = Math.min(count(s, 'terminal') * 150, count(s, 'security') * 120);
-      const over = size === 'C' ? 0 : Math.max(0, pax - cap);
-      pax -= over;
-      const spend = Math.min(3, count(s, 'chai')) * 2 + Math.min(3, count(s, 'food')) * 4 + Math.min(3, count(s, 'parking')) * 2 + (s.rep >= 3 ? Math.min(3, count(s, 'shops')) * 7 : 0);
-      const late = s.min - f.at > 20;
-      const fee = f.c === -1 ? (late ? 4000 : 15000) : (c!.fee * (late ? 0.7 : 1));
-      const money = fee + pax * spend;
-      s.cash += money; s.earned += money; s.pax += pax; s.flown++;
-      s.rep = Math.max(0, Math.min(5, s.rep + (late ? -0.04 : 0.03 + Math.min(3, count(s, 'lounge')) * 0.01) - (over > 0 ? Math.min(0.15, over / 600) : 0)));
-      pops.push({ id: f.id, tile: gate, text: `+${fmt(money)}`, good: true });
-      if (over > 0) pops.push({ id: f.id + 0.5, tile: gate, text: `😤 ${over} stuck`, good: false });
-      if (late) log(s, `⏰ ${f.code} landed late at ${hhmm(s.min)}`);
-    } else {
-      if (s.min - f.at > 20) f.state = 'late';
-      if (s.min - f.at > 120) {
-        f.state = 'done'; s.rep = Math.max(0, s.rep - 0.15);
-        log(s, `❌ ${f.code} cancelled: ${!ready ? 'no ATC tower' : !runways.length ? 'no runway' : gate == null ? 'no free gate' : 'no runway slot'} (rating −0.15)`);
-        if (gates.length) pops.push({ id: f.id, tile: gates[0], text: '❌ cancelled', good: false });
+export function stepSim(s: Save, sim: Sim, dt: number) {
+  sim.t += dt;
+  const sp = walkSpeed(s) * dt;
+  // each open gate gets a plane, then the next one 30–60 s after the last took off
+  for (let gi = 0; gi < s.st.gate.n; gi++) {
+    if (!sim.flights.some((f) => f.gate === gi && f.state !== 'out') && sim.t >= (sim.gateNext[gi] ?? 0)) scheduleFlight(s, sim, gi);
+  }
+  for (const f of sim.flights) {
+    const P = PLANES[f.plane];
+    // passengers arrive at the entrance from the moment the flight is scheduled, over ~35 s
+    const due = Math.min(f.groups, Math.floor(((sim.t - f.t) / 35) * f.groups) + 1);
+    while (f.spawned < due) {
+      const seats = P.seats, tot = seats[0] + seats[1] + seats[2], r = Math.random() * tot;
+      const cls: Cls = r < seats[2] ? 2 : r < seats[2] + seats[1] ? 1 : 0;
+      const extras: SKey[] = [];
+      if (s.st.food.n && Math.random() < 0.45) extras.push('food');
+      if (s.st.shop.n && Math.random() < (cls ? 0.5 : 0.25)) extras.push('shop');
+      const g: Group = { id: sim.seq++, cls, size: Math.max(1, Math.round(f.total / f.groups)), flight: f.id, x: ENTRY.x - 30, y: ENTRY.y + (Math.random() - 0.5) * 50, path: [], st: 'walk', at: 'entry', stage: -1, t: 0, tt: 0, slot: -1, extras, seat: -1, color: CLS[cls].color };
+      g.path = [{ x: ENTRY.x + 10, y: g.y }];
+      sim.groups.push(g); f.spawned++;
+    }
+    if (f.state === 'due' && sim.t >= f.land - 6) f.state = 'in';
+    if (f.state === 'in' && sim.t >= f.land) {
+      f.state = 'parked'; f.parkedAt = sim.t; f.leaveBy = sim.t + 40 + f.groups * 9;
+      sim.pops.push({ x: NOSE + 120, y: slotY(f.gate) - 40, text: `🛬 ${f.code} landed`, t: 0, big: true });
+    }
+    if (f.state === 'parked') {
+      const allIn = f.spawned === f.groups && f.seated === f.groups;
+      if ((allIn && sim.t > f.parkedAt + 3) || sim.t >= f.leaveBy) {
+        f.state = 'out'; f.t = sim.t;
+        const missed = sim.groups.filter((g) => g.flight === f.id && g.st !== 'seated' && g.st !== 'gone');
+        for (const g of missed) g.st = 'gone';
+        for (const g of sim.groups) if (g.flight === f.id && g.st === 'seated') g.st = 'gone';
+        s.flights++;
+        sim.gateNext[f.gate] = sim.t + 6; // the next flight for this gate gets scheduled shortly (and lands 30–60 s later)
+        const pax = Math.round(missed.length * (f.total / f.groups));
+        if (missed.length) { s.rating = Math.max(0.5, s.rating - 0.05 * missed.length); sim.pops.push({ x: NOSE + 120, y: slotY(f.gate) - 40, text: `😡 ${pax} missed the flight`, t: 0, big: true }); }
+        else { s.rating = Math.min(5, s.rating + 0.06 + s.st.seats.spd * 0.005); sim.pops.push({ x: NOSE + 120, y: slotY(f.gate) - 40, text: '✈️ Full and on time!', t: 0, big: true }); sfx.home(); }
       }
     }
   }
-  s.flights = s.flights.filter((f) => f.state !== 'done' || f.at > s.min - 1);
-  for (const g of GOALS) if (!s.goals.includes(g.id) && g.done(s)) { s.goals.push(g.id); s.cash += g.reward; log(s, `🎯 Goal: ${g.text} · +${fmt(g.reward)}`); pops.push({ id: Math.random(), tile: -1, text: `🎯 ${g.text}! +${fmt(g.reward)}`, good: true }); sfx.win(); }
-  return pops;
+  sim.flights = sim.flights.filter((f) => !(f.state === 'out' && sim.t - f.t > 7));
+
+  // counters serve their queues
+  for (const k of ['checkin', 'security'] as const) {
+    const l = s.st[k], busy = (sim.busy[k] ??= []); busy.length = l.n;
+    const q = (sim.queues[k] ??= []);
+    for (let i = 0; i < l.n; i++) {
+      if (busy[i] != null && !sim.groups.some((x) => x.id === busy[i] && x.st === 'svc')) busy[i] = null;
+      if (busy[i] != null) continue;
+      const gid = q.find((id) => sim.groups.find((x) => x.id === id)?.st === 'queue');
+      if (gid == null) continue;
+      busy[i] = gid; q.splice(q.indexOf(gid), 1);
+      const g = sim.groups.find((x) => x.id === gid)!, p = counter(k, i, l.n);
+      g.st = 'svc'; g.tt = g.t = svcTime(k, l) * (0.85 + Math.random() * 0.3); g.path = [{ x: p.x - 16, y: p.y }];
+    }
+  }
+  // each parked plane boards one passenger group at a time: the next waits until the last is in their seat
+  for (const f of sim.flights) {
+    if (f.state !== 'parked' || f.boarding != null) continue;
+    const line = sim.groups.filter((g) => g.flight === f.id && g.st === 'line').sort((a, b) => a.slot - b.slot);
+    const g = line[0];
+    if (!g || g.path.length) continue;
+    const y = slotY(f.gate), seat = cabinSeat(f.plane, f.groups, f.seated);
+    f.boarding = g.id; g.st = 'boarding'; g.seat = f.seated; g.tt = g.t = svcTime('gate', s.st.gate);
+    g.path = [{ x: 845, y: y - 22 }, { x: NOSE + 22, y: y - 22 }, { x: NOSE + 22, y }, { x: seat.x, y }, { x: seat.x, y: y + seat.y }];
+    for (const o of line.slice(1)) o.slot--; // everyone steps up one place
+  }
+
+  for (const g of sim.groups) {
+    if (g.st === 'gone' || g.st === 'seated') continue;
+    const f = sim.flights.find((x) => x.id === g.flight);
+    if (g.st === 'boarding') {
+      // a short ticket check at the gate, then down the jet bridge and the aisle at walking pace
+      if (g.t > 0) { g.t -= dt; continue; }
+      if (move(g, sp * 1.6)) continue; // people walk briskly down the aisle
+      g.st = 'seated';
+      if (f) { f.seated++; f.boarding = null; s.served += g.size; earn(s, sim, g, feeOf('gate', s.st.gate) * CLS[g.cls].mult * g.size); }
+      continue;
+    }
+    if (g.path.length && move(g, sp)) continue;
+    if (g.st === 'walk') {
+      if (g.at === 'entry') { advance(s, sim, g); continue; }
+      if (g.at === 'checkin' || g.at === 'security') { g.st = 'queue'; continue; }
+      if (g.at === 'seats') { g.st = 'wait'; continue; }
+      if (g.at === 'food' || g.at === 'shop' || g.at === 'lounge') { g.st = 'svc'; g.tt = g.t = svcTime(g.at, s.st[g.at]) * (1.4 + Math.random() * 0.6); continue; }
+    }
+    if (g.st === 'queue' && (g.at === 'checkin' || g.at === 'security')) {
+      const q = sim.queues[g.at] ?? [], pos = q.indexOf(g.id), a = AREA[g.at];
+      const target = { x: a.x - 16 - (pos % 9) * 12, y: 310 + (Math.floor(pos / 9) - 1) * 16 };
+      g.x += (target.x - g.x) * Math.min(1, dt * 3); g.y += (target.y - g.y) * Math.min(1, dt * 3);
+      continue;
+    }
+    if (g.st === 'svc') {
+      g.t -= dt;
+      if (g.t > 0) continue;
+      const k = g.at as SKey;
+      if (k === 'checkin' || k === 'security') { const b = sim.busy[k], i = b.indexOf(g.id); if (i >= 0) b[i] = null; }
+      earn(s, sim, g, feeOf(k, s.st[k]) * CLS[g.cls].mult * g.size);
+      if (k === 'lounge') { g.st = 'wait'; continue; }
+      advance(s, sim, g); continue;
+    }
+    if (g.st === 'wait') {
+      if (g.at === 'seats' && g.slot < 0) s.rating = Math.max(0.5, s.rating - 0.0005 * dt);
+      if (g.at === 'seats' && g.slot >= 0 && s.st.seats.inc > 1 && Math.random() < dt / 25) earn(s, sim, g, feeOf('seats', s.st.seats) * g.size);
+      // the plane is in: head for its boarding area and join the line
+      if (f && f.state === 'parked') {
+        const n = sim.groups.filter((o) => o.flight === f.id && (o.st === 'line')).length;
+        const b = boardArea(f.gate), col = n % 6, row = Math.floor(n / 6);
+        g.st = 'line'; g.slot = n; g.at = null;
+        g.path = [{ x: 675, y: g.y }, { x: 675, y: b.y + b.h / 2 }, { x: b.x + b.w - 18 - col * 22, y: b.y + 24 + row * 22 }];
+      }
+    }
+    if (g.st === 'line' && !g.path.length) {
+      // shuffle forward as the line moves
+      const b = f ? boardArea(f.gate) : null;
+      if (b) { const col = g.slot % 6, row = Math.floor(g.slot / 6); const tx = b.x + b.w - 18 - col * 22, ty = b.y + 24 + row * 22; g.x += (tx - g.x) * Math.min(1, dt * 3); g.y += (ty - g.y) * Math.min(1, dt * 3); }
+    }
+  }
+  sim.groups = sim.groups.filter((g) => g.st !== 'gone');
+  const alive = new Set(sim.groups.map((g) => g.id));
+  for (const k in sim.queues) sim.queues[k] = sim.queues[k].filter((id) => alive.has(id));
+  for (const f of sim.flights) if (f.boarding != null && !alive.has(f.boarding)) f.boarding = null;
+  for (const p of sim.pops) p.t += dt;
+  sim.pops = sim.pops.filter((p) => p.t < 1.8);
+}
+/** Walk along the path; true while still walking. */
+function move(g: Group, sp: number) {
+  const t = g.path[0]; if (!t) return false;
+  const dx = t.x - g.x, dy = t.y - g.y, d = Math.hypot(dx, dy);
+  if (d <= sp) { g.x = t.x; g.y = t.y; g.path.shift(); } else { g.x += (dx / d) * sp; g.y += (dy / d) * sp; }
+  return g.path.length > 0;
+}
+
+// ---------------- drawing ----------------
+/** Portrait phones see the floor plan turned a quarter (entry at the top, planes at the bottom); text and people stay upright. */
+let ROT = false;
+function up(x: CanvasRenderingContext2D, lx: number, ly: number, draw: () => void) { x.save(); x.translate(lx, ly); if (ROT) x.rotate(-Math.PI / 2); draw(); x.restore(); }
+const txt = (x: CanvasRenderingContext2D, t: string, lx: number, ly: number) => up(x, lx, ly, () => x.fillText(t, 0, 0));
+
+function person(x: CanvasRenderingContext2D, g: { x: number; y: number }, color: string, s: number, progress: number | null) {
+  up(x, g.x, g.y, () => {
+    x.fillStyle = 'rgba(0,0,0,.18)'; x.beginPath(); x.ellipse(0, 6 * s, 5 * s, 2 * s, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = color; x.beginPath(); x.ellipse(0, 1.5 * s, 4 * s, 5 * s, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#ffd9b3'; x.beginPath(); x.arc(0, -5 * s, 3 * s, 0, Math.PI * 2); x.fill();
+    if (progress != null) {
+      // processing time ring over the passenger's head
+      x.lineWidth = 2.5; x.strokeStyle = 'rgba(27,16,53,.25)'; x.beginPath(); x.arc(0, -14 * s, 5, 0, Math.PI * 2); x.stroke();
+      x.strokeStyle = '#00c97a'; x.beginPath(); x.arc(0, -14 * s, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress); x.stroke();
+    }
+  });
+}
+
+function plane(x: CanvasRenderingContext2D, f: Flight, sim: Sim, groups: Group[]) {
+  const P = PLANES[f.plane], y = slotY(f.gate);
+  let dx = 0, dy = 0, a = 1;
+  if (f.state === 'in') { const k = Math.max(0, (f.land - sim.t) / 6); dx = k * k * 380; dy = -k * 30; a = 1 - k * 0.6; }
+  if (f.state === 'out') { const t = sim.t - f.t; dx = t * t * 30 + t * 20; dy = -t * t * 4; a = Math.max(0, 1 - t / 7); }
+  const x0 = planeX0 + dx, L = P.L, W = P.W, span = P.span;
+  x.save(); x.globalAlpha = a; x.translate(0, y + dy);
+  // shadow, wings, tail, fuselage
+  x.fillStyle = 'rgba(0,0,0,.18)'; x.beginPath(); x.ellipse(x0 + L / 2 + 8, 10, L / 2, span / 2.4, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#dfe6ec'; x.strokeStyle = '#7d8a96'; x.lineWidth = 1.5;
+  const wx = x0 + L * 0.38;
+  x.beginPath(); x.moveTo(wx, -W / 2); x.lineTo(wx + L * 0.22, -span / 2); x.lineTo(wx + L * 0.3, -span / 2); x.lineTo(wx + L * 0.2, -W / 2); x.closePath(); x.fill(); x.stroke();
+  x.beginPath(); x.moveTo(wx, W / 2); x.lineTo(wx + L * 0.22, span / 2); x.lineTo(wx + L * 0.3, span / 2); x.lineTo(wx + L * 0.2, W / 2); x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = P.tail;
+  x.beginPath(); x.moveTo(x0 + L - 40, -W / 2); x.lineTo(x0 + L - 8, -W * 1.4); x.lineTo(x0 + L + 2, -W * 1.4); x.lineTo(x0 + L - 6, 0); x.lineTo(x0 + L + 2, W * 1.4); x.lineTo(x0 + L - 8, W * 1.4); x.lineTo(x0 + L - 40, W / 2); x.closePath(); x.fill();
+  x.fillStyle = '#f7f9fc'; x.beginPath();
+  x.moveTo(x0, 0); x.quadraticCurveTo(x0, -W / 2, x0 + 30, -W / 2); x.lineTo(x0 + L - 20, -W / 2); x.quadraticCurveTo(x0 + L + 6, -W / 4, x0 + L + 6, 0); x.quadraticCurveTo(x0 + L + 6, W / 4, x0 + L - 20, W / 2); x.lineTo(x0 + 30, W / 2); x.quadraticCurveTo(x0, W / 2, x0, 0);
+  x.fill(); x.stroke();
+  x.fillStyle = '#1b3a6b'; x.beginPath(); x.ellipse(x0 + 10, 0, 5, W * 0.3, 0, 0, Math.PI * 2); x.fill(); // cockpit
+  // cabin: seats in class colours, filled as passengers sit down
+  for (let i = 0; i < f.groups; i++) {
+    const p = cabinSeat(f.plane, f.groups, i);
+    x.fillStyle = 'rgba(27,16,53,.15)'; x.fillRect(p.x + dx - 5, p.y - 4, 10, 8);
+  }
+  x.restore();
+  // seated and boarding passengers move with the plane
+  for (const g of groups) if (g.flight === f.id && (g.st === 'seated' || g.st === 'boarding')) person(x, { x: g.x + dx, y: g.y + dy }, g.color, 0.85, g.st === 'boarding' && g.t > 0 ? 1 - g.t / g.tt : null);
+  x.globalAlpha = 1;
+  // label: capacity filling up
+  if (f.state === 'parked' || f.state === 'in' || f.state === 'due') {
+    const pax = Math.round(f.seated * (f.total / f.groups)), cap = P.seats[0] + P.seats[1] + P.seats[2];
+    up(x, ROT ? planeX0 + 150 : planeX0 + 60, ROT ? y + 70 : y - P.span / 2 - 2, () => {
+      x.fillStyle = 'rgba(10,20,30,.8)'; x.beginPath(); x.roundRect?.(0, -18, 150, 32, 8); x.fill();
+      x.fillStyle = '#fff'; x.font = '800 11px system-ui'; x.textAlign = 'left';
+      x.fillText(`${f.code} · ${P.name}`, 6, -5);
+      x.fillStyle = f.state === 'parked' ? '#5dffb4' : '#ffd23f';
+      x.fillText(f.state === 'parked' ? `💺 ${pax}/${cap} · ⏱ ${Math.max(0, Math.ceil(f.leaveBy - sim.t))}s` : `🛬 lands in ${Math.max(0, Math.ceil(f.land - sim.t))}s · ${f.total} pax`, 6, 9);
+    });
+  }
+}
+
+function render(x: CanvasRenderingContext2D, s: Save, sim: Sim, view: View, sel: SKey | null) {
+  const { w, h, k, ox, oy } = view, dpr = Math.min(2, devicePixelRatio || 1);
+  ROT = view.rot;
+  x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, w * dpr, h * dpr);
+  x.setTransform(dpr * k, 0, 0, dpr * k, dpr * ox, dpr * oy);
+  if (ROT) { x.translate(LH, 0); x.rotate(Math.PI / 2); }
+  // apron and terminal floor
+  x.fillStyle = '#8a959f'; x.fillRect(870, 0, LW - 870, LH);
+  for (let i = 0; i < 4; i++) { x.strokeStyle = i < s.st.gate.n ? '#ffd23f' : 'rgba(255,255,255,.25)'; x.lineWidth = 2; x.setLineDash([14, 10]); x.beginPath(); x.moveTo(890, slotY(i)); x.lineTo(LW - 10, slotY(i)); x.stroke(); x.setLineDash([]); }
+  x.fillStyle = '#eef2f6'; x.fillRect(0, 10, 870, LH - 20);
+  x.fillStyle = 'rgba(0,0,0,.03)'; for (let i = 0; i < 870; i += 40) for (let j = 10; j < LH - 10; j += 40) if (((i + j) / 40) % 2 === 0) x.fillRect(i, j, 40, 40);
+  x.strokeStyle = '#c7d0d8'; x.lineWidth = 3; x.strokeRect(0, 10, 870, LH - 20);
+  x.fillStyle = '#6ec6ff'; x.fillRect(-4, 260, 12, 100);
+  x.fillStyle = '#1b1035'; x.font = '900 13px system-ui'; x.textAlign = 'center'; txt(x, '🚪 ENTRY', 48, 250);
+  // areas
+  for (const key of AREAS) {
+    const a = AREA[key as Exclude<SKey, 'walk'>], l = s.st[key], built = l.n > 0, locked = s.served < S[key].unlock;
+    if (key === 'gate') continue;
+    x.fillStyle = sel === key ? 'rgba(255,210,63,.3)' : built ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.3)';
+    x.strokeStyle = sel === key ? '#ffb400' : built ? '#b9c4ce' : '#9aa7b3'; x.lineWidth = sel === key ? 3 : 1.5;
+    if (!built) x.setLineDash([6, 5]);
+    x.beginPath(); x.roundRect?.(a.x, a.y, a.w, a.h, 12); x.fill(); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#1b1035'; x.font = '900 13px system-ui'; x.textAlign = 'center';
+    txt(x, `${S[key].icon} ${S[key].name}`, ROT ? a.x + 16 : a.x + a.w / 2, ROT ? a.y + a.h / 2 : a.y + 18);
+    x.font = '800 11px system-ui';
+    if (built) { x.fillStyle = '#5b6b7a'; txt(x, `×${l.n} · ⚡${l.spd}${S[key].svc ? ` (${svcTime(key, l).toFixed(1)}s)` : ''} · 💰${l.inc}`, ROT ? a.x + a.w - 8 : a.x + a.w / 2, ROT ? a.y + a.h / 2 : a.y + a.h - 7); }
+    else { x.fillStyle = locked ? '#7d8a96' : '#00a35c'; txt(x, locked ? `🔒 ${S[key].unlock.toLocaleString('en-IN')} pax` : `+ Build ${short(costAdd(key, l))}`, a.x + a.w / 2, a.y + a.h / 2 + 4); }
+  }
+  // counters and scanners with their service time bars
+  for (const key of ['checkin', 'security'] as const) {
+    const l = s.st[key];
+    for (let i = 0; i < l.n; i++) {
+      const p = counter(key, i, l.n), gid = sim.busy[key]?.[i], g = gid != null ? sim.groups.find((o) => o.id === gid) : null;
+      if (key === 'checkin') { x.fillStyle = '#2b7bff'; x.fillRect(p.x, p.y - 14, 26, 28); x.fillStyle = '#fff'; x.fillRect(p.x + 3, p.y - 10, 20, 6); }
+      else { x.strokeStyle = '#5b6b7a'; x.lineWidth = 4; x.strokeRect(p.x - 2, p.y - 16, 22, 32); x.fillStyle = g ? 'rgba(0,201,122,.5)' : 'rgba(255,45,85,.2)'; x.fillRect(p.x, p.y - 14, 18, 28); x.fillStyle = '#3a4a5a'; x.fillRect(p.x + 22, p.y - 5, 26, 10); }
+      person(x, { x: p.x + (key === 'checkin' ? 38 : 56), y: p.y }, key === 'checkin' ? '#ff8c42' : '#1b3a6b', 1, null);
+    }
+  }
+  for (let i = 0; i < capOf('seats', s.st.seats); i++) { const p = seatAt('seats', i); x.fillStyle = s.st.seats.spd > 2 ? '#7a5cff' : '#9aa7b3'; x.beginPath(); x.roundRect?.(p.x - 9, p.y - 1, 18, 11, 3); x.fill(); }
+  for (const key of ['food', 'shop', 'lounge'] as const) {
+    const l = s.st[key]; if (!l.n) continue;
+    for (let i = 0; i < capOf(key, l); i++) { const p = seatAt(key, i); x.fillStyle = key === 'food' ? '#ff8c42' : key === 'shop' ? '#ff4fd8' : '#b388ff'; x.beginPath(); x.arc(p.x, p.y + 6, 8, 0, Math.PI * 2); x.fill(); }
+  }
+  // gates: a boarding area, a desk and a jet bridge for each; locked slots show the price of the next gate
+  for (let i = 0; i < 4; i++) {
+    const b = boardArea(i), open = i < s.st.gate.n, y = slotY(i);
+    x.fillStyle = sel === 'gate' ? 'rgba(255,210,63,.3)' : open ? 'rgba(255,255,255,.75)' : 'rgba(255,255,255,.3)';
+    x.strokeStyle = sel === 'gate' ? '#ffb400' : open ? '#b9c4ce' : '#9aa7b3'; x.lineWidth = sel === 'gate' ? 3 : 1.5; if (!open) x.setLineDash([6, 5]);
+    x.beginPath(); x.roundRect?.(b.x, b.y, b.w, b.h, 10); x.fill(); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#1b1035'; x.font = '900 12px system-ui'; x.textAlign = 'center';
+    if (open) {
+      txt(x, `🛫 Gate ${i + 1} · boarding`, ROT ? b.x + 14 : b.x + b.w / 2, ROT ? b.y + b.h / 2 : b.y + 14);
+      x.fillStyle = '#2b7bff'; x.fillRect(838, y - 34, 14, 24); // gate desk
+      x.fillStyle = '#9aa7b3'; x.fillRect(852, y - 27, NOSE + 26 - 852, 10); // jet bridge
+      if (i === 0) { x.fillStyle = '#5b6b7a'; x.font = '800 11px system-ui'; txt(x, `⚡${s.st.gate.spd} (${svcTime('gate', s.st.gate).toFixed(1)}s) · 💰${s.st.gate.inc}`, ROT ? b.x + b.w - 8 : b.x + b.w / 2, ROT ? b.y + b.h / 2 : b.y + b.h - 6); }
+    } else if (i === s.st.gate.n) { x.fillStyle = '#00a35c'; txt(x, `+ Gate ${i + 1} · ${short(costAdd('gate', s.st.gate))}`, b.x + b.w / 2, b.y + b.h / 2); }
+  }
+  for (const f of sim.flights) plane(x, f, sim, sim.groups);
+  // passengers in the terminal (with a ring while being served)
+  for (const g of sim.groups) {
+    if (g.st === 'seated' || g.st === 'boarding') continue;
+    person(x, g, g.color, g.cls ? 1.15 : 1, g.st === 'svc' && g.tt > 0 ? Math.min(1, 1 - g.t / g.tt) : null);
+  }
+  for (const q of sim.pops) {
+    x.globalAlpha = 1 - q.t / 1.8; x.font = `900 ${q.big ? 16 : 12}px system-ui`; x.textAlign = 'center';
+    x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 3;
+    up(x, q.x, q.y - q.t * 30, () => { x.strokeText(q.text, 0, 0); x.fillStyle = q.text.startsWith('+') ? '#00a35c' : q.text.startsWith('😡') ? '#e5304f' : '#2b7bff'; x.fillText(q.text, 0, 0); });
+    x.globalAlpha = 1;
+  }
 }
 
 // ---------------- app ----------------
+interface View { w: number; h: number; k: number; ox: number; oy: number; rot: boolean }
 export default function HawaiAdda() {
   const [s, setS] = useState<Save>(load);
-  const [speed, setSpeed] = useState(1);
-  const [tab, setTab] = useState<'build' | 'air' | 'log'>('build');
-  const [pick, setPick] = useState<BKey | null>(null);
-  const [sel, setSel] = useState<number | null>(null);
-  const [pops, setPops] = useState<(Pop & { at: number })[]>([]);
-  const [away, setAway] = useState<string>('');
-  const [muted, setMute] = useState(isMuted());
-  const ref = useRef(s); ref.current = s;
   const [started, setStarted] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [sel, setSel] = useState<SKey | null>(null);
+  const [away, setAway] = useState('');
+  const [muted, setMute] = useState(isMuted());
+  const [, force] = useState(0);
+  const ref = useRef(s); ref.current = s;
+  const sim = useRef<Sim>(newSim()), cv = useRef<HTMLCanvasElement>(null), box = useRef<HTMLDivElement>(null);
+  const view = useRef<View>({ w: 300, h: 300, k: 0.3, ox: 0, oy: 0, rot: false }), selRef = useRef(sel); selRef.current = sel;
+  const speedRef = useRef(speed); speedRef.current = speed;
 
-  // earnings while away: half of an average day's takings per missed day, at most 1 day
+  // earnings while away: half your recent income rate, up to two hours
   useEffect(() => {
-    const st = ref.current, gone = (Date.now() - st.lastSeen) / 1000;
-    if (st.flown > 0 && gone > 120) {
-      const perDay = st.earned / Math.max(1, st.day), days = Math.min(1, gone / (DAY_SECONDS * 4));
-      const gain = Math.round(perDay * 0.5 * days);
-      if (gain > 0) { const n = { ...st, cash: st.cash + gain }; setS(n); store(n); setAway(`While you were away your airport earned ${fmt(gain)} ✈️`); }
-    }
+    const st = ref.current, mins = Math.min(120, (Date.now() - st.seen) / 60000);
+    if (st.perMin > 0 && mins > 2) { const gain = Math.round(st.perMin * mins * 0.5); const n = { ...st, cash: st.cash + gain, earned: st.earned + gain }; setS(n); store(n); setAway(`While you were away your airport earned ${fmt(gain)} ✈️`); }
   }, []);
 
   useEffect(() => {
-    if (!started || !speed) return;
-    const t = setInterval(() => {
-      const n: Save = structuredClone(ref.current);
-      const out = tick(n, (24 * 60 / DAY_SECONDS) * 0.25 * speed);
-      setS(n);
-      if (out.length) { const now = Date.now(); setPops((l) => [...l.filter((p) => now - p.at < 1800), ...out.map((p) => ({ ...p, at: now }))]); if (out.some((p) => p.good && p.tile >= 0)) sfx.tink(1); }
-    }, 250);
-    const save = setInterval(() => store(ref.current), 4000);
-    return () => { clearInterval(t); clearInterval(save); store(ref.current); };
-  }, [started, speed]);
+    if (!started) return;
+    const el = box.current!, c = cv.current!, x = c.getContext('2d')!;
+    const fit = () => {
+      const r = el.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+      c.width = r.width * dpr; c.height = r.height * dpr; c.style.width = `${r.width}px`; c.style.height = `${r.height}px`;
+      const rot = r.height > r.width * 1.1, cw = rot ? LH : LW, ch = rot ? LW : LH;
+      const k = Math.min(r.width / (cw + 10), r.height / (ch + 10));
+      view.current = { w: r.width, h: r.height, k, ox: (r.width - cw * k) / 2, oy: (r.height - ch * k) / 2, rot };
+    };
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    let raf = 0, last = performance.now(), uiT = 0, saveT = 0, minT = 0;
+    const loop = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const st = ref.current;
+      for (let i = 0; i < speedRef.current; i++) stepSim(st, sim.current, dt);
+      render(x, st, sim.current, view.current, selRef.current);
+      uiT += dt; saveT += dt; minT += dt;
+      if (uiT > 0.25) { uiT = 0; force((n) => n + 1); }
+      if (minT > 30) { minT = 0; st.perMin = sim.current.income.reduce((a, b) => a + b, 0) * 2; sim.current.income = []; }
+      if (saveT > 5) { saveT = 0; store(st); }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    if (import.meta.env.DEV) (window as unknown as { __ha?: unknown }).__ha = { s: ref, sim };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); store(ref.current); };
+  }, [started]);
 
-  const lvl = levelOfPax(s.pax);
-  const place = (i: number) => {
-    if (s.grid[i]) { setSel(i); setPick(null); return; }
-    if (!pick) { setSel(null); return; }
-    const d = B[pick];
-    if (s.cash < d.cost) { sfx.captured(); return; }
-    const n = structuredClone(s); n.grid[i] = pick; n.lvl[i] = 1; n.cash -= d.cost;
-    if (pick === 'runway' || pick === 'gate') n.flights.filter((f) => f.state === 'late').forEach((f) => (f.at = n.min));
-    log(n, `🏗️ Built ${d.name} for ${fmt(d.cost)}`);
-    setS(n); store(n); sfx.home();
+  const tap = (e: React.PointerEvent) => {
+    const r = cv.current!.getBoundingClientRect(), v = view.current;
+    const sx = (e.clientX - r.left - v.ox) / v.k, sy = (e.clientY - r.top - v.oy) / v.k;
+    const lx = v.rot ? sy : sx, ly = v.rot ? LH - sx : sy;
+    const inside = (a: { x: number; y: number; w: number; h: number }) => lx >= a.x && lx <= a.x + a.w && ly >= a.y && ly <= a.y + a.h;
+    const hit = lx > 680 ? 'gate' : AREAS.find((k) => k !== 'gate' && inside(AREA[k as Exclude<SKey, 'walk'>]));
+    setSel((hit as SKey) ?? null); if (hit) sfx.tap();
   };
-  const upgrade = (i: number) => {
-    const k = s.grid[i]!, cost = B[k].cost * (s.lvl[i] + 0.5);
-    if (s.cash < cost || s.lvl[i] >= 3) return;
-    const n = structuredClone(s); n.cash -= cost; n.lvl[i]++; log(n, `⬆️ ${B[k].name} upgraded to level ${n.lvl[i]}`); setS(n); store(n); sfx.win();
+  const buy = (k: SKey, what: 'add' | 'spd' | 'inc') => {
+    const st = ref.current, l = st.st[k];
+    const cost = what === 'add' ? costAdd(k, l) : what === 'spd' ? costSpd(k, l) : costInc(k, l);
+    if (st.cash < cost || (what === 'add' && l.n >= S[k].maxN) || (what !== 'add' && (l.n === 0 || l[what] >= 10)) || st.served < S[k].unlock) { sfx.captured(); return; }
+    st.cash -= cost;
+    if (what === 'add') { l.n++; if (k === 'gate') sim.current.gateNext[l.n - 1] = sim.current.t; } else l[what]++;
+    store(st); setS({ ...st }); sfx.win();
   };
-  const sell = (i: number) => {
-    const k = s.grid[i]!, back = B[k].cost * 0.5 * s.lvl[i];
-    const n = structuredClone(s); n.cash += back; n.grid[i] = null; n.lvl[i] = 0; log(n, `💸 Sold ${B[k].name} for ${fmt(back)}`); setS(n); store(n); setSel(null);
-  };
-  const sign = (c: Contract) => {
-    if (s.rep < c.minRep) return;
-    const n = structuredClone(s); n.offers = n.offers.filter((o) => o.id !== c.id); n.contracts.push(c);
-    // today's remaining flights for the new airline
-    for (let k = 0; k < c.perDay; k++) { const at = Math.max(n.min + 30, 6 * 60 + 30 + (k + 0.5) * ((17 * 60) / c.perDay)); if (at < 23.5 * 60) n.flights.push({ id: n.seq++, c: c.id, at, state: 'due', code: `${AIRLINES[c.airline].name.split(' ').map((w) => w[0]).join('')}${100 + Math.floor(Math.random() * 900)}` }); }
-    log(n, `✍️ Signed ${AIRLINES[c.airline].name}: ${c.perDay} ${SIZE[c.size].label} flights a day for ${c.days} days`);
-    setS(n); store(n); sfx.home();
-  };
-  const reset = () => { if (!confirm('Start a brand-new airport? Your current one will be gone.')) return; const n = fresh(); setS(n); store(n); };
   const leave = () => {
     store(ref.current);
-    // a session counts as a game for XP and daily quests once some flights have flown
-    if (ref.current.flown > 0) { const p0 = recordGame(loadProfile(), 0, 1, 0).profile; saveProfile(recordProgress(p0, 'hawaiadda', 0, 1, { ha_pax: ref.current.pax }).profile); }
+    if (ref.current.flights > 0) { const p0 = recordGame(loadProfile(), 0, 1, 0).profile; saveProfile(recordProgress(p0, 'hawaiadda', 0, 1, { ha_pax: ref.current.served }).profile); }
     location.href = import.meta.env.BASE_URL;
   };
-
-  useEffect(() => { if (s.offers.length === 0) { const n = structuredClone(s); while (n.offers.length < 3) n.offers.push(makeOffer(n)); setS(n); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const reset = () => { if (!confirm('Start a brand-new airport? Your current one will be gone.')) return; const n = fresh(); ref.current = n; setS(n); store(n); sim.current = newSim(); };
 
   if (!started) return (
     <div className="screen home ha-home">
@@ -242,118 +483,74 @@ export default function HawaiAdda() {
         <div className="rr-logo ha">🛫</div>
         <small>SOLO · AIRPORT TYCOON</small>
         <h1>Hawai <em className="ha">Adda</em></h1>
-        <p>Turn a dusty airstrip into an international hub.</p>
+        <p>Run the busiest airport in India, one passenger at a time.</p>
       </header>
       {away && <div className="banner ok">{away}</div>}
       <section className="card rr-how">
-        <div><span>🏗️</span><p><b>Build</b> an ATC tower, runway, gates, terminal and security. Then shops to earn from every passenger.</p></div>
-        <div><span>✍️</span><p><b>Sign airlines.</b> Bigger jets pay more but want a better ⭐ rating and longer runways.</p></div>
-        <div><span>⏰</span><p><b>Keep flights on time.</b> No free gate or runway means delays, angry flyers and a lower rating.</p></div>
-        <div><span>🌧️</span><p>Monsoon days, VIP charters and festival rushes keep every day different.</p></div>
+        <div><span>🚶</span><p>Passengers check in, clear security and wait in the hall until their plane lands. Then they line up at the gate and board one by one.</p></div>
+        <div><span>👆</span><p><b>Tap any area</b> to add counters, make it faster, or earn more per passenger. <b>🚶 Walkways</b> make everyone walk faster.</p></div>
+        <div><span>💺</span><p>Business and first class pay 3× and 6×. Build a <b>Lounge</b> for them.</p></div>
+        <div><span>✈️</span><p>Planes come and go every 30–60 s at each gate. Open more gates for more planes; bigger jets unlock as you grow.</p></div>
       </section>
-      <section className="card ha-save"><b>{LEVELS[lvl].name}</b><small>Day {s.day} · {fmt(s.cash)} · ⭐{s.rep.toFixed(1)} · {s.pax.toLocaleString('en-IN')} passengers</small></section>
+      <section className="card ha-save"><b>{levelName(s.served)}</b><small>{fmt(s.cash)} · ⭐{s.rating.toFixed(1)} · {s.served.toLocaleString('en-IN')} passengers flown</small></section>
       <section className="actions">
-        <button className="btn primary big" onClick={() => { sfx.turn(); setStarted(true); }}><span className="ic">▶</span> {s.flown || s.grid.some(Boolean) ? 'Open the airport' : 'Start building'}</button>
-        {(s.flown > 0 || s.grid.some(Boolean)) && <button className="btn ghost" onClick={reset}>New airport</button>}
+        <button className="btn primary big" onClick={() => { sfx.turn(); setStarted(true); }}><span className="ic">▶</span> {s.flights ? 'Open the airport' : 'Open for business'}</button>
+        {s.flights > 0 && <button className="btn ghost" onClick={reset}>New airport</button>}
       </section>
     </div>
   );
 
-  const goal = GOALS.find((g) => !s.goals.includes(g.id));
-  const busyGate = new Map(s.flights.filter((f) => f.state === 'gate').map((f) => [f.gate, f]));
-  const runwayBusy = (i: number) => (s.runwayFree[i] ?? 0) > s.min;
-  const waiting = s.flights.filter((f) => (f.state === 'due' || f.state === 'late') && f.at <= s.min).length;
-  const next = s.flights.filter((f) => f.state === 'due' && f.at > s.min).sort((a, b) => a.at - b.at)[0];
-  const night = s.min < 6 * 60 + 30 || s.min > 20 * 60;
-
+  const st = ref.current, nextPlane = PLANES.find((p) => st.served < p.unlock);
+  const l = sel ? st.st[sel] : null;
+  const opts: ('add' | 'spd' | 'inc')[] = sel === 'walk' ? ['spd'] : ['add', 'spd', 'inc'];
   return (
-    <div className={`screen ha-game ${night ? 'night' : ''}`}>
-      <div className="ha-hud">
+    <div className="screen ha2">
+      <div className="ha2-hud">
         <button className="btn ghost sm" onClick={leave}>✕</button>
-        <div className="ha-stats">
-          <b className={s.cash < 0 ? 'neg' : ''}>{fmt(s.cash)}</b>
-          <span title="Rating">⭐{s.rep.toFixed(1)}</span>
-          <span>D{s.day} {hhmm(s.min)}{s.event === 'monsoon' ? ' 🌧️' : s.event === 'festival' ? ` ${festivalOn()?.emoji ?? '🎉'}` : s.event === 'vip' ? ' 🕴️' : ''}</span>
-        </div>
-        <div className="seg ha-speed">{[0, 1, 2, 4].map((v) => <button key={v} className={speed === v ? 'on' : ''} onClick={() => setSpeed(v)}>{v ? `${v}×` : '⏸'}</button>)}</div>
+        <b className="cash">{fmt(st.cash)}</b>
+        <span className="rate">⭐{st.rating.toFixed(1)}</span>
+        <span className="pax">🚶{st.served.toLocaleString('en-IN')}</span>
+        <div className="seg ha-speed">{[1, 2, 4].map((v) => <button key={v} className={speed === v ? 'on' : ''} onClick={() => setSpeed(v)}>{v}×</button>)}</div>
         <button className="btn ghost sm" onClick={() => { setMuted(!muted); setMute(!muted); }}>{muted ? '🔇' : '🔊'}</button>
       </div>
-      <div className="ha-sub">
-        <span className="lvl">{LEVELS[lvl].name}{lvl < 4 && ` · ${s.pax.toLocaleString('en-IN')}/${LEVELS[lvl + 1].pax.toLocaleString('en-IN')} pax`}</span>
-        {goal && <span className="goal">🎯 {goal.text} · {fmt(goal.reward)}</span>}
+      <div className="ha2-sub">
+        <button className={`walk ${sel === 'walk' ? 'on' : ''}`} onClick={() => { sfx.tap(); setSel(sel === 'walk' ? null : 'walk'); }}>🚶 Walk Lv{st.st.walk.spd}</button>
+        <span>{levelName(st.served)}</span>
+        {nextPlane && <span className="next">Next: {nextPlane.name} at {nextPlane.unlock.toLocaleString('en-IN')} pax</span>}
+        {festivalOn() && <span className="fest">{festivalOn()!.emoji} {festivalOn()!.name} rush</span>}
       </div>
-      <div className="ha-main">
-        <div className="ha-gridwrap">
-          <div className="ha-grid" style={{ ['--n' as string]: N }}>
-            {s.grid.map((b, i) => {
-              const f = b === 'gate' ? busyGate.get(i) : undefined;
-              return (
-                <button key={i} className={`ha-tile ${b ?? 'empty'} ${pick && !b ? 'can' : ''} ${sel === i ? 'sel' : ''} ${b === 'runway' && runwayBusy(i) ? 'busy' : ''}`} onClick={() => place(i)}>
-                  {b && <span className="ic">{B[b].icon}</span>}
-                  {b && s.lvl[i] > 1 && <i className="lv">{'★'.repeat(s.lvl[i] - 1)}</i>}
-                  {b === 'runway' && runwayBusy(i) && <span className="rw-plane">✈️</span>}
-                  {f && <span className="parked" title={f.code}>✈️</span>}
-                  {pops.filter((p) => p.tile === i).map((p) => <em key={p.id} className={`pop ${p.good ? 'good' : 'bad'}`}>{p.text}</em>)}
-                </button>
-              );
-            })}
-          </div>
-          {pops.filter((p) => p.tile === -1).map((p) => <div key={p.id} className="ha-goalpop">{p.text}</div>)}
-        </div>
-        <div className="ha-panel">
-          <div className="seg ha-tabs">
-            <button className={tab === 'build' ? 'on' : ''} onClick={() => setTab('build')}>🏗️ Build</button>
-            <button className={tab === 'air' ? 'on' : ''} onClick={() => setTab('air')}>📋 Airlines{s.offers.some((o) => s.rep >= o.minRep) ? ' •' : ''}</button>
-            <button className={tab === 'log' ? 'on' : ''} onClick={() => setTab('log')}>📜 Ops</button>
-          </div>
-          {sel != null && s.grid[sel] && (() => {
-            const k = s.grid[sel]!, cost = B[k].cost * (s.lvl[sel] + 0.5);
-            return (
-              <div className="ha-sel">
-                <b>{B[k].icon} {B[k].name} · level {s.lvl[sel]}</b><small>{B[k].text}</small>
-                <div className="row">
-                  {s.lvl[sel] < 3 && <button className="btn primary sm" disabled={s.cash < cost} onClick={() => upgrade(sel)}>⬆️ Upgrade {fmt(cost)}</button>}
-                  <button className="btn glass sm" onClick={() => sell(sel)}>Sell {fmt(B[k].cost * 0.5 * s.lvl[sel])}</button>
-                  <button className="btn ghost sm" onClick={() => setSel(null)}>✕</button>
-                </div>
-              </div>
-            );
-          })()}
-          {tab === 'build' && (
-            <div className="ha-build">
-              {ORDER.map((k) => {
-                const d = B[k], locked = lvl + 1 < d.unlock;
+      <div className="ha2-stage" ref={box}>
+        <canvas ref={cv} onPointerDown={tap} />
+        {!sel && <div className="ha2-hint">👆 Tap Check-in, Security, the Hall, Gates… to upgrade</div>}
+      </div>
+      {sel && l && (
+        <div className="ha2-panel">
+          <div className="row-between"><b>{S[sel].icon} {S[sel].name}</b><button className="btn ghost xs" onClick={() => setSel(null)}>✕</button></div>
+          <small className="dim">{S[sel].text}</small>
+          {st.served < S[sel].unlock ? <div className="ha2-lock">🔒 Unlocks at {S[sel].unlock.toLocaleString('en-IN')} passengers flown</div> : (
+            <div className="ha2-opts" style={{ gridTemplateColumns: `repeat(${opts.length}, 1fr)` }}>
+              {opts.map((w) => {
+                const cost = w === 'add' ? costAdd(sel, l) : w === 'spd' ? costSpd(sel, l) : costInc(sel, l);
+                const maxed = w === 'add' ? l.n >= S[sel].maxN : l[w] >= 10;
+                const off = maxed || (w !== 'add' && l.n === 0) || st.cash < cost;
+                const label = w === 'add' ? (l.n === 0 ? `Build ${S[sel].name}` : S[sel].add) : w === 'spd' ? S[sel].spd : S[sel].inc;
+                const now = w === 'add' ? `${l.n}/${S[sel].maxN}` : `Lv ${l[w]}/10`;
+                const effect = sel === 'walk' ? `${Math.round(walkSpeed(st))} → ${Math.round(34 * (1 + 0.28 * l.spd))} steps/s`
+                  : w === 'add' ? (sel === 'gate' ? 'a new stand + boarding area' : `${capOf(sel, l)} → ${capOf(sel, { ...l, n: l.n + 1 })} ${sel === 'seats' || sel === 'lounge' ? 'seats' : 'at once'}`)
+                  : w === 'spd' ? (sel === 'seats' ? 'better rating' : `${svcTime(sel, l).toFixed(1)}s → ${svcTime(sel, { ...l, spd: l.spd + 1 }).toFixed(1)}s each`)
+                  : `${fmt(feeOf(sel, l))} → ${fmt(feeOf(sel, { ...l, inc: l.inc + 1 }))} /pax`;
                 return (
-                  <button key={k} className={`ha-card ${pick === k ? 'on' : ''}`} disabled={locked} onClick={() => { setPick(pick === k ? null : k); setSel(null); sfx.tap(); }} title={d.text}>
-                    <span className="ic">{d.icon}</span><b>{d.name}</b>
-                    <small>{locked ? `🔒 ${LEVELS[d.unlock - 1].name}` : fmt(d.cost)}</small>
+                  <button key={w} className={`ha2-opt ${w}`} disabled={off} onClick={() => buy(sel, w)}>
+                    <span className="ic">{w === 'add' ? '➕' : w === 'spd' ? '⚡' : '💰'}</span>
+                    <b>{label}</b><small>{now} · {effect}</small>
+                    <em>{maxed ? 'MAX' : fmt(cost)}</em>
                   </button>
                 );
               })}
-              <small className="dim ha-hint">{pick ? `Tap an empty square to build a ${B[pick].name}. ${B[pick].text}` : 'Pick a building, then tap an empty square. Tap a building to upgrade or sell it.'}</small>
-            </div>
-          )}
-          {tab === 'air' && (
-            <div className="ha-air">
-              <small className="dim">Flights today: {waiting > 0 ? `⏳ ${waiting} waiting · ` : ''}{next ? `next ${next.code} at ${hhmm(next.at)}` : 'none left'}</small>
-              {s.contracts.map((c) => <div key={c.id} className="ha-con mine" style={{ ['--ac' as string]: AIRLINES[c.airline].color }}><b>{AIRLINES[c.airline].name}</b><small>{c.perDay}× {SIZE[c.size].label} a day · {fmt(c.fee)}/flight · {c.days} days left</small></div>)}
-              <h4>Offers</h4>
-              {s.offers.map((c) => (
-                <div key={c.id} className="ha-con" style={{ ['--ac' as string]: AIRLINES[c.airline].color }}>
-                  <div><b>{AIRLINES[c.airline].name}</b><small>{c.perDay}× {SIZE[c.size].label}{c.size === 'L' ? ' (needs runway ★)' : c.size === 'C' ? ' (needs cargo shed)' : ''} a day · {fmt(c.fee)}/flight · {c.days} days · needs ⭐{c.minRep.toFixed(1)}</small></div>
-                  <button className="btn premium sm" disabled={s.rep < c.minRep} onClick={() => sign(c)}>Sign</button>
-                </div>
-              ))}
-            </div>
-          )}
-          {tab === 'log' && (
-            <div className="ha-log">
-              <small className="dim">{s.pax.toLocaleString('en-IN')} passengers · {s.flown} flights · earned {fmt(s.earned)}</small>
-              <ol>{s.log.map((l, i) => <li key={i}>{l}</li>)}</ol>
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

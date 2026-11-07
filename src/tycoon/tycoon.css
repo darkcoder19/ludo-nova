@@ -55,3 +55,26 @@
 .ha-con.mine { flex-direction: column; align-items: flex-start; gap: 0; }
 .ha-log ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; } .ha-log li { font-size: 0.78rem; padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.5); }
 .night .ha-log li { background: rgba(255, 255, 255, 0.08); }
+
+/* ---------- v2: animated terminal ---------- */
+.screen.ha2 { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 6px; padding: calc(env(safe-area-inset-top) + 6px) 8px calc(env(safe-area-inset-bottom) + 8px); background: linear-gradient(180deg, #8fd3ff, #d6f0ff); color: #1b1035; }
+.ha2-hud { flex: none; display: flex; align-items: center; gap: 8px; font-weight: 900; }
+.ha2-hud .btn.ghost { color: #1b1035; }
+.ha2-hud .cash { font-size: 1.2rem; } .ha2-hud .rate, .ha2-hud .pax { font-size: 0.85rem; padding: 3px 9px; border-radius: 99px; background: rgba(255, 255, 255, 0.6); }
+.ha2-hud .ha-speed { margin-left: auto; } .ha2-hud .ha-speed button { padding: 4px 9px; font-size: 0.75rem; }
+.ha2-sub { flex: none; display: flex; gap: 6px; flex-wrap: wrap; font-size: 0.74rem; font-weight: 800; }
+.ha2-sub span { padding: 3px 10px; border-radius: 99px; background: rgba(255, 255, 255, 0.6); } .ha2-sub .next { background: rgba(255, 210, 63, 0.75); } .ha2-sub .fest { background: rgba(255, 140, 66, 0.8); color: #fff; }
+.ha2-stage { position: relative; flex: 1; min-height: 0; border-radius: 16px; overflow: hidden; background: #6fbf5a; box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.08); }
+.ha2-stage canvas { display: block; touch-action: manipulation; cursor: pointer; }
+.ha2-hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); padding: 6px 12px; border-radius: 99px; background: rgba(27, 16, 53, 0.8); color: #fff; font-weight: 800; font-size: 0.78rem; width: max-content; max-width: 94%; pointer-events: none; animation: ha-hint 2s ease-in-out infinite; }
+@keyframes ha-hint { 50% { opacity: 0.75; } }
+.ha2-panel { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 16px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.15); animation: pop-in 0.2s; }
+.ha2-panel .dim { color: #5b6b7a; font-size: 0.78rem; }
+.ha2-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ha2-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 14px; font: inherit; color: #1b1035; cursor: pointer; text-align: center; border: 2px solid transparent; background: #f2f6fa; }
+.ha2-opt .ic { font-size: 1.4rem; } .ha2-opt b { font-size: 0.78rem; line-height: 1.15; } .ha2-opt small { font-size: 0.66rem; color: #5b6b7a; font-weight: 700; line-height: 1.2; }
+.ha2-opt em { font-style: normal; font-weight: 900; font-size: 0.85rem; margin-top: 2px; padding: 2px 10px; border-radius: 99px; background: #00c97a; color: #fff; }
+.ha2-opt.add { border-color: #2b7bff33; } .ha2-opt.spd { border-color: #ffb40033; } .ha2-opt.inc { border-color: #00c97a33; }
+.ha2-opt:disabled { opacity: 0.5; cursor: default; } .ha2-opt:disabled em { background: #9aa7b3; }
+.ha2-opt:not(:disabled):active { transform: scale(0.96); }
+.ha2-lock { padding: 10px; border-radius: 12px; background: #f2f6fa; font-weight: 800; text-align: center; }
