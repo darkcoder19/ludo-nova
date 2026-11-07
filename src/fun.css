@@ -245,3 +245,14 @@ html, body { overscroll-behavior: none; }
   .lobby .lobby-mode .seg button { padding-top: 6px; padding-bottom: 6px; }
   .lobby .btn.big { padding: 11px; }
 }
+
+/* every size: the player seats (and Add bot) never get squashed; the options card gives way and scrolls inside if it must */
+.lobby .seats { flex: none; grid-auto-rows: auto; }
+.lobby .seat { min-height: 92px; }
+.lobby .lobby-mode { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+@media (max-height: 760px), (max-width: 520px) {
+  .lobby .seats { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .lobby .seat { min-height: 0; padding: 6px 2px; }
+  .lobby .seat-av { width: 40px; height: 40px; } .lobby .seat-av .avatar-svg { width: 36px; height: 36px; }
+  .lobby .seat-name { font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; }
+}
