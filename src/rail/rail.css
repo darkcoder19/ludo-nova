@@ -1,0 +1,14 @@
+.rail-stage, .metro-stage { flex: 1; min-height: 0; position: relative; border-radius: 14px; overflow: hidden; }
+.rail-stage canvas, .metro-stage canvas { display: block; touch-action: none; }
+.rail-over { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(15, 10, 36, 0.6); z-index: 5; padding: 16px; }
+.rail-over .card { max-width: 340px; width: 100%; text-align: center; display: grid; gap: 10px; }
+.rail-over .row-between { gap: 10px; }
+.rail-over .btn { flex: 1; }
+.metro-pick { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(15, 10, 36, 0.55); z-index: 5; padding: 16px; }
+.metro-pick .card { max-width: 360px; width: 100%; display: grid; gap: 10px; text-align: center; }
+.metro-pick .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metro-lines { flex: none; display: flex; gap: 6px; align-items: center; overflow-x: auto; }
+.metro-lines button { flex: none; border: 3px solid transparent; border-radius: 99px; padding: 4px 12px; font-weight: 900; color: #fff; font-size: 0.8rem; }
+.metro-lines button.on { border-color: #1b1035; transform: scale(1.06); }
+.metro-lines small { font-weight: 800; font-size: 0.72rem; opacity: 0.8; white-space: nowrap; }
+.screen.ha2.flow-game, .screen.ha2.rail-game, .screen.ha2.metro-game { max-width: none; width: auto; margin: 0; }

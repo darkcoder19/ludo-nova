@@ -8,6 +8,18 @@ import HaatApp from './haat';
 import { lazy, Suspense } from 'react';
 const RunwayRaja = lazy(() => import('./atc/RunwayRaja'));
 const HawaiAdda = lazy(() => import('./tycoon/HawaiAdda'));
+const RailwayRaja = lazy(() => import('./rail/RailwayRaja'));
+const MetroMaker = lazy(() => import('./metro/MetroMaker'));
+const TapriTycoon = lazy(() => import('./flow/TapriTycoon'));
+const DabbaExpress = lazy(() => import('./flow/DabbaExpress'));
+const BolApp = lazy(() => import('./party/bol'));
+const ChitraApp = lazy(() => import('./party/chitra'));
+const JhootaApp = lazy(() => import('./party/jhoota'));
+const MandiApp = lazy(() => import('./party/mandi'));
+const RajApp = lazy(() => import('./party/raj'));
+const CricketApp = lazy(() => import('./party/cricket'));
+const KabaddiApp = lazy(() => import('./party/kabaddi'));
+const GutteApp = lazy(() => import('./party/gutte'));
 import { ComingSoon, Hub } from './hub/Hub';
 import { currentSlug, GAMES } from './hub/games';
 import './hub/hub.css';
@@ -30,6 +42,18 @@ function Root() {
   if (game.slug === 'haathustle') return <HaatApp />;
   if (game.slug === 'runwayraja') return <Suspense fallback={null}><RunwayRaja /></Suspense>;
   if (game.slug === 'hawaiadda') return <Suspense fallback={null}><HawaiAdda /></Suspense>;
+  if (game.slug === 'railwayraja') return <Suspense fallback={null}><RailwayRaja /></Suspense>;
+  if (game.slug === 'metromaker') return <Suspense fallback={null}><MetroMaker /></Suspense>;
+  if (game.slug === 'tapritycoon') return <Suspense fallback={null}><TapriTycoon /></Suspense>;
+  if (game.slug === 'dabbaexpress') return <Suspense fallback={null}><DabbaExpress /></Suspense>;
+  if (game.slug === 'bolbachchan') return <Suspense fallback={null}><BolApp /></Suspense>;
+  if (game.slug === 'chitrachor') return <Suspense fallback={null}><ChitraApp /></Suspense>;
+  if (game.slug === 'jhootaseth') return <Suspense fallback={null}><JhootaApp /></Suspense>;
+  if (game.slug === 'mandiwars') return <Suspense fallback={null}><MandiApp /></Suspense>;
+  if (game.slug === 'rajmahal') return <Suspense fallback={null}><RajApp /></Suspense>;
+  if (game.slug === 'cricketcaptain') return <Suspense fallback={null}><CricketApp /></Suspense>;
+  if (game.slug === 'kabaddiraid') return <Suspense fallback={null}><KabaddiApp /></Suspense>;
+  if (game.slug === 'gutteghar') return <Suspense fallback={null}><GutteApp /></Suspense>;
   return <ComingSoon g={game} />;
 }
 

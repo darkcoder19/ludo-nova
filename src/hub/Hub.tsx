@@ -13,12 +13,21 @@ import { DailyChip, ProgressPanel } from '../components/Progress';
 import { festivalOn } from '../game/festivals';
 import { loadProfile, saveProfile, type Profile } from '../game/profile';
 
+type Tab = 'board' | 'party' | 'solo';
+const TABS: { k: Tab; e: string; name: string; f(g: GameInfo): boolean }[] = [
+  { k: 'board', e: '🎲', name: 'Board', f: (g) => !g.solo && !g.party },
+  { k: 'party', e: '🎉', name: 'Party', f: (g) => !!g.party },
+  { k: 'solo', e: '🕹️', name: 'Solo', f: (g) => !!g.solo },
+];
+
 /** sarvimo.com/games — the game picker. */
 export function Hub() {
   const me = useAccount();
   const [admin, setAdmin] = useState(() => new URLSearchParams(location.search).has('admin'));
   const [profile, setProfile] = useState<Profile>(loadProfile);
   const [prog, setProg] = useState(false);
+  const [tab, setTabState] = useState<Tab>(() => { try { return (localStorage.getItem('hub-tab') as Tab) || 'board'; } catch { return 'board'; } });
+  const setTab = (t: Tab) => { sfx.tap(); setTabState(t); try { localStorage.setItem('hub-tab', t); } catch { /* private mode */ } };
   // Coming back from a game (Back button) picks up the quests it finished.
   useEffect(() => { const back = () => setProfile(loadProfile()); addEventListener('pageshow', back); return () => removeEventListener('pageshow', back); }, []);
   if (admin && me?.admin) return <AdminDashboard onClose={() => { setAdmin(false); history.replaceState(null, '', location.pathname); }} />;
@@ -41,17 +50,24 @@ export function Hub() {
         <DailyChip profile={profile} onOpen={() => setProg(true)} />
       </div>
 
-      <section className="gcards">
-        {GAMES.filter((g) => !g.solo).map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
-      </section>
+      <div className="hub-tabs" role="tablist">
+        {TABS.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} className={tab === t.k ? 'on' : ''} onClick={() => setTab(t.k)}>{t.e} {t.name}<small>{GAMES.filter(t.f).length}</small></button>)}
+      </div>
 
-      <section className="solo-row">
-        {GAMES.filter((g) => g.solo).map((g) => (
-          <a key={g.slug} className="solo-card" href={gameUrl(g.slug)} style={{ ['--a' as string]: g.colors[0], ['--b' as string]: g.colors[1] }} onClick={() => sfx.six()}>
-            <span className="si">{g.icon}</span><span className="st"><b>{g.name}</b><small>Solo · {g.kind}</small></span><span className="sp">▶</span>
-          </a>
-        ))}
-      </section>
+      {tab === 'board' ? (
+        <section className="gcards">
+          {GAMES.filter(TABS[0].f).map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
+        </section>
+      ) : (
+        <section className={`mini-grid ${tab}`} key={tab}>
+          {GAMES.filter(TABS.find((t) => t.k === tab)!.f).map((g, i) => (
+            <a key={g.slug} className="mini-card" href={gameUrl(g.slug)} style={{ ['--a' as string]: g.colors[0], ['--b' as string]: g.colors[1], animationDelay: `${i * 50}ms` }} onClick={() => sfx.six()}>
+              <span className="mi">{g.icon}</span>
+              <span className="mt"><b>{g.name}</b><small>{g.kind}</small><em>{g.players}</em></span>
+            </a>
+          ))}
+        </section>
+      )}
 
       {adsEnabled() && <BannerStrip />}
       <footer className="foot">© Sarvimo · Free to play · Install any game on your phone</footer>
@@ -68,14 +84,14 @@ function JoinBox() {
   const join = () => {
     if (code.length < 5) return;
     sfx.tap();
-    if (!routeToGame(code, '')) setErr('Codes start with N, S, D or H. Older code? Join from inside its game.');
+    if (!routeToGame(code, '')) setErr('That code does not match a game. Check the first letter.');
   };
   return (
     <form className="hub-join" onSubmit={(e) => { e.preventDefault(); join(); }}>
       <input className="hj-code" placeholder="ROOM CODE" maxLength={5} value={code} aria-label="Room code"
         onChange={(e) => { setErr(''); setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); }} />
       <div className="hj-letters">
-        {GAMES.filter((g) => GAME_LETTER[g.slug]).map((g) => (
+        {GAMES.filter((g) => GAME_LETTER[g.slug] && (game ? g.slug === game : !g.party)).map((g) => (
           <span key={g.slug} className={game === g.slug ? 'on' : ''} style={{ ['--a' as string]: g.colors[0] }} title={g.name}>
             <b>{GAME_LETTER[g.slug]}</b><small>{g.name.replace(/(Nova|Rush|King| Hustle)$/, '')}</small>
           </span>

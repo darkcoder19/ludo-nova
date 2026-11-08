@@ -69,6 +69,54 @@
       "destination": "/manifest-hawaiadda.webmanifest"
     },
     {
+      "source": "/games/manifest-railwayraja.webmanifest",
+      "destination": "/manifest-railwayraja.webmanifest"
+    },
+    {
+      "source": "/games/manifest-metromaker.webmanifest",
+      "destination": "/manifest-metromaker.webmanifest"
+    },
+    {
+      "source": "/games/manifest-tapritycoon.webmanifest",
+      "destination": "/manifest-tapritycoon.webmanifest"
+    },
+    {
+      "source": "/games/manifest-dabbaexpress.webmanifest",
+      "destination": "/manifest-dabbaexpress.webmanifest"
+    },
+    {
+      "source": "/games/manifest-bolbachchan.webmanifest",
+      "destination": "/manifest-bolbachchan.webmanifest"
+    },
+    {
+      "source": "/games/manifest-chitrachor.webmanifest",
+      "destination": "/manifest-chitrachor.webmanifest"
+    },
+    {
+      "source": "/games/manifest-jhootaseth.webmanifest",
+      "destination": "/manifest-jhootaseth.webmanifest"
+    },
+    {
+      "source": "/games/manifest-mandiwars.webmanifest",
+      "destination": "/manifest-mandiwars.webmanifest"
+    },
+    {
+      "source": "/games/manifest-rajmahal.webmanifest",
+      "destination": "/manifest-rajmahal.webmanifest"
+    },
+    {
+      "source": "/games/manifest-cricketcaptain.webmanifest",
+      "destination": "/manifest-cricketcaptain.webmanifest"
+    },
+    {
+      "source": "/games/manifest-kabaddiraid.webmanifest",
+      "destination": "/manifest-kabaddiraid.webmanifest"
+    },
+    {
+      "source": "/games/manifest-gutteghar.webmanifest",
+      "destination": "/manifest-gutteghar.webmanifest"
+    },
+    {
       "source": "/games",
       "destination": "/index.html"
     },

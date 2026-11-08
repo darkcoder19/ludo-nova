@@ -1,0 +1,136 @@
+/* ---------- party games: shared bits ---------- */
+.party { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.party-chips { flex: none; }
+.party-chips .pchip { padding: 3px 6px 3px 3px; gap: 6px; }
+.party-chips .pav { width: 32px !important; height: 32px !important; }
+.party-chips .pname { font-size: 0.78rem; }
+.party-chips .pmeta { font-size: 0.72rem; gap: 6px; }
+.party-fill { flex: 1; min-height: 0; min-width: 0; position: relative; container-type: size; }
+.party-square { position: absolute; inset: 0; margin: auto; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
+.party-dock { flex: none; display: flex; flex-direction: column; gap: 6px; }
+.party-row { display: flex; gap: 6px; align-items: center; }
+.party-row > .btn { flex: 1; }
+.p-banner { flex: none; text-align: center; font-weight: 900; padding: 7px 10px; border-radius: 12px; background: var(--glass); border: 1px solid var(--line); font-size: 0.92rem; animation: pop-in 0.3s; }
+.p-banner.good { background: linear-gradient(135deg, rgba(0, 201, 122, 0.35), rgba(0, 201, 122, 0.15)); border-color: #00c97a; }
+.p-banner.bad { background: linear-gradient(135deg, rgba(229, 48, 79, 0.4), rgba(229, 48, 79, 0.15)); border-color: #e5304f; }
+.p-banner small { display: block; font-weight: 700; color: var(--dim); font-size: 0.75rem; }
+.p-clock { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; background: conic-gradient(#ffd23f var(--p), rgba(255, 255, 255, 0.12) 0); }
+.p-clock b { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #1b1035; font-size: 0.85rem; }
+.p-input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.3); color: #fff; font: inherit; font-weight: 800; font-size: 16px; }
+.p-pick { display: grid; gap: 6px; grid-template-columns: repeat(var(--n, 3), 1fr); }
+.p-pick button { padding: 9px 4px; border-radius: 14px; border: 2px solid var(--line); background: var(--glass); color: #fff; font-weight: 900; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: transform 0.15s; }
+.p-pick button .e { font-size: 1.5rem; line-height: 1; }
+.p-pick button small { font-size: 0.62rem; color: var(--dim); font-weight: 700; }
+.p-pick button.on { border-color: #ffd23f; background: rgba(255, 210, 63, 0.18); transform: translateY(-2px); }
+.p-pick button:disabled { opacity: 0.45; }
+.p-log { flex: none; display: flex; flex-direction: column; gap: 2px; max-height: 64px; overflow: hidden; font-size: 0.76rem; font-weight: 700; color: var(--dim); }
+.p-log b { color: #fff; }
+.hero-emoji { dominant-baseline: middle; }
+
+/* ---------- Gutte Ghar ---------- */
+.gg-board { width: 100%; height: 100%; filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.5)); }
+.gg-col { cursor: pointer; }
+.gg-col:hover .gg-hl { opacity: 0.18; }
+.gg-hl { opacity: 0; transition: opacity 0.15s; }
+.gg-piece { animation: gg-drop 0.45s cubic-bezier(0.4, 0, 0.6, 1.5) backwards; }
+@keyframes gg-drop { from { transform: translateY(var(--from)); } }
+.gg-win { animation: gg-win 0.6s ease-in-out infinite alternate; }
+@keyframes gg-win { to { stroke-width: 0.16; } }
+.gg-flip { animation: gg-flip 0.9s ease-in-out; transform-origin: center; transform-box: fill-box; }
+@keyframes gg-flip { 50% { transform: rotate(90deg) scale(0.85); } }
+
+/* ---------- Jhoota Seth ---------- */
+.js-table { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; position: relative; border-radius: 22px; background: radial-gradient(circle at 50% 40%, #1f7a4d, #0d4a2d); box-shadow: inset 0 0 0 6px #6b3e1e, inset 0 0 40px rgba(0, 0, 0, 0.5); }
+.js-claim { font-weight: 900; font-size: 1.05rem; text-align: center; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); }
+.js-claim em { font-style: normal; color: #ffd23f; font-size: 1.5rem; }
+.js-pile { position: relative; width: 80px; height: 100px; }
+.js-pile i { position: absolute; inset: 0; border-radius: 9px; background: repeating-linear-gradient(45deg, #b3122f 0 6px, #8e0e25 6px 12px); border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
+.js-pile b { position: absolute; right: -10px; top: -10px; background: #ffd23f; color: #1b1035; border-radius: 99px; padding: 2px 8px; font-size: 0.8rem; z-index: 3; }
+.js-reveal { display: flex; gap: 4px; animation: pop-in 0.3s; }
+.js-hand { flex: none; display: flex; justify-content: center; padding: 6px 4px 2px; min-height: 92px; }
+.js-card { flex: 0 1 54px; min-width: 18px; height: 80px; margin-right: -14px; border-radius: 8px; background: #fff; color: #1b1035; border: 2px solid #ddd; display: flex; flex-direction: column; align-items: flex-start; padding: 3px 5px; font-weight: 900; box-shadow: -2px 2px 6px rgba(0, 0, 0, 0.3); transition: transform 0.15s; position: relative; }
+.js-card.red { color: #d01c3a; }
+.js-card.on { transform: translateY(-14px); border-color: #ffd23f; box-shadow: 0 0 0 2px #ffd23f, 0 8px 14px rgba(0, 0, 0, 0.4); }
+.js-card .r { font-size: 1rem; line-height: 1; }
+.js-card .s { font-size: 0.9rem; }
+.js-card.mini { flex: none; width: 34px; height: 48px; margin: 0; font-size: 0.75rem; padding: 2px 3px; }
+.js-card.mini .r { font-size: 0.8rem; }
+.js-call { font-size: 1.3rem; padding: 12px; background: linear-gradient(135deg, #e5304f, #ff8c42) !important; animation: js-shake 0.5s ease-in-out infinite alternate; }
+@keyframes js-shake { to { transform: rotate(-2deg) scale(1.04); } }
+.js-backs { display: flex; gap: 1px; }
+.js-backs i { width: 6px; height: 10px; border-radius: 2px; background: #b3122f; border: 1px solid #fff; }
+
+/* ---------- Bol Bachchan ---------- */
+.bb-word { text-align: center; padding: 12px; border-radius: 18px; background: linear-gradient(135deg, #7d5cff, #ff4fd8); font-weight: 900; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35); animation: pop-in 0.4s; }
+.bb-word small { display: block; font-size: 0.72rem; opacity: 0.85; letter-spacing: 0.08em; text-transform: uppercase; }
+.bb-word b { font-size: 1.6rem; }
+.bb-word.imp { background: linear-gradient(135deg, #1b1035, #e5304f); }
+.bb-clues { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 6px; align-content: start; grid-template-columns: 1fr 1fr; }
+.bb-clue { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; background: var(--glass); border: 2px solid var(--c); min-width: 0; }
+.bb-clue .pav { width: 30px; height: 30px; flex: none; }
+.bb-clue span { display: flex; flex-direction: column; min-width: 0; }
+.bb-clue small { font-size: 0.66rem; color: var(--dim); font-weight: 800; }
+.bb-clue b { font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-clue.vote { cursor: pointer; transition: transform 0.15s; }
+.bb-clue.vote:hover { transform: scale(1.03); }
+.bb-clue.picked { background: rgba(229, 48, 79, 0.3); }
+.bb-clue.sus { animation: js-shake 0.4s ease-in-out infinite alternate; }
+.bb-votes { margin-left: auto; font-size: 0.75rem; font-weight: 900; color: #ffd23f; flex: none; }
+
+/* ---------- Chitra Chor ---------- */
+.cc-canvas { position: absolute; inset: 0; margin: auto; width: min(100cqw, 100cqh * 1.25); height: min(100cqh, 100cqw * 0.8); border-radius: 16px; background: #fffdf5; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); touch-action: none; }
+.cc-emoji { position: absolute; inset: 0; display: grid; place-items: center; font-size: min(40cqw, 40cqh); pointer-events: none; transition: filter 1s; }
+.cc-hint { letter-spacing: 0.3em; font-weight: 900; font-size: 1.1rem; text-align: center; }
+.cc-tools { display: flex; gap: 5px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.cc-tools button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; }
+.cc-tools button.on { border-color: #fff; transform: scale(1.12); }
+.cc-tools .txt { width: auto; padding: 0 10px; border-radius: 99px; background: var(--glass); color: #fff; font-weight: 900; font-size: 0.75rem; }
+.cc-feed { position: absolute; left: 6px; bottom: 6px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; z-index: 2; max-width: 70%; }
+.cc-feed span { background: rgba(27, 16, 53, 0.78); color: #fff; padding: 2px 8px; border-radius: 99px; font-size: 0.72rem; font-weight: 800; animation: pop-in 0.25s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-feed span.ok { background: #00a35c; }
+
+/* ---------- Mandi Wars ---------- */
+.mw-news { flex: none; overflow: hidden; white-space: nowrap; border-radius: 10px; background: #ffd23f; color: #1b1035; font-weight: 900; font-size: 0.8rem; padding: 5px 0; }
+.mw-news span { display: inline-block; padding-left: 100%; animation: mw-tick 14s linear infinite; }
+@keyframes mw-tick { to { transform: translateX(-100%); } }
+.mw-list { flex: 1; min-height: 0; display: grid; gap: 6px; grid-auto-rows: 1fr; }
+.mw-crop { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); min-height: 0; }
+.mw-crop .e { font-size: 1.7rem; text-align: center; }
+.mw-crop .mid { display: flex; flex-direction: column; min-width: 0; height: 100%; justify-content: center; }
+.mw-crop .mid b { font-size: 0.9rem; display: flex; gap: 6px; align-items: baseline; }
+.mw-crop .mid b em { font-style: normal; font-size: 0.72rem; }
+.mw-crop .up { color: #00e08a; } .mw-crop .down { color: #ff5470; }
+.mw-crop svg { width: 100%; height: 26px; }
+.mw-crop .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.mw-crop .acts button { padding: 6px 8px; border-radius: 10px; font-weight: 900; font-size: 0.75rem; border: none; color: #fff; }
+.mw-crop .acts .buy { background: #00a35c; } .mw-crop .acts .sell { background: #e5304f; }
+.mw-crop .acts button:disabled { opacity: 0.35; }
+.mw-crop .acts small { grid-column: 1 / -1; text-align: center; font-size: 0.66rem; font-weight: 800; color: var(--dim); }
+.mw-crop.flash { animation: mw-flash 0.6s; }
+@keyframes mw-flash { 30% { background: rgba(255, 210, 63, 0.35); } }
+
+/* ---------- Rajmahal ---------- */
+.rm-board { width: 100%; height: 100%; filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.5)); }
+.rm-spot { cursor: pointer; }
+.rm-spot rect { animation: rm-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes rm-pulse { to { opacity: 0.55; } }
+.rm-new { animation: pop-in 0.4s; transform-box: fill-box; transform-origin: center; }
+.rm-hand { flex: none; display: flex; gap: 8px; justify-content: center; align-items: center; }
+.rm-hand button.tile { width: 58px; height: 58px; padding: 0; border-radius: 10px; border: 3px solid transparent; background: none; transition: transform 0.15s; }
+.rm-hand button.tile.on { border-color: #ffd23f; transform: translateY(-4px); }
+.rm-hand svg { width: 100%; height: 100%; display: block; }
+
+/* ---------- Cricket & Kabaddi ---------- */
+.ck-score { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 14px; background: linear-gradient(135deg, #0d4a2d, #1f7a4d); border: 1px solid rgba(255, 255, 255, 0.2); font-weight: 900; }
+.ck-score .big { font-size: 1.4rem; }
+.ck-score small { display: block; font-size: 0.68rem; color: rgba(255, 255, 255, 0.75); font-weight: 800; }
+.ck-balls { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.ck-balls i { min-width: 20px; height: 20px; padding: 0 3px; border-radius: 99px; display: grid; place-items: center; font-style: normal; font-size: 0.66rem; font-weight: 900; background: rgba(255, 255, 255, 0.2); }
+.ck-balls i.w { background: #e5304f; } .ck-balls i.f { background: #2f7bff; } .ck-balls i.s { background: #7d5cff; }
+.ck-field { width: 100%; height: 100%; }
+.ck-ball { animation: ck-ball 0.9s ease-in forwards; }
+@keyframes ck-ball { from { transform: translate(0, -34px) scale(0.6); } 60% { transform: translate(0, 0) scale(1); } to { transform: translate(var(--bx), var(--by)) scale(0.8); } }
+.ck-result { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: clamp(1.6rem, 9cqw, 3rem); font-weight: 900; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35); animation: ck-pop 1.4s ease-out forwards; white-space: nowrap; pointer-events: none; }
+@keyframes ck-pop { 0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(-50%, -70%) scale(1); opacity: 0; } }
+.kb-raider { transition: transform 1.1s cubic-bezier(0.4, 0, 0.3, 1); }
+.kb-def { transition: transform 0.8s ease-in-out; }

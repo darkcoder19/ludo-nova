@@ -1,0 +1,5 @@
+@import "../rail/rail.css";
+@import '../tycoon/tycoon.css';
+.flow-game .ha2-stage canvas { touch-action: none; }
+.flow-game { position: fixed; }
+.flow-game .ha2-panel { position: absolute; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 4; max-width: 560px; margin: 0 auto; }
