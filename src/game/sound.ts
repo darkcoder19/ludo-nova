@@ -32,7 +32,7 @@ function tone(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.
 }
 
 /** Filtered white noise: a snake-like hiss. */
-function hiss(dur = 1.1) {
+function hiss(dur = 0.6) {
   if (muted) return;
   const a = ac();
   const buf = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
@@ -45,9 +45,9 @@ function hiss(dur = 1.1) {
   const g = a.createGain();
   const t = a.currentTime;
   g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(0.35, t + 0.08);
+  g.gain.linearRampToValueAtTime(0.1, t + 0.06);
   // "sss-sss" flutter
-  for (let k = 1; k < 6; k++) g.gain.linearRampToValueAtTime(k % 2 ? 0.18 : 0.33, t + 0.08 + k * 0.15);
+  for (let k = 1; k < 4; k++) g.gain.linearRampToValueAtTime(k % 2 ? 0.05 : 0.09, t + 0.06 + k * 0.12); // a soft hiss, not a blast
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   src.connect(hp).connect(g).connect(a.destination);
   src.start(t);
@@ -58,7 +58,7 @@ export const buzz = (ms: number | number[]) => { if (!muted) navigator.vibrate?.
 export const sfx = {
   tap: () => tone(660, 0.06, 'triangle', 0.08),
   roll: () => { for (let i = 0; i < 6; i++) tone(180 + Math.random() * 220, 0.05, 'square', 0.04, i * 0.07); },
-  step: () => tone(520 + Math.random() * 60, 0.07, 'triangle', 0.09),
+  step: () => tone(420 + Math.random() * 40, 0.04, 'sine', 0.025), // a light patter, not a knock
   six: () => { tone(660, 0.12, 'triangle', 0.12); tone(990, 0.18, 'triangle', 0.12, 0.09); },
   capture: () => { tone(880, 0.35, 'sawtooth', 0.09, 0, 110); buzz([40, 30, 80]); },
   captured: () => { tone(300, 0.5, 'sawtooth', 0.08, 0, 60); buzz(200); },

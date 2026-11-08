@@ -58,13 +58,16 @@ function useAnimatedTokens(target: Tokens, fresh: boolean): [Tokens, Set<string>
 /** Celebrations at the centre when a piece's walk actually ends at HOME. */
 function useHomeArrivals(shown: Tokens) {
   const prev = useRef(shown);
+  const done = useRef(new Set<string>()); // each piece is celebrated once, however often the board re-renders
   const [list, setList] = useState<{ id: number; color: Color; idx: number }[]>([]);
   useEffect(() => {
     const fresh: { id: number; color: Color; idx: number }[] = [];
     for (const c of Object.keys(shown) as Color[]) {
       shown[c]!.forEach((p, i) => {
         const was = prev.current[c]?.[i];
-        if (p === HOME && was !== undefined && was !== HOME) fresh.push({ id: Date.now() + Math.random(), color: c, idx: i });
+        const key = c + i;
+        if (p !== HOME) done.current.delete(key); // back on the board (new game)
+        else if (was !== undefined && was !== HOME && !done.current.has(key)) { done.current.add(key); fresh.push({ id: Date.now() + Math.random(), color: c, idx: i }); }
       });
     }
     prev.current = shown;
@@ -247,7 +250,8 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
           </g>
 
           {targets.map((t) => (
-            <g key={`t${t.i}`} className={`target ${hover === t.i ? 'hot' : ''}`} style={{ transform: `translate(${t.x}px, ${t.y}px)` }}>
+            <g key={`t${t.i}`} className={`target ${hover === t.i ? 'hot' : ''}`} style={{ transform: `translate(${t.x}px, ${t.y}px)`, cursor: 'pointer' }} onClick={() => onPick(t.i)}>
+              <circle r="0.6" fill="transparent" pointerEvents="all" />
               <circle r="0.44" stroke={FILL[myColor!]} />
               <circle r="0.12" fill={FILL[myColor!]} />
             </g>
@@ -273,6 +277,13 @@ export function Board({ state, myColor, rotation, canMove, onPick }: Props) {
                 </g>
               </g>
             );
+          })}
+
+          {/* big, always-on-top tap targets for the pieces you can move */}
+          {ordered.filter((p) => canMove && p.color === myColor && state.movable.includes(p.idx)).map((p) => {
+            const { dx, dy } = layout.get(p.key) ?? { dx: 0, dy: 0 };
+            return <circle key={`hit${p.key}`} cx={p.x + dx} cy={p.y + dy} r="0.85" fill="transparent" pointerEvents="all" style={{ cursor: 'pointer' }}
+              onClick={() => onPick(p.idx)} onPointerEnter={() => setHover(p.idx)} onPointerLeave={() => setHover(null)} />;
           })}
 
           {bursts.map((b) => {

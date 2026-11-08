@@ -78,6 +78,8 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
   const arena = useRef<HTMLDivElement>(null);
   const lastEvent = useRef(state.event?.id ?? 0);
   const lastRoll = useRef(state.rollId);
+  const celebrated = useRef(new Set<string>());
+  useEffect(() => { if (state.event?.kind === 'start') celebrated.current.clear(); }, [state.event?.id]); // rematch
   const recorded = useRef(false);
   const pending = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => () => pending.current.forEach(clearTimeout), []);
@@ -103,6 +105,9 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
         sfx.home();
         setMood(e.color, 'cool');
         const done = (state.tokens[e.color] ?? []).filter((t) => t === HOME).length;
+        const key = `${e.color}${done}`;
+        if (celebrated.current.has(key)) return; // never replay the same piece's celebration
+        celebrated.current.add(key);
         setBurst({ id: e.id, color: e.color, done, total: state.tokens[e.color]?.length ?? 4 });
         confetti.current?.burst(innerWidth / 2, innerHeight * 0.45, [HEX[e.color], '#fff', '#ffe08a'], 70);
       }
@@ -169,6 +174,8 @@ export function GameView({ session, state, status, emotes, profile, onProfile, o
   const toggleMute = () => { setMuted(!muted); setMute(!muted); };
   const canRoll = myTurn && !state.rolled && diceSettled;
   const canMove = myTurn && state.rolled && diceSettled;
+  // never leave pieces unclickable if the dice animation callback is missed
+  useEffect(() => { if (!state.rolled || diceSettled) return; const t = setTimeout(() => setDiceSettled(true), 1100); return () => clearTimeout(t); }, [state.rolled, diceSettled, state.rollId]);
   const curColor = cur ? HEX[cur.color] : '#fff';
 
   return (
