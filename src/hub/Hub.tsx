@@ -6,7 +6,7 @@ import { AccountBar, AdminDashboard, UpgradeStrip } from '../account/AccountView
 import { Avatar } from '../components/Avatar';
 import { Backdrop } from '../components/Home';
 import { sfx } from '../game/sound';
-import { GAMES, gameUrl, type GameInfo } from './games';
+import { GAMES, OFFICE_GAMES, gameUrl, siteUrl, type GameInfo } from './games';
 import { BuildingArt, PlotArt } from '../haat/Art';
 import { GAME_LETTER, gameOfCode, routeToGame } from '../shared/link';
 import { DailyChip, ProgressPanel } from '../components/Progress';
@@ -20,7 +20,10 @@ const TABS: { k: Tab; e: string; name: string; f(g: GameInfo): boolean }[] = [
   { k: 'solo', e: '🕹️', name: 'Solo', f: (g) => !!g.solo },
 ];
 
-/** sarvimo.com/games — the game picker. */
+type Step = 'types' | 'casual';
+const typeParam = () => new URLSearchParams(location.search).get('type');
+
+/** sarvimo.com/games — the game picker: first Casual games or Office games, then the games themselves. */
 export function Hub() {
   const me = useAccount();
   const [admin, setAdmin] = useState(() => new URLSearchParams(location.search).has('admin'));
@@ -28,6 +31,26 @@ export function Hub() {
   const [prog, setProg] = useState(false);
   const [tab, setTabState] = useState<Tab>(() => { try { return (localStorage.getItem('hub-tab') as Tab) || 'board'; } catch { return 'board'; } });
   const setTab = (t: Tab) => { sfx.tap(); setTabState(t); try { localStorage.setItem('hub-tab', t); } catch { /* private mode */ } };
+  // Casual games is a second step (its own address, so Back works); Office games opens a pop-up.
+  const [step, setStep] = useState<Step>(() => (typeParam() === 'casual' ? 'casual' : 'types'));
+  const [office, setOffice] = useState(() => typeParam() === 'office');
+  useEffect(() => {
+    const pop = () => { setStep(typeParam() === 'casual' ? 'casual' : 'types'); setOffice(typeParam() === 'office'); };
+    addEventListener('popstate', pop);
+    return () => removeEventListener('popstate', pop);
+  }, []);
+  const go = (t: Step | 'office') => {
+    sfx.tap();
+    const u = new URL(location.href);
+    if (t === 'types') u.searchParams.delete('type'); else u.searchParams.set('type', t);
+    history.pushState({ hubType: t }, '', u);
+    setStep(t === 'casual' ? 'casual' : 'types');
+    setOffice(t === 'office');
+  };
+  const closeOffice = () => {
+    if ((history.state as { hubType?: string } | null)?.hubType === 'office') { history.back(); return; }
+    const u = new URL(location.href); u.searchParams.delete('type'); history.replaceState(null, '', u); setOffice(false);
+  };
   // Coming back from a game (Back button) picks up the quests it finished.
   useEffect(() => { const back = () => setProfile(loadProfile()); addEventListener('pageshow', back); return () => removeEventListener('pageshow', back); }, []);
   if (admin && me?.admin) return <AdminDashboard onClose={() => { setAdmin(false); history.replaceState(null, '', location.pathname); }} />;
@@ -38,40 +61,115 @@ export function Hub() {
         <img src={`${import.meta.env.BASE_URL}sarvimo-icon.png`} alt="" />
         <div>
           <h1>Sarvimo <em>Games</em></h1>
-          <p>Free multiplayer games. Make a room, share the code, play.</p>
+          <p>{step === 'casual' ? 'Free multiplayer games. Make a room, share the code, play.' : 'Casual games with friends, and office games for your team.'}</p>
         </div>
       </header>
       <AccountBar onAdmin={() => setAdmin(true)} />
       <UpgradeStrip />
-      <JoinBox />
-
-      <div className="hub-row">
-        {festivalOn() ? <b className="fest-label">{festivalOn()!.emoji} {festivalOn()!.name} · 2× XP</b> : <b>🎮 Games</b>}
-        <DailyChip profile={profile} onOpen={() => setProg(true)} />
-      </div>
-
-      <div className="hub-tabs" role="tablist">
-        {TABS.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} className={tab === t.k ? 'on' : ''} onClick={() => setTab(t.k)}>{t.e} {t.name}<small>{GAMES.filter(t.f).length}</small></button>)}
-      </div>
-
-      {tab === 'board' ? (
-        <section className="gcards">
-          {GAMES.filter(TABS[0].f).map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
-        </section>
+      {step === 'types' ? (
+        <>
+          <TypeCards onCasual={() => go('casual')} onOffice={() => go('office')} />
+          <JoinBox />
+        </>
       ) : (
-        <section className={`mini-grid ${tab}`} key={tab}>
-          {GAMES.filter(TABS.find((t) => t.k === tab)!.f).map((g, i) => (
-            <a key={g.slug} className="mini-card" href={gameUrl(g.slug)} style={{ ['--a' as string]: g.colors[0], ['--b' as string]: g.colors[1], animationDelay: `${i * 50}ms` }} onClick={() => sfx.six()}>
-              <span className="mi">{g.icon}</span>
-              <span className="mt"><b>{g.name}</b><small>{g.kind}</small><em>{g.players}</em></span>
-            </a>
-          ))}
-        </section>
+        <>
+          <div className="hub-row">
+            <button className="type-back" onClick={() => go('types')}>← Game types</button>
+            {festivalOn() ? <b className="fest-label">{festivalOn()!.emoji} {festivalOn()!.name} · 2× XP</b> : <b>🎲 Casual games</b>}
+            <DailyChip profile={profile} onOpen={() => setProg(true)} />
+          </div>
+          <JoinBox />
+
+          <div className="hub-tabs" role="tablist">
+            {TABS.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} className={tab === t.k ? 'on' : ''} onClick={() => setTab(t.k)}>{t.e} {t.name}<small>{GAMES.filter(t.f).length}</small></button>)}
+          </div>
+
+          {tab === 'board' ? (
+            <section className="gcards">
+              {GAMES.filter(TABS[0].f).map((g, i) => <GameCard key={g.slug} g={g} i={i} />)}
+            </section>
+          ) : (
+            <section className={`mini-grid ${tab}`} key={tab}>
+              {GAMES.filter(TABS.find((t) => t.k === tab)!.f).map((g, i) => (
+                <a key={g.slug} className="mini-card" href={gameUrl(g.slug)} style={{ ['--a' as string]: g.colors[0], ['--b' as string]: g.colors[1], animationDelay: `${i * 50}ms` }} onClick={() => sfx.six()}>
+                  <span className="mi">{g.icon}</span>
+                  <span className="mt"><b>{g.name}</b><small>{g.kind}</small><em>{g.players}</em></span>
+                </a>
+              ))}
+            </section>
+          )}
+        </>
       )}
 
       {adsEnabled() && <BannerStrip />}
       <footer className="foot">© Sarvimo · Free to play · Install any game on your phone</footer>
       {prog && <ProgressPanel profile={profile} onProfile={(p) => { setProfile(p); saveProfile(p); }} onClose={() => setProg(false)} />}
+      {office && <OfficeSheet onClose={closeOffice} />}
+    </div>
+  );
+}
+
+/** The first step: two big cards, Casual games and Office games. */
+function TypeCards({ onCasual, onOffice }: { onCasual: () => void; onOffice: () => void }) {
+  const casual = GAMES.filter((g) => g.ready);
+  return (
+    <section className="type-cards">
+      <button className="type-card tc-casual" onClick={onCasual}>
+        <span className="tc-art" aria-hidden="true"><i>🎲</i><i>🐍</i><i>🎭</i><i>🕹️</i></span>
+        <span className="tc-body">
+          <span className="tc-tag">For friends and family</span>
+          <b>Casual games</b>
+          <span className="tc-text">Ludo, Snakes & Ladders, party games and solo games. Make a room, share the code, play.</span>
+          <span className="tc-chips">{['LudoNova', 'SeedhiRush', 'Bol Bachchan', 'Chitra Chor'].map((n) => <em key={n}>{n}</em>)}<em>+{casual.length - 4} more</em></span>
+          <span className="tc-go">{casual.length} games <i>▶</i></span>
+        </span>
+      </button>
+      <button className="type-card tc-office" onClick={onOffice}>
+        <span className="tc-art" aria-hidden="true"><i>🗺️</i><i>🎟️</i><i>🎤</i><i>🎁</i></span>
+        <span className="tc-body">
+          <span className="tc-tag">Board games for office parties</span>
+          <b>Office games</b>
+          <span className="tc-text">Treasure Hunt, Housie, Dumb Charades and more. Host on your laptop, show it on a TV, everyone plays.</span>
+          <span className="tc-chips">{OFFICE_GAMES.slice(0, 4).map((g) => <em key={g.key}>{g.icon} {g.name}{g.isNew ? <sup>NEW</sup> : null}</em>)}<em>+{OFFICE_GAMES.length - 4} more</em></span>
+          <span className="tc-go">{OFFICE_GAMES.length} games <i>▶</i></span>
+        </span>
+      </button>
+    </section>
+  );
+}
+
+/** The Office games pop-up: every board game on the main site, one tap to open it. */
+function OfficeSheet({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    addEventListener('keydown', esc);
+    return () => removeEventListener('keydown', esc);
+  }, [onClose]);
+  return (
+    <div className="og-overlay" role="dialog" aria-modal="true" aria-label="Office games" onClick={onClose}>
+      <div className="og-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="og-head">
+          <div>
+            <b>💼 Office games</b>
+            <small>Host from your phone or laptop, put it on a TV, and the whole team plays. Free, no sign-up.</small>
+          </div>
+          <button className="og-x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="og-list">
+          {OFFICE_GAMES.map((g, i) => (
+            <a key={g.key} className="og-card" href={siteUrl(g.path)} style={{ ['--a' as string]: g.colors[0], ['--b' as string]: g.colors[1], animationDelay: `${i * 60}ms` }} onClick={() => sfx.six()}>
+              <span className="og-icon">{g.icon}</span>
+              <span className="og-text">
+                <b>{g.name}{g.isNew && <sup>NEW</sup>}</b>
+                <small>{g.blurb}</small>
+                <em>{g.meta}</em>
+              </span>
+              <span className="og-play">▶</span>
+            </a>
+          ))}
+        </div>
+        <a className="og-more" href={siteUrl('/board-games')}>See all board games, rules and how to play →</a>
+      </div>
     </div>
   );
 }

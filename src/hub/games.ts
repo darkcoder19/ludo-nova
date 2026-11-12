@@ -40,3 +40,16 @@ export const gameUrl = (slug: string) => `${BASE}${slug}`;
 
 /** Which screen the current URL points at: '' is the hub. */
 export const currentSlug = () => location.pathname.slice(BASE.length).split('/')[0] ?? '';
+
+/** Office games (board games) live on the main Sarvimo site; the hub lists them in the Office games pop-up. */
+export interface OfficeGame { key: string; name: string; icon: string; blurb: string; meta: string; path: string; colors: [string, string]; isNew?: boolean }
+export const OFFICE_GAMES: OfficeGame[] = [
+  { key: 'treasure', name: 'Treasure Hunt', icon: '🗺️', blurb: 'A story your teams solve on their phones: riddles, codes, clips and mini-games. Live leaderboard on the TV.', meta: 'Teams of 2–5 · 30–60 min', path: '/treasure-hunt', colors: ['#10b981', '#f59e0b'], isNew: true },
+  { key: 'housie', name: 'Housie', icon: '🎟️', blurb: 'Tambola with printable tickets, numbers called out loud and a big-screen board.', meta: '5–200 players · 20–40 min', path: '/housie-game', colors: ['#f59e0b', '#e11d48'] },
+  { key: 'picture-housie', name: 'Picture Housie', icon: '🪔', blurb: 'Housie with pictures in place of numbers. Easy for kids and mixed groups.', meta: '5–200 players · 15–25 min', path: '/housie-game?kind=pictures', colors: ['#fb923c', '#db2777'] },
+  { key: 'charades', name: 'Dumb Charades', icon: '🎭', blurb: 'Act out films and office moments without a word. The team guesses against the clock.', meta: 'Teams · 15–30 min', path: '/board-games/dumb-charades', colors: ['#d946ef', '#7c3aed'] },
+  { key: 'antakshari', name: 'Antakshari', icon: '🎤', blurb: 'Sing a Hindi song from the last letter. The TV shows the letter, the clock and the scores.', meta: '2–6 teams · 15–30 min', path: '/board-games/antakshari', colors: ['#f43f5e', '#f97316'] },
+  { key: 'lucky-draw', name: 'Lucky Draw', icon: '🎁', blurb: 'Names spin on the big screen and stop on a winner, with a drumroll and confetti.', meta: 'Any size · 5–15 min', path: '/board-games/lucky-draw', colors: ['#10b981', '#0ea5e9'] },
+];
+/** The main site: the same address when the hub is opened through sarvimo.com/games, the full one anywhere else. */
+export const siteUrl = (path: string) => (location.hostname.endsWith('sarvimo.com') ? '' : 'https://sarvimo.com') + path;
